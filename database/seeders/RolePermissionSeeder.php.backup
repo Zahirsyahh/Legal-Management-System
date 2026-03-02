@@ -1,0 +1,297 @@
+<?php
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use Illuminate\Database\Seeder;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
+use App\Models\User;
+
+class RolePermissionSeeder extends Seeder
+{
+    /**
+     * Run the database seeds.
+     */
+    public function run(): void
+    {   
+        // 1. CLEAR CACHE DULU
+        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+        
+        // 2. HAPUS DATA LAMA (jika ada)
+        $this->cleanupOldData();
+        
+        // 3. CREATE PERMISSIONS DULU dengan firstOrCreate
+        $this->createPermissions();
+        
+        // 4. CREATE ROLES
+        $this->createRoles();
+        
+        // 5. CREATE DEFAULT USERS
+        $this->createDefaultUsers();
+        
+        // 6. CLEAR CACHE LAGI
+        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+        
+        $this->command->info('✅ Roles and permissions created successfully!');
+    }
+    
+    /**
+     * Clean up old data
+     */
+    private function cleanupOldData(): void
+    {
+        // Optional: Uncomment jika mau hapus data lama
+        // Permission::query()->delete();
+        // Role::query()->delete();
+    }
+    
+    /**
+     * Create all permissions
+     */
+    private function createPermissions(): void
+    {
+        $allPermissions = [
+            // USER PERMISSIONS
+            'contract_request_create',
+            'contract_request_view',
+            'contract_request_edit',
+            'contract_request_delete',
+            'contract_request_submit',
+            'contract_revise_submit',
+            'contract_revise_view',
+            'contract_track_status',
+            'contract_view_final',
+            'contract_download_final',
+            'contract_add_comment',
+            'contract_upload_attachment',
+            
+            // LEGAL PERMISSIONS
+            'contract_view_all',
+            'contract_progress_track',
+            'contract_dashboard_view',
+            'contract_status_update',
+            'status_mark_reviewing',
+            'status_mark_revision_needed',
+            'status_mark_legal_approved',
+            'status_mark_fat_review',
+            'status_mark_final_approved',
+            'status_mark_released',
+            'review_add_comment',
+            'review_request_revision',
+            'legal_approve',
+            'legal_reject',
+            'fat_coordination',
+            'receive_fat_feedback',
+            'pot_coordination',
+            
+            // FAT PERMISSIONS
+            'fat_contract_view',
+            'fat_dashboard_view',
+            'fat_review',
+            'fat_approve',
+            'fat_decline',
+            'fat_request_revision',
+            'fat_request_info',
+            'fat_add_comment',
+            'fat_upload_attachment',
+            
+            // GENERAL PERMISSIONS
+            'dashboard_view',
+            'notification_view',
+            'notification_mark_read',
+            'profile_view',
+            'profile_edit',
+            'password_change',
+            
+            // ADMIN PERMISSIONS
+            'user_view',
+            'user_create',
+            'user_edit',
+            'user_delete',
+            'user_role_assign',
+            'role_view',
+            'role_create',
+            'role_edit',
+            'role_delete',
+            'permission_manage',
+            'system_config_view',
+            'system_config_edit',
+            'report_view',
+            'report_generate',
+            'report_export',
+            'audit_log_view',
+            'activity_log_view',
+        ];
+        
+        $createdCount = 0;
+        foreach ($allPermissions as $permission) {
+            // GUNAKAN firstOrCreate untuk menghindari duplicate
+            Permission::firstOrCreate(
+                ['name' => $permission, 'guard_name' => 'web'],
+                ['name' => $permission, 'guard_name' => 'web']
+            );
+            $createdCount++;
+        }
+        
+        $this->command->info("📋 Created/verified {$createdCount} permissions");
+    }
+    
+    /**
+     * Create roles and assign permissions
+     */
+    private function createRoles(): void
+    {
+        // 1. CREATE USER ROLE
+        $roleUser = Role::firstOrCreate(['name' => 'user', 'guard_name' => 'web']);
+        $roleUser->syncPermissions([
+            'contract_request_create',
+            'contract_request_view',
+            'contract_request_edit',
+            'contract_request_delete',
+            'contract_request_submit',
+            'contract_revise_submit',
+            'contract_revise_view',
+            'contract_track_status',
+            'contract_view_final',
+            'contract_download_final',
+            'contract_add_comment',
+            'contract_upload_attachment',
+            'dashboard_view',
+            'notification_view',
+            'notification_mark_read',
+            'profile_view',
+            'profile_edit',
+            'password_change',
+        ]);
+        
+        // 2. CREATE LEGAL ROLE
+        $roleLegal = Role::firstOrCreate(['name' => 'legal', 'guard_name' => 'web']);
+        $roleLegal->syncPermissions([
+            'contract_view_all',
+            'contract_progress_track',
+            'contract_dashboard_view',
+            'contract_status_update',
+            'status_mark_reviewing',
+            'status_mark_revision_needed',
+            'status_mark_legal_approved',
+            'status_mark_fat_review',
+            'status_mark_final_approved',
+            'status_mark_released',
+            'review_add_comment',
+            'review_request_revision',
+            'legal_approve',
+            'legal_reject',
+            'fat_coordination',
+            'receive_fat_feedback',
+            'pot_coordination',
+            'dashboard_view',
+            'notification_view',
+            'notification_mark_read',
+            'profile_view',
+            'profile_edit',
+            'password_change',
+        ]);
+        
+        // 3. CREATE FAT ROLE
+        $roleFAT = Role::firstOrCreate(['name' => 'fat', 'guard_name' => 'web']);
+        $roleFAT->syncPermissions([
+            'fat_contract_view',
+            'fat_dashboard_view',
+            'fat_review',
+            'fat_approve',
+            'fat_decline',
+            'fat_request_revision',
+            'fat_request_info',
+            'fat_add_comment',
+            'fat_upload_attachment',
+            'dashboard_view',
+            'notification_view',
+            'notification_mark_read',
+            'profile_view',
+            'profile_edit',
+            'password_change',
+        ]);
+        
+        // 4. CREATE ADMIN ROLE
+        $roleAdmin = Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
+        $roleAdmin->syncPermissions(Permission::all());
+        
+        // Tampilkan summary
+        $this->command->info('📊 Role Summary:');
+        $this->command->table(
+            ['Role', 'Permissions Count'],
+            [
+                ['User', $roleUser->permissions->count()],
+                ['Legal', $roleLegal->permissions->count()],
+                ['FAT', $roleFAT->permissions->count()],
+                ['Admin', $roleAdmin->permissions->count()],
+            ]
+        );
+    }
+    
+    /**
+     * Create default users for each role
+     */
+    private function createDefaultUsers(): void
+    {
+        $users = [
+            [
+                'name' => 'Administrator',
+                'email' => 'admin@example.com',
+                'password' => 'password123',
+                'role' => 'admin',
+            ],
+            [
+                'name' => 'Legal Officer',
+                'email' => 'legal@example.com',
+                'password' => 'password123',
+                'role' => 'legal',
+            ],
+            [
+                'name' => 'FAT Officer',
+                'email' => 'fat@example.com',
+                'password' => 'password123',
+                'role' => 'fat',
+            ],
+            [
+                'name' => 'Regular User',
+                'email' => 'user@example.com',
+                'password' => 'password123',
+                'role' => 'user',
+            ],
+        ];
+        
+        $createdCount = 0;
+        foreach ($users as $userData) {
+            $user = User::firstOrCreate(
+                ['email' => $userData['email']],
+                [
+                    'name' => $userData['name'],
+                    'password' => bcrypt($userData['password']),
+                    'email_verified_at' => now(),
+                ]
+            );
+            
+            // Assign role jika belum punya
+            if (!$user->hasRole($userData['role'])) {
+                $user->assignRole($userData['role']);
+                $createdCount++;
+            }
+        }
+        
+        $this->command->info("👤 Created/updated {$createdCount} users");
+        
+        // Tampilkan credentials
+        $this->command->info('🔑 Login Credentials:');
+        $this->command->table(
+            ['Role', 'Email', 'Password'],
+            [
+                ['Admin', 'admin@example.com', 'password123'],
+                ['Legal', 'legal@example.com', 'password123'],
+                ['FAT', 'fat@example.com', 'password123'],
+                ['User', 'user@example.com', 'password123'],
+            ]
+        );
+    }
+}
