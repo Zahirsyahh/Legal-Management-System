@@ -574,7 +574,7 @@
             </a>
 
             <!-- REPORTS - Untuk SEMUA Role -->
-            <a href="{{ route('reports.index') }}" 
+            <a href="{{ route('reports.contracts') }}" 
                class="sidebar-item {{ request()->routeIs('reports.*') ? 'active' : '' }}">
                 <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -597,11 +597,16 @@
                 @endif
             </a>
 
-            <!-- Documents Button with Dropdown -->
-            @if(auth()->user()->hasAnyRole(['admin_acc', 'admin_fin', 'admin_tax', 'staff_acc', 'staff_fin', 'staff_tax', 'legal', 'user']))
+            <!-- Documents Section - Different behavior based on role -->
+            @php
+                $user = auth()->user();
+            @endphp
+
+            @if($user->hasRole('user'))
+                <!-- USER: Documents with Dropdown (3 options) -->
                 <div class="relative group">
                     <button onclick="toggleDocumentsDropdown()" 
-                            class="sidebar-item w-full text-left {{ request()->routeIs('contracts.*') || request()->routeIs('reviews.*') || request()->routeIs('surat.*') ? 'active' : '' }}">
+                            class="sidebar-item w-full text-left {{ request()->routeIs('contracts.*') || request()->routeIs('surat.*') ? 'active' : '' }}">
                         <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
@@ -611,149 +616,47 @@
                         </svg>
                     </button>
                     
-                    <!-- Documents Dropdown Menu -->
+                    <!-- Documents Dropdown Menu for USER (3 options) -->
                     <div id="documentsDropdown" class="documents-dropdown left-4 mt-2">
                         <div class="p-2">
-                            @php
-                                $user = auth()->user();
-                            @endphp
-
-                            @if($user->hasAnyRole(['admin_acc', 'admin_fin', 'admin_tax']))
-                                @php
-                                    $role = $user->getRoleNames()->first();
-                                    $prefix = '';
-                                    
-                                    if ($role === 'admin_acc') {
-                                        $prefix = 'accounting-admin';
-                                    } elseif ($role === 'admin_fin') {
-                                        $prefix = 'finance-admin';
-                                    } elseif ($role === 'admin_tax') {
-                                        $prefix = 'tax-admin';
-                                    }
-                                @endphp
-
-                                <!-- Admin Departments - MANAGE ASSIGNMENTS -->
-                                <div class="text-xs font-semibold text-gray-400 px-3 py-2">MANAGE ASSIGNMENTS</div>
-                                <a href="{{ route($prefix . '.pending') }}" class="dropdown-item">
-                                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                    Pending Requests
-                                </a>
-                                <a href="{{ route($prefix . '.active') }}" class="dropdown-item">
-                                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                    On-going Contracts
-                                </a>
-                                <a href="{{ route($prefix . '.completed') }}" class="dropdown-item">
-                                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                                    </svg>
-                                    Completed
-                                </a>
-                                <div class="dropdown-divider"></div>
-                                <div class="text-xs font-semibold text-gray-400 px-3 py-2">MY DOCUMENTS</div>
-                                <a href="{{ route('contracts.index') }}" class="dropdown-item">
-                                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                                    </svg>
-                                    All Documents
-                                </a>
-                                <a href="{{ route('contracts.create') }}" class="dropdown-item">
-                                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                                    </svg>
-                                    Create New
-                                </a>
-
-                            @elseif($user->hasRole('user'))
-                                <!-- Regular User -->
-                                <div class="text-xs font-semibold text-gray-400 px-3 py-2">MY DOCUMENTS</div>
-                                <a href="{{ route('contracts.index') }}" class="dropdown-item">
-                                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                                    </svg>
-                                    My Documents
-                                </a>
-                                <div class="dropdown-divider"></div>
-                                <div class="text-xs font-semibold text-gray-400 px-3 py-2">CREATE NEW</div>
-                                <a href="{{ route('contracts.create') }}" class="dropdown-item">
-                                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                                    </svg>
-                                    Document Review
-                                </a>
-                                <a href="{{ route('surat.create') }}" class="dropdown-item">
-                                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                    </svg>
-                                    Request Letter Numbering
-                                </a>
-
-                            @elseif($user->hasRole('legal'))
-                                <!-- Legal Team - MANAGE ASSIGNMENTS -->
-                                <div class="text-xs font-semibold text-gray-400 px-3 py-2">MANAGE ASSIGNMENTS</div>
-                                <a href="{{ route('contracts.index', ['filter' => 'pending_legal']) }}" class="dropdown-item">
-                                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                    Pending Requests
-                                </a>
-                                <a href="{{ route('contracts.index', ['filter' => 'assigned_legal']) }}" class="dropdown-item">
-                                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                    On-going Reviews
-                                </a>
-                                <a href="{{ route('legal.contracts.index') }}" class="dropdown-item">
-                                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                                    </svg>
-                                    Completed
-                                </a>
-                                <div class="dropdown-divider"></div>
-                                <div class="text-xs font-semibold text-gray-400 px-3 py-2">WORKFLOW</div>
-                                <a href="{{ route('contracts.index') }}" class="dropdown-item">
-                                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                                    </svg>
-                                    All Documents
-                                </a>
-
-                            @elseif($user->hasAnyRole(['staff_acc', 'staff_fin', 'staff_tax']))
-                                <!-- Staff Departments - MANAGE ASSIGNMENTS -->
-                                <div class="text-xs font-semibold text-gray-400 px-3 py-2">MANAGE ASSIGNMENTS</div>
-                                <a href="{{ route('reviews.my-reviews') }}" class="dropdown-item">
-                                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                    My Reviews
-                                </a>
-                                <div class="dropdown-divider"></div>
-                                <div class="text-xs font-semibold text-gray-400 px-3 py-2">DOCUMENTS</div>
-                                <a href="{{ route('contracts.index') }}" class="dropdown-item">
-                                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                                    </svg>
-                                    All Documents
-                                </a>
-                                <a href="{{ route('contracts.create') }}" class="dropdown-item">
-                                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                                    </svg>
-                                    Create Contract
-                                </a>
-                                <a href="{{ route('surat.create') }}" class="dropdown-item">
-                                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                    </svg>
-                                    Create Letter
-                                </a>
-                            @endif
+                            <!-- My Documents -->
+                            <a href="{{ route('contracts.index') }}" class="dropdown-item">
+                                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                </svg>
+                                My Documents
+                            </a>
+                            
+                            <div class="dropdown-divider"></div>
+                            
+                            <!-- Document Review (Create Contract) -->
+                            <a href="{{ route('contracts.create') }}" class="dropdown-item">
+                                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                                </svg>
+                                Document Review
+                            </a>
+                            
+                            <!-- Request Letter Numbering -->
+                            <a href="{{ route('surat.create') }}" class="dropdown-item">
+                                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                </svg>
+                                Request Letter Numbering
+                            </a>
                         </div>
                     </div>
                 </div>
+
+            @elseif($user->hasAnyRole(['admin', 'admin_acc', 'admin_fin', 'admin_tax', 'staff_acc', 'staff_fin', 'staff_tax', 'legal']))
+                <!-- OTHER ROLES (including ADMIN): Direct link to All Documents (NO DROPDOWN) -->
+                <a href="{{ route('contracts.index') }}" 
+                   class="sidebar-item {{ request()->routeIs('contracts.*') ? 'active' : '' }}">
+                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span class="label">All Documents</span>
+                </a>
             @endif
 
             <!-- ======================= -->
@@ -825,8 +728,7 @@
                 </a>
 
             @elseif(auth()->user()->hasAnyRole(['staff_acc', 'staff_fin', 'staff_tax']))
-                <!-- STAFF MENU - My Reviews sudah ada di dropdown Documents -->
-                <!-- Tidak perlu menu tambahan -->
+                <!-- STAFF MENU - Tidak perlu menu tambahan -->
             @endif
 
             <!-- Profile (Semua Role) -->
@@ -915,140 +817,7 @@
         <div class="flex items-center space-x-4">
             <!-- Quick Actions -->
             <div class="hidden md:flex items-center space-x-2">
-                <!-- Reports Button di Navbar (Shortcut) -->
-                <a href="{{ route('reports.index') }}" 
-                   class="p-2 rounded-lg glass-card hover:bg-white/5 transition-all duration-200 relative group" 
-                   title="Reports">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                </a>
-                
-                <!-- Documents Dropdown Button (Quick Access) -->
-                @if(auth()->user()->hasAnyRole(['user', 'staff_acc', 'staff_fin', 'staff_tax', 'legal', 'admin_acc', 'admin_fin', 'admin_tax']))
-                    <div class="relative group">
-                        <button id="navDocumentsBtn" class="p-2 rounded-lg glass-card hover:bg-white/5 transition-all duration-200 relative" title="Documents">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                        </button>
-                        
-                        <!-- Documents Dropdown Menu (Navbar) -->
-                        <div id="navDocumentsDropdown" class="documents-dropdown">
-                            <div class="p-2">
-                                @php
-                                    $user = auth()->user();
-                                @endphp
-
-                                @if($user->hasAnyRole(['admin_acc', 'admin_fin', 'admin_tax']))
-                                    @php
-                                        $role = $user->getRoleNames()->first();
-                                        $prefix = '';
-                                        
-                                        if ($role === 'admin_acc') {
-                                            $prefix = 'accounting-admin';
-                                        } elseif ($role === 'admin_fin') {
-                                            $prefix = 'finance-admin';
-                                        } elseif ($role === 'admin_tax') {
-                                            $prefix = 'tax-admin';
-                                        }
-                                    @endphp
-
-                                    <a href="{{ route($prefix . '.pending') }}" class="dropdown-item">
-                                        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                        Pending
-                                    </a>
-                                    <a href="{{ route($prefix . '.active') }}" class="dropdown-item">
-                                        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                        On-going
-                                    </a>
-                                    <a href="{{ route($prefix . '.completed') }}" class="dropdown-item">
-                                        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                                        </svg>
-                                        Completed
-                                    </a>
-                                    <div class="dropdown-divider"></div>
-                                    <a href="{{ route('contracts.create') }}" class="dropdown-item">
-                                        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                                        </svg>
-                                        Create New
-                                    </a>
-                                @elseif($user->hasRole('user'))
-                                    <a href="{{ route('contracts.index') }}" class="dropdown-item">
-                                        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                                        </svg>
-                                        My Documents
-                                    </a>
-                                    <a href="{{ route('contracts.create') }}" class="dropdown-item">
-                                        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                                        </svg>
-                                        Document Review
-                                    </a>
-                                    <a href="{{ route('surat.create') }}" class="dropdown-item">
-                                        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                        </svg>
-                                        Letter Numbering
-                                    </a>
-                                @elseif($user->hasRole('legal'))
-                                    <a href="{{ route('contracts.index', ['filter' => 'pending_legal']) }}" class="dropdown-item">
-                                        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                        Pending Legal
-                                    </a>
-                                    <a href="{{ route('contracts.index', ['filter' => 'assigned_legal']) }}" class="dropdown-item">
-                                        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                        On-going
-                                    </a>
-                                    <a href="{{ route('legal.contracts.index') }}" class="dropdown-item">
-                                        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                                        </svg>
-                                        Completed
-                                    </a>
-                                    <div class="dropdown-divider"></div>
-                                    <a href="{{ route('legal.contracts.index') }}" class="dropdown-item">
-                                        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                                        </svg>
-                                        All Documents
-                                    </a>
-                                @elseif($user->hasAnyRole(['staff_acc', 'staff_fin', 'staff_tax']))
-                                    <a href="{{ route('reviews.my-reviews') }}" class="dropdown-item">
-                                        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                        My Reviews
-                                    </a>
-                                    <div class="dropdown-divider"></div>
-                                    <a href="{{ route('contracts.create') }}" class="dropdown-item">
-                                        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                                        </svg>
-                                        Create
-                                    </a>
-                                @endif
-                            </div>
-                        </div>
-                    </div>
-                @endif
-                
-                <button id="themeToggle" class="p-2 rounded-lg glass-card hover:bg-white/5 transition-all duration-200" title="Toggle Theme">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                    </svg>
-                </button>
+                <!-- Quick Actions kosong setelah menghapus Reports dan Documents buttons -->
             </div>
             
             <!-- User Dropdown -->
@@ -1177,8 +946,6 @@
             const toggleLabel = document.getElementById('toggleLabel');
             const sidebarLogoText = document.getElementById('sidebarLogoText');
             const themeToggle = document.getElementById('themeToggle');
-            const navDocumentsBtn = document.getElementById('navDocumentsBtn');
-            const navDocumentsDropdown = document.getElementById('navDocumentsDropdown');
             
             // Load sidebar state from localStorage
             const isExpanded = localStorage.getItem('sidebarExpanded') !== 'false';
@@ -1253,21 +1020,6 @@
                 document.documentElement.classList.remove('dark');
             }
             
-            // Documents dropdown toggle for navbar
-            if (navDocumentsBtn && navDocumentsDropdown) {
-                navDocumentsBtn.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    navDocumentsDropdown.classList.toggle('show');
-                });
-                
-                // Close dropdown when clicking outside
-                document.addEventListener('click', function(event) {
-                    if (!navDocumentsBtn.contains(event.target) && !navDocumentsDropdown.contains(event.target)) {
-                        navDocumentsDropdown.classList.remove('show');
-                    }
-                });
-            }
-            
             // Add animation to sidebar items on load
             const sidebarItems = document.querySelectorAll('.sidebar-item');
             sidebarItems.forEach((item, index) => {
@@ -1326,18 +1078,20 @@
             }
         });
 
-        // Function to toggle documents dropdown in sidebar
+        // Function to toggle documents dropdown in sidebar (only for USER role)
         function toggleDocumentsDropdown() {
             const dropdown = document.getElementById('documentsDropdown');
-            dropdown.classList.toggle('show');
-            
-            // Close dropdown when clicking outside
-            document.addEventListener('click', function closeDropdown(event) {
-                if (!dropdown.contains(event.target) && !event.target.closest('.sidebar-item[onclick="toggleDocumentsDropdown()"]')) {
-                    dropdown.classList.remove('show');
-                    document.removeEventListener('click', closeDropdown);
-                }
-            });
+            if (dropdown) {
+                dropdown.classList.toggle('show');
+                
+                // Close dropdown when clicking outside
+                document.addEventListener('click', function closeDropdown(event) {
+                    if (!dropdown.contains(event.target) && !event.target.closest('.sidebar-item[onclick="toggleDocumentsDropdown()"]')) {
+                        dropdown.classList.remove('show');
+                        document.removeEventListener('click', closeDropdown);
+                    }
+                });
+            }
         }
 
         // Function to check for new notifications

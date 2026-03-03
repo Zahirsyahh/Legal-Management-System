@@ -25,72 +25,145 @@
 <x-app-layout-dark title="Contract Details">
     <x-slot name="scripts">
     <script>
-    window.switchTab = function(tabName) {
-        // Sembunyikan semua tab content
-        document.querySelectorAll('.tab-content').forEach(el => {
-            el.classList.add('hidden');
-        });
-
-        // Tampilkan tab content yang dipilih
-        document.getElementById(tabName + '-tab').classList.remove('hidden');
-
-        // Reset semua tab button
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.classList.remove('border-blue-500', 'text-blue-600');
-            btn.classList.add('border-transparent', 'text-gray-500');
-        });
-
-        // Aktifkan tab button yang dipilih
-        document.querySelector('[data-tab="'+tabName+'"]')
-            .classList.add('border-blue-500', 'text-blue-600');
-
-        // Auto-scroll chat ke bawah saat membuka tab discussion
-        if (tabName === 'discussion') {
-            setTimeout(() => {
-                const chatContainer = document.getElementById('chat-messages');
-                if (chatContainer) {
-                    chatContainer.scrollTop = chatContainer.scrollHeight;
+        // Fungsi untuk toggle inline edit
+        function toggleInlineEdit() {
+            const displayPath = document.getElementById('displayPath');
+            const inlineEdit = document.getElementById('inlineEdit');
+            const editButton = document.getElementById('editButton');
+            
+            if (displayPath && inlineEdit) {
+                displayPath.classList.toggle('hidden');
+                inlineEdit.classList.toggle('hidden');
+                
+                // Ubah teks tombol
+                if (editButton) {
+                    if (!displayPath.classList.contains('hidden')) {
+                        editButton.innerHTML = `
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                            </svg>
+                            Edit Path
+                        `;
+                    } else {
+                        editButton.innerHTML = `
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                            Cancel
+                        `;
+                    }
                 }
-            }, 100);
+            }
         }
-    }
 
-    // Inisialisasi tab saat halaman dimuat
-    document.addEventListener('DOMContentLoaded', function() {
-        // Set default tab ke history
-        window.switchTab('history');
-        
-        // Auto-resize textarea
-        const textareas = document.querySelectorAll('textarea');
-        textareas.forEach(textarea => {
-            textarea.addEventListener('input', function() {
-                this.style.height = 'auto';
-                this.style.height = (this.scrollHeight) + 'px';
+        // Copy to clipboard function
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                // Show success toast
+                const toast = document.createElement('div');
+                toast.className = 'fixed top-4 right-4 px-4 py-3 bg-green-600 text-white rounded-lg shadow-lg z-50 flex items-center gap-2 animate-fade-in';
+                toast.innerHTML = `
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>Link copied to clipboard!</span>
+                `;
+                document.body.appendChild(toast);
+                
+                setTimeout(() => {
+                    toast.remove();
+                }, 3000);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                alert('Gagal menyalin link');
+            });
+        }
+
+        // Close modal when clicking outside
+        document.addEventListener('DOMContentLoaded', function() {
+            const modal = document.getElementById('editPathModal');
+            if (modal) {
+                modal.addEventListener('click', function(e) {
+                    if (e.target === this) {
+                        hideEditPathModal();
+                    }
+                });
+            }
+            
+            // Close modal with Escape key
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    hideEditPathModal();
+                }
             });
         });
-    });
 
-    // Copy to clipboard function
-    window.copyToClipboard = function(text) {
-        navigator.clipboard.writeText(text).then(() => {
-            const toast = document.createElement('div');
-            toast.className = 'fixed top-4 right-4 px-4 py-3 bg-green-600 text-white rounded-lg shadow-lg z-50 flex items-center gap-2 animate-fade-in';
-            toast.innerHTML = `
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-                <span>Link copied to clipboard!</span>
-            `;
-            document.body.appendChild(toast);
+        window.switchTab = function(tabName) {
+            // Sembunyikan semua tab content
+            document.querySelectorAll('.tab-content').forEach(el => {
+                el.classList.add('hidden');
+            });
+
+            // Tampilkan tab content yang dipilih
+            document.getElementById(tabName + '-tab').classList.remove('hidden');
+
+            // Reset semua tab button
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('border-blue-500', 'text-blue-600');
+                btn.classList.add('border-transparent', 'text-gray-500');
+            });
+
+            // Aktifkan tab button yang dipilih
+            document.querySelector('[data-tab="'+tabName+'"]')
+                .classList.add('border-blue-500', 'text-blue-600');
+
+            // Auto-scroll chat ke bawah saat membuka tab discussion
+            if (tabName === 'discussion') {
+                setTimeout(() => {
+                    const chatContainer = document.getElementById('chat-messages');
+                    if (chatContainer) {
+                        chatContainer.scrollTop = chatContainer.scrollHeight;
+                    }
+                }, 100);
+            }
+        }
+
+        // Inisialisasi tab saat halaman dimuat
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set default tab ke history
+            window.switchTab('history');
             
-            setTimeout(() => {
-                toast.remove();
-            }, 3000);
-        }).catch(err => {
-            console.error('Failed to copy:', err);
-            alert('Gagal menyalin link');
+            // Auto-resize textarea
+            const textareas = document.querySelectorAll('textarea');
+            textareas.forEach(textarea => {
+                textarea.addEventListener('input', function() {
+                    this.style.height = 'auto';
+                    this.style.height = (this.scrollHeight) + 'px';
+                });
+            });
         });
-    }
+
+        // Copy to clipboard function
+        window.copyToClipboard = function(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                const toast = document.createElement('div');
+                toast.className = 'fixed top-4 right-4 px-4 py-3 bg-green-600 text-white rounded-lg shadow-lg z-50 flex items-center gap-2 animate-fade-in';
+                toast.innerHTML = `
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                    <span>Link copied to clipboard!</span>
+                `;
+                document.body.appendChild(toast);
+                
+                setTimeout(() => {
+                    toast.remove();
+                }, 3000);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                alert('Gagal menyalin link');
+            });
+        }
     </script>
     </x-slot>
 
@@ -392,17 +465,75 @@
                                 </svg>
                             </div>
                             <div class="flex-1">
-                                <h4 class="font-medium text-gray-300 mb-1">Synology Drive Link</h4>
-                                <div class="flex items-center gap-2">
-                                <span class="text-gray-300 break-all text-sm font-mono bg-gray-800 px-2 py-1 rounded">
-                                    {{ $contract->synology_folder_path }}
-                                </span>
-                                    <span class=""></span>
+                                <div class="flex items-center justify-between mb-1">
+                                    <h4 class="font-medium text-gray-300">Synology Drive Link</h4>
+                                    
+                                    {{-- TOMBOL EDIT UNTUK ADMIN --}}
+                                    @if(auth()->user()->hasRole('admin'))
+                                    <div class="flex items-center gap-2">
+                                        <button onclick="toggleInlineEdit()" 
+                                                class="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-blue-500/10 transition-colors"
+                                                id="editButton">
+                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                            </svg>
+                                            Edit Path
+                                        </button>
+                                    </div>
+                                    @endif
                                 </div>
-                                <p class="text-xs text-gray-500 mt-1">
+                                
+                                <!-- Display Mode -->
+                                <div id="displayPath" class="flex items-center gap-2">
+                                    <span class="text-gray-300 break-all text-sm font-mono bg-gray-800 px-3 py-2 rounded flex-1">
+                                        {{ $contract->synology_folder_path }}
+                                    </span>
+                                </div>
+                                
+                                <!-- Inline Edit Mode (hidden by default) -->
+                                <div id="inlineEdit" class="hidden mt-3">
+                                    <form action="{{ route('contracts.update-synology-path', $contract) }}" method="POST" class="space-y-3">
+                                        @csrf
+                                        <div>
+                                            <label class="block text-xs text-gray-400 mb-1">Folder Path</label>
+                                            <input type="text" 
+                                                   name="synology_folder_path" 
+                                                   value="{{ $contract->synology_folder_path }}"
+                                                   class="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 outline-none transition-all"
+                                                   required>
+                                        </div>
+                                        
+                                        <div>
+                                            <label class="block text-xs text-gray-400 mb-1">Reason for change (optional)</label>
+                                            <textarea name="reason" 
+                                                      rows="2"
+                                                      class="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-gray-300 text-sm placeholder-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 outline-none transition-all"
+                                                      placeholder="Why are you changing this path?"></textarea>
+                                        </div>
+                                        
+                                        <div class="flex gap-2">
+                                            <button type="submit" 
+                                                    class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors flex items-center gap-1">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                                </svg>
+                                                Save Changes
+                                            </button>
+                                            <button type="button" 
+                                                    onclick="toggleInlineEdit()"
+                                                    class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded-lg transition-colors">
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                                
+                                <p class="text-xs text-gray-500 mt-2">
                                     Shared by Legal Department for contract document access
                                 </p>
                             </div>
+                            
+                            <!-- Copy and Open buttons -->
                             <div class="flex gap-2">
                                 <button onclick="copyToClipboard('{{ $contract->synology_folder_path }}')"
                                         class="p-2 text-gray-400 hover:text-gray-300 hover:bg-gray-800 rounded-lg transition-colors"
@@ -412,9 +543,9 @@
                                     </svg>
                                 </button>
                                 <a href="{{ $contract->synology_folder_path }}" 
-                                target="_blank"
-                                class="p-2 text-gray-400 hover:text-gray-300 hover:bg-gray-800 rounded-lg transition-colors"
-                                title="Open in new tab">
+                                   target="_blank"
+                                   class="p-2 text-gray-400 hover:text-gray-300 hover:bg-gray-800 rounded-lg transition-colors"
+                                   title="Open in new tab">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                                     </svg>
@@ -423,6 +554,7 @@
                         </div>
                     </div>
                     @endif
+
                 </div>
 
                 {{-- ============================= --}}
@@ -1308,11 +1440,11 @@
                                                         {{ $reviewStage->sequence }}
                                                     @endif
                                                 @endif
-                                                </div>
-                                                <div class="text-sm">
-                                                    @if($reviewStage->status === 'completed')
+                                            </div>
+                                            <div class="text-sm">
+                                                @if($reviewStage->status === 'completed')
                                                     <span class="text-green-400">Completed</span>
-                                                    @elseif($reviewStage->status === 'in_progress')
+                                                @elseif($reviewStage->status === 'in_progress')
                                                     <span class="text-blue-400 font-semibold animate-pulse">
                                                         <span class="flex items-center gap-1">
                                                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1321,61 +1453,58 @@
                                                             In Progress
                                                         </span>
                                                     </span>
-                                                    @elseif($reviewStage->status === 'assigned')
+                                                @elseif($reviewStage->status === 'assigned')
                                                     <span class="text-yellow-400">Assigned</span>
-                                                    @elseif($reviewStage->status === 'revision_requested')
+                                                @elseif($reviewStage->status === 'revision_requested')
                                                     <span class="text-orange-400">Revision</span>
-                                                    @else
+                                                @else
                                                     <span class="text-gray-500">Pending</span>
-                                                    @endif
-                                                </div>
+                                                @endif
                                             </div>
-                                            <div class="text-sm text-gray-400">
-                                                {{ $reviewStage->assignedUser->name ?? 'Unassigned' }}
-                                            </div>
-                                            
-                                            @if($reviewStage->status === 'in_progress' && $reviewStage->started_at)
+                                        </div>
+                                        <div class="text-sm text-gray-400">
+                                            {{ $reviewStage->assignedUser->name ?? 'Unassigned' }}
+                                        </div>
+                                        
+                                        @if($reviewStage->status === 'in_progress' && $reviewStage->started_at)
                                             <div class="text-xs text-blue-400 mt-1">
                                                 Started: {{ $reviewStage->started_at->format('M d, H:i') }}
                                             </div>
-                                            @endif
-                                            
-                                            @if($reviewStage->status === 'completed' && $reviewStage->completed_at)
+                                        @endif
+                                        
+                                        @if($reviewStage->status === 'completed' && $reviewStage->completed_at)
                                             <div class="text-xs text-green-400 mt-1">
                                                 Completed: {{ $reviewStage->completed_at->format('M d, H:i') }}
                                             </div>
-                                            @endif
-                                        </div>
-                                    </div>
-                                @endforeach
-                            @else
-                                <!-- Timeline sederhana (backward compatibility) -->
-                                <div class="flex items-start">
-                                    <div class="w-2 h-2 mt-1.5 bg-green-500 rounded-full mr-3"></div>
-                                    <div>
-                                        <p class="text-sm text-gray-300">Created</p>
-                                        <p class="text-xs text-gray-500">{{ $contract->created_at->format('M d, Y H:i') }}</p>
+                                        @endif
                                     </div>
                                 </div>
+                            @endforeach
+                        @else
+                            <!-- Timeline sederhana (backward compatibility) -->
+                            <div class="flex items-start">
+                                <div class="w-2 h-2 mt-1.5 bg-green-500 rounded-full mr-3"></div>
+                                <div>
+                                    <p class="text-sm text-gray-300">Created</p>
+                                    <p class="text-xs text-gray-500">{{ $contract->created_at->format('M d, Y H:i') }}</p>
+                                </div>
+                            </div>
 
-                                @if($contract->status !== 'draft')
-                                    <div class="flex items-start">
-                                        <div class="w-2 h-2 mt-1.5 bg-yellow-500 rounded-full mr-3"></div>
-                                        <div>
-                                            <p class="text-sm text-gray-300">Submitted</p>
-                                            <p class="text-xs text-gray-500">{{ $contract->updated_at->format('M d, Y H:i') }}</p>
-                                        </div>
+                            @if($contract->status !== 'draft')
+                                <div class="flex items-start">
+                                    <div class="w-2 h-2 mt-1.5 bg-yellow-500 rounded-full mr-3"></div>
+                                    <div>
+                                        <p class="text-sm text-gray-300">Submitted</p>
+                                        <p class="text-xs text-gray-500">{{ $contract->updated_at->format('M d, Y H:i') }}</p>
                                     </div>
-                                @endif
+                                </div>
                             @endif
-                        </div>
+                        @endif
                     </div>
+                </div>
 
-                </div> <!-- END RIGHT COLUMN -->
-                
-            </div> <!-- END Content Layout grid -->
-
-        </div>
+            </div> <!-- END RIGHT COLUMN -->
+        </div> <!-- END Content Layout grid -->
 
         <style>
             /* Scrollbar styling */
@@ -1435,4 +1564,5 @@
             }
         </style>
 
-    </x-app-layout-dark>
+    </div>
+</x-app-layout-dark>

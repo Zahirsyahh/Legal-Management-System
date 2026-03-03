@@ -143,10 +143,11 @@ class DashboardController extends Controller
         $data = $this->getStaffDashboardData($user, 'TAX');
         return view('departments.tax.dashboard-staff', $data);
     }
-    
+
     /**
      * Data untuk dashboard staff (SEMUA DEPARTMENT)
      * 🔥 FIXED: Added whereHas to ensure contract exists
+     * MODIFIED: Added under_review filter for assignedStages
      */
     private function getStaffDashboardData(TblUser $user, string $departmentCode): array
     {
@@ -191,16 +192,44 @@ class DashboardController extends Controller
                 ->get();
 
             Log::info("Found {$assignedStages->count()} assigned stages for user {$user->id_user}");
+            
+            // 🔥 NEW: Filter khusus untuk under_review stages
+            $underReviewStages = ContractReviewStage::query()
+                ->whereHas('contract', function($query) {
+                    $query->whereNull('deleted_at')
+                        ->whereIn('status', ['under_review']); // Filter contract status = under_review
+                })
+                ->with([
+                    'contract' => function($query) {
+                        $query->with(['user', 'legalAssigned', 'financeAssigned', 'accountingAssigned', 'taxAssigned']);
+                    },
+                    'department',
+                    'assignedUser'
+                ])
+                ->where('assigned_user_id', $user->id_user)
+                ->where('department_id', $department->id)
+                ->whereIn('status', [
+                    'in_progress', // Stage status in_progress (sedang dikerjakan)
+                    'assigned',    // Stage status assigned (sudah ditugaskan)
+                    'revision_requested', // Stage status revision requested
+                    'pending'
+                ])
+                ->orderBy('created_at', 'desc')
+                ->get();
+                
+            Log::info("Found {$underReviewStages->count()} under review stages for user {$user->id_user}");
+            
         } catch (\Exception $e) {
             Log::error("Error fetching assigned stages: " . $e->getMessage());
             $assignedStages = collect([]);
+            $underReviewStages = collect([]);
         }
         
         // =======================
-        // STATISTICS
+        // STATISTICS (tetap menggunakan $assignedStages untuk semua statistik)
         // =======================
         $totalAssignedCount = $assignedStages->count();
-        $activeReviewCount  = $assignedStages->where('status', 'in_progress')->count();
+        $activeReviewCount  = $underReviewStages->count(); // MODIFIED: Menggunakan underReviewStages untuk active review
         $pendingReviewCount = $assignedStages->whereIn('status', ['pending', 'assigned'])->count();
         $completedReviewCount = $assignedStages->where('status', 'completed')->count();
 
@@ -211,8 +240,8 @@ class DashboardController extends Controller
         $overdueCount = 0;
         $highValueCount = 0;
 
-        foreach ($assignedStages as $stage) {
-            // 🔥 FIX: Always check if contract exists before accessing properties
+        // Hitung urgent/overdue dari underReviewStages
+        foreach ($underReviewStages as $stage) {
             if (!$stage->contract) {
                 continue;
             }
@@ -239,7 +268,7 @@ class DashboardController extends Controller
         // =======================
         // RECENT
         // =======================
-        $recentAssignedCount = $assignedStages
+        $recentAssignedCount = $underReviewStages
             ->where('created_at', '>=', now()->subDays(7))
             ->count();
 
@@ -272,6 +301,7 @@ class DashboardController extends Controller
 
         return [
             'assignedStages' => $assignedStages,
+            'underReviewStages' => $underReviewStages, // NEW: Tambahkan ini untuk view
 
             'totalAssignedCount' => $totalAssignedCount,
             'activeReviewCount' => $activeReviewCount,

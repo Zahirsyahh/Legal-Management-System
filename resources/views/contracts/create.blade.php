@@ -4,8 +4,8 @@
         <div class="mb-8 animate-fade-in">
             <div class="flex items-center justify-between">
                 <div>
-                    <h1 class="text-3xl md:text-4xl font-bold mb-2">Create New Contract</h1>
-                    <p class="text-gray-400">Fill in the contract details below. All fields marked with <span class="text-red-400">*</span> are required.</p>
+                    <h1 class="text-3xl md:text-4xl font-bold mb-2">Create New Document Review</h1>
+                    <p class="text-gray-400">Fill in the document details below. All fields marked with <span class="text-red-400">*</span> are required.</p>
                 </div>
                 <a href="{{ route('contracts.index') }}" class="flex items-center text-blue-400 hover:text-blue-300">
                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

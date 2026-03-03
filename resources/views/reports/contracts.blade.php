@@ -138,12 +138,19 @@
             background: rgba(255, 255, 255, 0.03);
             border: 1px solid rgba(255, 255, 255, 0.1);
             transition: all 0.3s ease;
+            color: white;
+            font-size: 0.95rem;
         }
         
         .filter-input:focus {
             border-color: rgba(14, 165, 233, 0.5);
-            box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.1);
+            box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
             outline: none;
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .filter-input::placeholder {
+            color: rgba(156, 163, 175, 0.5);
         }
         
         .filter-select {
@@ -151,17 +158,223 @@
             border: 1px solid rgba(255, 255, 255, 0.1);
             color: white;
             transition: all 0.3s ease;
+            font-size: 0.95rem;
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 1rem center;
+            background-size: 1.2rem;
+            padding-right: 2.5rem;
         }
         
         .filter-select:focus {
             border-color: rgba(14, 165, 233, 0.5);
-            box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.1);
+            box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
             outline: none;
+            background-color: rgba(255, 255, 255, 0.05);
         }
         
         .filter-select option {
             background: #1e293b;
             color: white;
+            padding: 0.5rem;
+        }
+        
+        /* New Filter Section Styles */
+        .filter-section {
+            background: linear-gradient(145deg, rgba(30, 41, 59, 0.6), rgba(15, 23, 42, 0.7));
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 1rem;
+        }
+        
+        .filter-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        
+        .filter-header h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: white;
+        }
+        
+        .filter-header svg {
+            width: 1.25rem;
+            height: 1.25rem;
+            color: #60a5fa;
+        }
+        
+        .filter-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            padding: 1.5rem;
+        }
+        
+        .filter-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .filter-item label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: #9ca3af;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .filter-item label svg {
+            width: 1rem;
+            height: 1rem;
+            color: #60a5fa;
+        }
+        
+        .filter-actions {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 1rem;
+            padding: 1rem 1.5rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn-filter {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.75rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3);
+        }
+        
+        .btn-filter:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        }
+        
+        .btn-reset {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #e5e7eb;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.75rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-reset:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(239, 68, 68, 0.3);
+            color: #f87171;
+        }
+        
+        .btn-back {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #e5e7eb;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.75rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-back:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateX(-3px);
+        }
+        
+        .btn-print {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.75rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+        }
+        
+        .btn-print:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
+            background: linear-gradient(135deg, #d97706, #b45309);
+        }
+        
+        .btn-excel {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.75rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+        }
+        
+        .btn-excel:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+            background: linear-gradient(135deg, #059669, #047857);
+        }
+        
+        .active-filter-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 2rem;
+            color: #60a5fa;
+            font-size: 0.85rem;
+        }
+        
+        .active-filter-badge button {
+            background: none;
+            border: none;
+            color: #9ca3af;
+            cursor: pointer;
+            padding: 0.2rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+        
+        .active-filter-badge button:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #f87171;
         }
         
         .btn-primary {
@@ -295,7 +508,7 @@
                                     'admin_acc','staff_acc',
                                     'admin_tax','staff_tax'
                                 ]))
-                                Generate and export your reports!  (Akses Admin & Legal)
+                                Generate and export your reports! (Akses Admin & Legal)
                             @elseif(in_array($userRole, ['admin_fin', 'staff_fin', 'admin_acc', 'staff_acc', 'admin_tax', 'staff_tax']))
                                 Menampilkan semua kontrak dengan department {{ $userDept }}
                             @else
@@ -307,30 +520,52 @@
             </div>
         </div>
 
-        <!-- Filter Section -->
-        <div class="glass-card rounded-xl p-6 mb-6">
+        <!-- Filter Section - REDESIGNED -->
+        <div class="filter-section mb-6">
+            <div class="filter-header">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+                </svg>
+                <h3>Filter Documents</h3>
+            </div>
+            
             <form id="filterForm" action="{{ route('reports.contracts') }}" method="GET">
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="filter-grid">
                     <!-- Date Range -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-400 mb-2">Dari Tanggal</label>
+                    <div class="filter-item">
+                        <label>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                            </svg>
+                            Dari Tanggal
+                        </label>
                         <input type="date" 
                                name="start_date" 
                                value="{{ $activeFilters['start_date'] ?? '' }}"
-                               class="filter-input w-full px-4 py-3 rounded-lg text-white">
+                               class="filter-input w-full px-4 py-3 rounded-lg">
                     </div>
                     
-                    <div>
-                        <label class="block text-sm font-medium text-gray-400 mb-2">Sampai Tanggal</label>
+                    <div class="filter-item">
+                        <label>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                            </svg>
+                            Sampai Tanggal
+                        </label>
                         <input type="date" 
                                name="end_date" 
                                value="{{ $activeFilters['end_date'] ?? '' }}"
-                               class="filter-input w-full px-4 py-3 rounded-lg text-white">
+                               class="filter-input w-full px-4 py-3 rounded-lg">
                     </div>
                     
                     <!-- Status Filter -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-400 mb-2">Status</label>
+                    <div class="filter-item">
+                        <label>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                            </svg>
+                            Status
+                        </label>
                         <select name="status" class="filter-select w-full px-4 py-3 rounded-lg">
                             <option value="">Semua Status</option>
                             @foreach($statuses as $value => $label)
@@ -342,8 +577,13 @@
                     </div>
                     
                     <!-- Document Type Filter -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-400 mb-2">Document Type</label>
+                    <div class="filter-item">
+                        <label>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"/>
+                            </svg>
+                            Document Type
+                        </label>
                         <select name="contract_type" class="filter-select w-full px-4 py-3 rounded-lg">
                             <option value="">All Type</option>
                             @foreach($documentTypes as $value => $label)
@@ -361,8 +601,13 @@
                         'admin_acc','staff_acc',
                         'admin_tax','staff_tax'
                     ]))
-                    <div>
-                        <label class="block text-sm font-medium text-gray-400 mb-2">Department</label>
+                    <div class="filter-item">
+                        <label>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                            </svg>
+                            Department
+                        </label>
                         <select name="department" class="filter-select w-full px-4 py-3 rounded-lg">
                             <option value="">All Department</option>
                             @foreach($departments as $dept)
@@ -376,28 +621,106 @@
                     @endif
                 </div>
                 
+                <!-- Active Filters Display -->
+                @php
+                    $activeFilterCount = 0;
+                    foreach(['start_date', 'end_date', 'status', 'contract_type', 'department'] as $filter) {
+                        if(!empty($activeFilters[$filter])) $activeFilterCount++;
+                    }
+                @endphp
+                
+                @if($activeFilterCount > 0)
+                <div class="px-6 pb-2 flex flex-wrap items-center gap-2">
+                    <span class="text-sm text-gray-400">Active filters:</span>
+                    
+                    @if(!empty($activeFilters['start_date']))
+                    <div class="active-filter-badge">
+                        <span>From: {{ \Carbon\Carbon::parse($activeFilters['start_date'])->format('d/m/Y') }}</span>
+                        <button type="button" onclick="removeFilter('start_date')">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+                    @endif
+                    
+                    @if(!empty($activeFilters['end_date']))
+                    <div class="active-filter-badge">
+                        <span>To: {{ \Carbon\Carbon::parse($activeFilters['end_date'])->format('d/m/Y') }}</span>
+                        <button type="button" onclick="removeFilter('end_date')">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+                    @endif
+                    
+                    @if(!empty($activeFilters['status']))
+                    <div class="active-filter-badge">
+                        <span>Status: {{ $statuses[$activeFilters['status']] ?? $activeFilters['status'] }}</span>
+                        <button type="button" onclick="removeFilter('status')">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+                    @endif
+                    
+                    @if(!empty($activeFilters['contract_type']))
+                    <div class="active-filter-badge">
+                        <span>Type: {{ $documentTypes[$activeFilters['contract_type']] ?? $activeFilters['contract_type'] }}</span>
+                        <button type="button" onclick="removeFilter('contract_type')">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+                    @endif
+                    
+                    @if(!empty($activeFilters['department']))
+                    <div class="active-filter-badge">
+                        <span>Dept: {{ $activeFilters['department'] }}</span>
+                        <button type="button" onclick="removeFilter('department')">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+                    @endif
+                </div>
+                @endif
+                
                 <!-- Action Buttons -->
-                <div class="flex flex-wrap items-center justify-end gap-3 mt-6">
+                <div class="filter-actions">
                     <button type="button" 
                             onclick="window.location.href='{{ route('reports.index') }}'" 
-                            class="btn-back px-6 py-3 rounded-xl flex items-center gap-2 transition-all duration-300 action-btn">
+                            class="btn-back flex items-center gap-2 transition-all duration-300">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
                         </svg>
                         BACK
                     </button>
                     
+                    <button type="button" 
+                            onclick="resetFilters()"
+                            class="btn-reset flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                        RESET
+                    </button>
+                    
                     <button type="submit" 
-                            class="glass-card px-6 py-3 rounded-xl flex items-center gap-2 hover:bg-white/5 transition-all duration-300 action-btn btn-primary">
+                            class="btn-filter flex items-center gap-2">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
                         </svg>
-                        FILTER
+                        APPLY FILTERS
                     </button>
                     
                     <button type="button" 
                             onclick="printReport()"
-                            class="glass-card px-6 py-3 rounded-xl flex items-center gap-2 hover:bg-white/5 transition-all duration-300 action-btn btn-warning">
+                            class="btn-print flex items-center gap-2">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
                         </svg>
@@ -406,7 +729,7 @@
                     
                    <button type="button" 
                         onclick="exportExcel()"
-                        class="glass-card px-6 py-3 rounded-xl flex items-center gap-2 hover:bg-white/5 transition-all duration-300 action-btn btn-success">
+                        class="btn-excel flex items-center gap-2">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
                         </svg>
@@ -686,6 +1009,16 @@
         
         function goBack() {
             window.location.href = '{{ route("reports.index") }}';
+        }
+        
+        function resetFilters() {
+            window.location.href = '{{ route("reports.contracts") }}';
+        }
+        
+        function removeFilter(filterName) {
+            const url = new URL(window.location.href);
+            url.searchParams.delete(filterName);
+            window.location.href = url.toString();
         }
     </script>
 

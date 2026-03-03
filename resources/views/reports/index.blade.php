@@ -210,6 +210,48 @@
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
         
+        /* Month list styles */
+        .month-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+        
+        .month-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 0.75rem;
+            transition: all 0.3s ease;
+            color: #e5e7eb;
+            text-decoration: none;
+        }
+        
+        .month-item:hover {
+            background: rgba(14, 165, 233, 0.1);
+            border-color: rgba(14, 165, 233, 0.3);
+            transform: translateY(-2px);
+            color: white;
+        }
+        
+        .month-item .month-name {
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+        
+        .month-item .month-year {
+            font-size: 0.8rem;
+            color: #9ca3af;
+            margin-left: 0.5rem;
+        }
+        
+        .month-item:hover .month-year {
+            color: #60a5fa;
+        }
+        
         /* Animations */
         @keyframes ripple {
             0% {
@@ -321,7 +363,7 @@
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
                     </svg>
-                    Lihat Laporan
+                    See All Reports
                 </button>
             </div>
         </div>
@@ -394,7 +436,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                         </svg>
                     </div>
-                    <h2 class="text-xl font-bold text-white">Recent Reports</h2>
+                    <h2 class="text-xl font-bold text-white">Monthly Reports</h2>
                 </div>
                 <a href="{{ route('reports.contracts') }}" class="text-cyan-400 hover:text-cyan-300 text-sm flex items-center gap-1">
                     View All
@@ -404,50 +446,62 @@
                 </a>
             </div>
             
-            <!-- Report History Table -->
-            <div class="overflow-x-auto">
-                <table class="w-full">
-                    <thead>
-                        <tr class="border-b border-gray-800">
-                            <th class="py-3 px-4 text-left text-gray-400 font-medium">Date</th>
-                            <th class="py-3 px-4 text-left text-gray-400 font-medium">Report Name</th>
-                            <th class="py-3 px-4 text-left text-gray-400 font-medium">Type</th>
-                            <th class="py-3 px-4 text-left text-gray-400 font-medium">Status</th>
-                            <th class="py-3 px-4 text-left text-gray-400 font-medium">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-800/50">
-                        <tr class="table-row-hover">
-                            <td class="py-3 px-4 text-gray-300">{{ now()->format('d/m/Y H:i') }}</td>
-                            <td class="py-3 px-4 text-white">Laporan Kontrak - {{ now()->format('M Y') }}</td>
-                            <td class="py-3 px-4">
-                                <span class="px-3 py-1 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                                    Kontrak
-                                </span>
-                            </td>
-                            <td class="py-3 px-4">
-                                <span class="status-final_approved px-3 py-1 rounded-full text-xs font-medium">
-                                    Approved
-                                </span>
-                            </td>
-                            <td class="py-3 px-4">
-                                <div class="flex items-center gap-2">
-                                    <button class="p-2 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 transition-colors" title="Download">
-                                        <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-                                        </svg>
-                                    </button>
-                                    <button class="p-2 rounded-lg bg-green-500/10 hover:bg-green-500/20 transition-colors" title="Print">
-                                        <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
-                                        </svg>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+            <!-- Month List - Kode baru ditempatkan di sini -->
+            @if(isset($months) && count($months) > 0)
+                <div class="month-list">
+                    @foreach($months as $item)
+                        <a href="{{ route('reports.monthly.detail', [$item['year'], $item['month']]) }}" class="month-item">
+                            <span class="month-name">{{ $item['label'] }}</span>
+                            <span class="month-year">{{ $item['year'] }}</span>
+                        </a>
+                    @endforeach
+                </div>
+            @else
+                <!-- Fallback ke tabel jika tidak ada data bulan -->
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="border-b border-gray-800">
+                                <th class="py-3 px-4 text-left text-gray-400 font-medium">Date</th>
+                                <th class="py-3 px-4 text-left text-gray-400 font-medium">Report Name</th>
+                                <th class="py-3 px-4 text-left text-gray-400 font-medium">Type</th>
+                                <th class="py-3 px-4 text-left text-gray-400 font-medium">Status</th>
+                                <th class="py-3 px-4 text-left text-gray-400 font-medium">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-800/50">
+                            <tr class="table-row-hover">
+                                <td class="py-3 px-4 text-gray-300">{{ now()->format('d/m/Y H:i') }}</td>
+                                <td class="py-3 px-4 text-white">Laporan Kontrak - {{ now()->format('M Y') }}</td>
+                                <td class="py-3 px-4">
+                                    <span class="px-3 py-1 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                        Kontrak
+                                    </span>
+                                </td>
+                                <td class="py-3 px-4">
+                                    <span class="status-final_approved px-3 py-1 rounded-full text-xs font-medium">
+                                        Approved
+                                    </span>
+                                </td>
+                                <td class="py-3 px-4">
+                                    <div class="flex items-center gap-2">
+                                        <button class="p-2 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 transition-colors" title="Download">
+                                            <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                                            </svg>
+                                        </button>
+                                        <button class="p-2 rounded-lg bg-green-500/10 hover:bg-green-500/20 transition-colors" title="Print">
+                                            <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            @endif
         </div>
     </div>
 

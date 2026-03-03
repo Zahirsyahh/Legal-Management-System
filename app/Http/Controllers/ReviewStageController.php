@@ -882,54 +882,192 @@ class ReviewStageController extends Controller
     // ============================================
 
     /**
-     * Show dashboard for reviewers
+     * My Reviews - Menampilkan semua review yang ditugaskan ke user
      */
     public function myReviews()
     {
-        $user = TblUser::find(Auth::id());
+        $user = Auth::user();
         
-        // Active stages assigned to user
-        $assignedStages = ContractReviewStage::where('assigned_user_id', $user->id_user)
-            ->whereIn('status', ['assigned', 'in_progress'])
-            ->with(['contract' => function($query) {
-                $query->select('id', 'title', 'contract_number', 'status', 'counterparty_name');
-            }])
-            ->orderBy('sequence')
-            ->get();
+        Log::info('Accessing My Reviews', [
+            'user_id' => $user->id_user,
+            'roles' => $user->getRoleNames()
+        ]);
+
+        // Tentukan department code berdasarkan role
+        $departmentCode = null;
+        if ($user->hasRole('staff_acc')) {
+            $departmentCode = 'ACC';
+        } elseif ($user->hasRole('staff_fin')) {
+            $departmentCode = 'FIN';
+        } elseif ($user->hasRole('staff_tax')) {
+            $departmentCode = 'TAX';
+        } elseif ($user->hasRole('legal')) {
+            $departmentCode = 'LEG';
+        }
+
+        // Jika tidak ada department yang cocok, kembalikan data kosong
+        if (!$departmentCode) {
+            Log::warning('User without department access my-reviews', [
+                'user_id' => $user->id_user,
+                'roles' => $user->getRoleNames()
+            ]);
+            
+            return view('reviews.my-reviews', [
+                'assignedStages' => collect([]),
+                'underReviewStages' => collect([]),
+                'completedStages' => collect([]),
+                'totalAssignedCount' => 0,
+                'activeReviewCount' => 0,
+                'pendingReviewCount' => 0,
+                'completedReviewCount' => 0,
+            ]);
+        }
+
+        // Ambil department
+        $department = Department::where('code', $departmentCode)->first();
         
-        // Recently completed stages
-        $completedStages = ContractReviewStage::where('assigned_user_id', $user->id_user)
-            ->where('status', 'completed')
-            ->with(['contract' => function($query) {
-                $query->select('id', 'title', 'contract_number', 'status');
-            }])
-            ->orderBy('completed_at', 'desc')
-            ->limit(10)
-            ->get();
-        
-        // Department assignments
-        $departmentAssignments = ContractDepartment::where('assigned_admin_id', $user->id_user)
-            ->whereIn('status', ['pending_assignment', 'in_review'])
-            ->with(['contract' => function($query) {
-                $query->select('id', 'title', 'contract_number', 'status');
-            }, 'department'])
-            ->get();
-        
-        // Stats for dashboard
-        $stats = [
-            'active_count' => $assignedStages->count(),
-            'completed_count' => $completedStages->count(),
-            'department_count' => $departmentAssignments->count(),
-            'total_assigned' => ContractReviewStage::where('assigned_user_id', $user->id_user)->count(),
-        ];
-        
-        return view('reviews.my-reviews', compact(
-            'assignedStages', 
-            'completedStages',
-            'departmentAssignments',
-            'stats'
-        ));
+        if (!$department) {
+            Log::error("Department not found for code: {$departmentCode}");
+            
+            return view('reviews.my-reviews', [
+                'assignedStages' => collect([]),
+                'underReviewStages' => collect([]),
+                'completedStages' => collect([]),
+                'totalAssignedCount' => 0,
+                'activeReviewCount' => 0,
+                'pendingReviewCount' => 0,
+                'completedReviewCount' => 0,
+            ]);
+        }
+
+        try {
+            // Ambil semua stages yang ditugaskan ke user
+            $assignedStages = ContractReviewStage::query()
+                ->whereHas('contract', function($query) {
+                    $query->whereNull('deleted_at');
+                })
+                ->with([
+                    'contract' => function($query) {
+                        $query->with(['user', 'legalAssigned', 'financeAssigned', 'accountingAssigned', 'taxAssigned']);
+                    },
+                    'department',
+                    'assignedUser'
+                ])
+                ->where('assigned_user_id', $user->id_user)
+                ->where('department_id', $department->id)
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            Log::info("Found {$assignedStages->count()} assigned stages for user {$user->id_user}");
+
+            // Filter stages untuk under_review (contract status = under_review)
+            $underReviewStages = $assignedStages->filter(function($stage) {
+                return $stage->contract && 
+                       $stage->contract->status === 'under_review' && 
+                       in_array($stage->status, [
+                           'pending',
+                           'assigned',
+                           'in_progress',
+                           'revision_requested'
+                       ]);
+            });
+
+            // Filter completed stages
+            $completedStages = $assignedStages->where('status', 'completed');
+
+            // Hitung statistik
+            $totalAssignedCount = $assignedStages->count();
+            $activeReviewCount = $underReviewStages->count();
+            $pendingReviewCount = $assignedStages->filter(function($stage) {
+                return in_array($stage->status, ['pending', 'assigned']);
+            })->count();
+            $completedReviewCount = $completedStages->count();
+
+            // Hitung urgent dan overdue
+            $urgentCount = 0;
+            $overdueCount = 0;
+            $highValueCount = 0;
+
+            foreach ($underReviewStages as $stage) {
+                if (!$stage->contract) {
+                    continue;
+                }
+
+                if ($stage->contract->drafting_deadline) {
+                    try {
+                        $deadline = \Carbon\Carbon::parse($stage->contract->drafting_deadline);
+
+                        if ($deadline->isPast()) {
+                            $overdueCount++;
+                        } elseif (now()->diffInDays($deadline, false) <= 3) {
+                            $urgentCount++;
+                        }
+                    } catch (\Exception $e) {
+                        Log::warning("Invalid deadline format for contract {$stage->contract->id}");
+                    }
+                }
+
+                if ($stage->contract->contract_value > 100000) {
+                    $highValueCount++;
+                }
+            }
+
+            // Hitung rata-rata waktu penyelesaian
+            $avgCompletionTime = 0;
+            $completedWithDates = $completedStages->filter(function($stage) {
+                return $stage->assigned_at && $stage->completed_at;
+            });
+            
+            if ($completedWithDates->isNotEmpty()) {
+                $totalHours = 0;
+                foreach ($completedWithDates as $stage) {
+                    $hours = $stage->assigned_at->diffInHours($stage->completed_at);
+                    $totalHours += $hours;
+                }
+                $avgCompletionTime = round($totalHours / $completedWithDates->count(), 1);
+            }
+
+            return view('reviews.my-reviews', [
+                'assignedStages' => $assignedStages,
+                'underReviewStages' => $underReviewStages,
+                'completedStages' => $completedStages,
+                'totalAssignedCount' => $totalAssignedCount,
+                'activeReviewCount' => $activeReviewCount,
+                'pendingReviewCount' => $pendingReviewCount,
+                'completedReviewCount' => $completedReviewCount,
+                'urgentCount' => $urgentCount,
+                'overdueCount' => $overdueCount,
+                'highValueCount' => $highValueCount,
+                'avgCompletionTime' => $avgCompletionTime,
+                'unreadNotifications' => $user->unreadNotifications()->count(),
+                'department' => $department,
+                'departmentName' => $department->name,
+                'departmentCode' => $department->code,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error in myReviews: ' . $e->getMessage(), [
+                'user_id' => $user->id_user,
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return view('reviews.my-reviews', [
+                'assignedStages' => collect([]),
+                'underReviewStages' => collect([]),
+                'completedStages' => collect([]),
+                'totalAssignedCount' => 0,
+                'activeReviewCount' => 0,
+                'pendingReviewCount' => 0,
+                'completedReviewCount' => 0,
+                'urgentCount' => 0,
+                'overdueCount' => 0,
+                'highValueCount' => 0,
+                'avgCompletionTime' => 0,
+                'unreadNotifications' => $user->unreadNotifications()->count(),
+            ]);
+        }
     }
+
 
     // ============================================
     // 4. STAGE REVIEW INTERFACE (UPDATED FOR DYNAMIC)
@@ -1611,7 +1749,8 @@ private function notifyNextReviewer($contract, $fromStage, $toStage)
         return redirect()->route('contracts.show', $contract)
             ->with('success', 'Response submitted. Review continued to ' . $jumpToStage->stage_name);
     }
-
+    
+    
     /**
      * Reject contract entirely
      */

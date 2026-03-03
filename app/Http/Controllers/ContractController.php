@@ -1530,6 +1530,76 @@ public function edit(Contract $contract)
     }
 
     /**
+     * Update Synology folder path (Admin only)
+     * Untuk memperbaiki path yang salah
+     */
+    public function updateSynologyPath(Request $request, Contract $contract){
+        // Hanya admin yang bisa mengedit path
+        if (!auth()->user()->hasRole('admin')) {
+            abort(403, 'Only admin can edit Synology folder path.');
+        }
+
+        $validated = $request->validate([
+            'synology_folder_path' => 'required|string|max:500',
+            'reason' => 'nullable|string|max:500',
+        ]);
+
+        DB::beginTransaction();
+        
+        try {
+            // Simpan path lama untuk log
+            $oldPath = $contract->synology_folder_path;
+            
+            // Update path
+            $contract->update([
+                'synology_folder_path' => $validated['synology_folder_path'],
+            ]);
+
+            // Catat perubahan di log review
+            ContractReviewLog::create([
+                'contract_id' => $contract->id,
+                'user_id' => auth()->id(),
+                'action' => 'synology_path_updated',
+                'description' => 'Synology folder path updated by admin',
+                'metadata' => [
+                    'old_path' => $oldPath,
+                    'new_path' => $validated['synology_folder_path'],
+                    'reason' => $request->reason,
+                    'updated_by' => auth()->user()->name,
+                    'updated_by_email' => auth()->user()->email,
+                ]
+            ]);
+
+            Log::info('Synology folder path updated by admin', [
+                'contract_id' => $contract->id,
+                'old_path' => $oldPath,
+                'new_path' => $validated['synology_folder_path'],
+                'updated_by' => auth()->user()->name,
+                'reason' => $request->reason,
+            ]);
+
+            DB::commit();
+
+            return redirect()
+                ->route('contracts.show', $contract)
+                ->with('success', 'Synology folder path has been updated successfully.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            
+            Log::error('Failed to update Synology folder path', [
+                'contract_id' => $contract->id,
+                'error' => $e->getMessage(),
+                'user_id' => auth()->id(),
+            ]);
+
+            return redirect()
+                ->back()
+                ->with('error', 'Failed to update Synology folder path: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Legal Start Review
      */
     public function legalStartReview(Contract $contract)
@@ -1573,32 +1643,35 @@ public function edit(Contract $contract)
     | LEGAL INTERNAL COMMENT (Hanya Legal - Status Under Review)
     |--------------------------------------------------------------------------
     */
-public function storeLegalComment(Request $request, $id)
-{
-    $request->validate([
-        'notes' => 'required|string'
-    ]);
+    public function storeLegalComment(Request $request, $id)
+    {
+        $request->validate([
+            'notes' => 'required|string'
+        ]);
 
-    $contract = Contract::findOrFail($id);
+        $contract = Contract::findOrFail($id);
 
-    // hanya legal
-    if (!auth()->user()->hasRole('legal')) {
-        abort(403);
+        $user = auth()->user();
+
+        // hanya legal dan admin
+        if (!$user->hasAnyRole(['legal', 'admin'])) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        // hanya boleh saat under_review
+        if ($contract->status !== 'under_review') {
+            return back()->with('error', 'Comment hanya bisa saat status Under Review.');
+        }
+
+        LegalContractComment::create([
+            'contract_id'   => $contract->id,
+            'legal_user_id' => $user->id_user,
+            'notes'         => $request->notes,
+        ]);
+
+        return back()->with('success', 'Comment berhasil ditambahkan.');
     }
 
-    // hanya boleh saat under_review
-    if ($contract->status !== 'under_review') {
-        return back()->with('error', 'Comment hanya bisa saat status Under Review.');
-    }
-
-    LegalContractComment::create([
-        'contract_id'   => $contract->id,
-        'legal_user_id' => auth()->user()->id_user,
-        'notes'         => $request->notes,
-    ]);
-
-    return back()->with('success', 'Comment berhasil ditambahkan.');
-}
 
 
     /**

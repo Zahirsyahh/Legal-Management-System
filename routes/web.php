@@ -242,6 +242,10 @@ Route::middleware(['auth'])->group(function () {
 
         Route::post('/{contract}/submit-revision', [ContractController::class, 'submitRevision'])
             ->name('contracts.submit-revision');
+        
+        Route::post('/{contract}/update-synology-path', [ContractController::class, 'updateSynologyPath'])
+            ->middleware('role:admin')
+            ->name('contracts.update-synology-path');
 
         Route::get('/{contract}/edit', [ContractController::class, 'edit'])
             ->name('contracts.edit');

@@ -118,6 +118,53 @@ class ReportController extends Controller
     ));
 }
     
+    public function monthlyMaster(){
+    // Ambil semua bulan unik dari contracts
+    $months = Contract::selectRaw('YEAR(created_at) as year, MONTH(created_at) as month')
+        ->distinct()
+        ->orderByRaw('YEAR(created_at) DESC, MONTH(created_at) DESC')
+        ->get()
+        ->map(function ($item) {
+            $date = Carbon::create($item->year, $item->month, 1);
+
+            return [
+                'year' => $item->year,
+                'month' => $item->month,
+                'label' => $date->translatedFormat('F Y'),
+                'start_date' => $date->startOfMonth()->toDateString(),
+                'end_date' => $date->endOfMonth()->toDateString(),
+            ];
+        });
+
+        return view('reports.monthly_master', compact('months'));
+    }
+
+    public function monthlyDetail($year, $month){
+        $start = Carbon::create($year, $month, 1)->startOfMonth();
+        $end   = Carbon::create($year, $month, 1)->endOfMonth();
+
+        $contracts = Contract::whereBetween('created_at', [$start, $end])
+            ->with(['user'])
+            ->get();
+
+        // Recap statistics
+        $summary = [
+            'total' => $contracts->count(),
+            'under_review' => $contracts->where('status', 'under_review')->count(),
+            'released' => $contracts->where('status', 'released')->count(),
+            'approved' => $contracts->where('status', 'final_approved')->count(),
+        ];
+
+        return view('reports.monthly_detail', compact(
+            'contracts',
+            'summary',
+            'year',
+            'month'
+        ));
+    }
+
+
+
     /**
      * Export ke Excel/CSV
      */

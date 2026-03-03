@@ -13,6 +13,11 @@
             </h1>
             <p class="text-gray-400">
                 Welcome back, <span class="text-purple-400">{{ Auth::user()->name }}</span>
+                @if(Auth::user()->hasRole('admin_tax'))
+                    <span class="ml-2 px-2 py-1 text-xs bg-purple-500/20 text-purple-300 rounded-full">Tax Admin</span>
+                @elseif(Auth::user()->hasRole('staff_tax'))
+                    <span class="ml-2 px-2 py-1 text-xs bg-purple-500/20 text-purple-300 rounded-full">Tax Staff</span>
+                @endif
             </p>
         </div>
 
@@ -75,7 +80,7 @@
                         <div class="flex items-center space-x-2">
                             @if(($activeReviewCount ?? 0) > 0)
                                 <span class="px-3 py-1 bg-purple-500/20 text-purple-300 text-xs rounded-full">
-                                    {{ $activeReviewCount ?? 0 }} Active
+                                    {{ $activeReviewCount ?? 0 }} Under Review
                                 </span>
                             @endif
                             <a href="{{ route('reviews.my-reviews') }}" 
@@ -88,13 +93,13 @@
                         </div>
                     </div>
                     
-                    <!-- Assigned Reviews List -->
+                    <!-- Assigned Reviews List - Using underReviewStages -->
                     <div class="space-y-3">
-                        @if(isset($assignedStages) && $assignedStages->count() > 0)
-                            @foreach($assignedStages->take(5) as $stage)
+                        @if(isset($underReviewStages) && $underReviewStages->count() > 0)
+                            @foreach($underReviewStages->take(5) as $stage)
                                 @php
                                     $deadlineClass = '';
-                                    if($stage->contract->drafting_deadline) {
+                                    if($stage->contract && $stage->contract->drafting_deadline) {
                                         $deadline = \Carbon\Carbon::parse($stage->contract->drafting_deadline);
                                         $daysToDeadline = $deadline->diffInDays(now(), false);
                                         
@@ -129,15 +134,8 @@
                                                             </span>
                                                         @endif
                                                     </div>
-                                                    <span class="px-2 py-1 text-xs rounded-full ml-2 {{ 
-                                                        $stage->status == 'pending' ? 'bg-gray-500/20 text-gray-300' : 
-                                                        ($stage->status == 'assigned' ? 'bg-yellow-500/20 text-yellow-300' : 
-                                                        ($stage->status == 'in_progress' ? 'bg-purple-500/20 text-purple-300' : 
-                                                        ($stage->status == 'completed' ? 'bg-green-500/20 text-green-300' : 
-                                                        ($stage->status == 'revision_requested' ? 'bg-orange-500/20 text-orange-300' : 
-                                                        'bg-red-500/20 text-red-300'))))
-                                                    }}">
-                                                        {{ ucfirst(str_replace('_', ' ', $stage->status)) }}
+                                                    <span class="px-2 py-1 text-xs rounded-full ml-2 bg-purple-500/20 text-purple-300">
+                                                        Under Review
                                                     </span>
                                                 </div>
                                                 
@@ -190,22 +188,12 @@
                                     
                                     <div class="ml-4 flex-shrink-0">
                                         <a href="{{ route('contracts.show', $stage->contract->id) }}" 
-                                        class="px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center">
+                                           class="px-3 py-1.5 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center">
                                             <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                @if(in_array($stage->status, ['pending', 'assigned']))
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                                                @else
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                                @endif
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                             </svg>
-                                            @if(in_array($stage->status, ['pending', 'assigned']))
-                                                View & Start
-                                            @elseif($stage->status == 'revision_requested')
-                                                View & Review
-                                            @else
-                                                View & Continue
-                                            @endif
+                                            Review
                                         </a>
                                     </div>
                                 </div>
@@ -217,9 +205,9 @@
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                     </svg>
                                 </div>
-                                <h3 class="text-xl font-medium text-gray-300">No Assigned Reviews</h3>
+                                <h3 class="text-xl font-medium text-gray-300">No Documents Under Review</h3>
                                 <p class="text-gray-500 mt-2 max-w-md mx-auto">
-                                    You don't have any tax reviews assigned to you at the moment.
+                                    You don't have any documents currently under review at the moment.
                                 </p>
                                 <div class="mt-6 space-y-3">
                                     <p class="text-sm text-gray-400">What you can do:</p>
@@ -330,7 +318,11 @@
                             <div class="flex justify-between text-sm">
                                 <span class="text-gray-400">Role</span>
                                 <span class="font-medium px-3 py-1 rounded-full bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-purple-300">
-                                    Tax Staff
+                                    @if(Auth::user()->hasRole('admin_tax'))
+                                        Tax Admin
+                                    @elseif(Auth::user()->hasRole('staff_tax'))
+                                        Tax Staff
+                                    @endif
                                 </span>
                             </div>
                             <div class="flex justify-between text-sm">
