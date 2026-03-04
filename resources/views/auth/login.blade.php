@@ -205,8 +205,11 @@
                 text-shadow: 0 2px 10px rgba(79, 70, 229, 0.2);
             }
 
-            .brand-name.dark {
+            .brand-name.dark-mode-text {
                 background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
                 text-shadow: 0 2px 20px rgba(139, 92, 246, 0.4);
             }
 
@@ -220,9 +223,20 @@
                 text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             }
 
-            .hero-title.dark {
+            .hero-title.dark-mode-text {
                 color: #f8fafc;
                 text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            }
+
+            .hero-title span {
+                color: #4f46e5;
+            }
+
+            body.dark-mode .hero-title span {
+                background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
             }
 
             .hero-subtitle {
@@ -232,7 +246,7 @@
                 line-height: 1.6;
             }
 
-            .hero-subtitle.dark {
+            .hero-subtitle.dark-mode-text {
                 color: #94a3b8;
             }
 
@@ -262,11 +276,11 @@
                 box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
             }
 
-            .feature-item.dark {
+            .feature-item.dark-mode-bg {
                 background: rgba(255, 255, 255, 0.05);
             }
 
-            .feature-item.dark:hover {
+            .feature-item.dark-mode-bg:hover {
                 background: rgba(255, 255, 255, 0.1);
                 box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
             }
@@ -282,7 +296,7 @@
                 flex-shrink: 0;
             }
 
-            .feature-icon.dark {
+            .feature-icon.dark-mode-bg {
                 background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
             }
 
@@ -293,7 +307,7 @@
                 color: #1e293b;
             }
 
-            .feature-text.dark h4 {
+            .feature-text.dark-mode-text h4 {
                 color: #f1f5f9;
             }
 
@@ -302,7 +316,7 @@
                 color: #64748b;
             }
 
-            .feature-text.dark p {
+            .feature-text.dark-mode-text p {
                 color: #94a3b8;
             }
 
@@ -333,7 +347,7 @@
                 color: #1e293b;
             }
 
-            .login-title.dark {
+            .login-title.dark-mode-text {
                 color: #f8fafc;
             }
 
@@ -342,7 +356,7 @@
                 color: #64748b;
             }
 
-            .login-subtitle.dark {
+            .login-subtitle.dark-mode-text {
                 color: #94a3b8;
             }
 
@@ -361,7 +375,7 @@
                 letter-spacing: 0.5px;
             }
 
-            .form-label.dark {
+            .form-label.dark-mode-text {
                 color: #cbd5e1;
             }
 
@@ -386,13 +400,13 @@
                 transform: translateY(-2px);
             }
 
-            .glass-input.dark {
+            .glass-input.dark-mode-bg {
                 background: rgba(255, 255, 255, 0.05);
                 border: 2px solid rgba(148, 163, 184, 0.2);
                 color: #f1f5f9;
             }
 
-            .glass-input.dark:focus {
+            .glass-input.dark-mode-bg:focus {
                 border-color: #8b5cf6;
                 box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.2);
                 background: rgba(255, 255, 255, 0.1);
@@ -441,12 +455,12 @@
                 transform: rotate(45deg);
             }
 
-            .custom-checkbox.dark {
+            .custom-checkbox.dark-mode-bg {
                 border-color: #475569;
                 background: rgba(255, 255, 255, 0.05);
             }
 
-            .custom-checkbox.dark.checked {
+            .custom-checkbox.dark-mode-bg.checked {
                 background: #8b5cf6;
                 border-color: #8b5cf6;
             }
@@ -458,7 +472,7 @@
                 font-weight: 500;
             }
 
-            .checkbox-label.dark {
+            .checkbox-label.dark-mode-text {
                 color: #cbd5e1;
             }
 
@@ -488,12 +502,12 @@
                 transform: translateY(-1px);
             }
 
-            .login-button.dark {
+            .login-button.dark-mode-bg {
                 background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
                 box-shadow: 0 10px 30px rgba(139, 92, 246, 0.4);
             }
 
-            .login-button.dark:hover {
+            .login-button.dark-mode-bg:hover {
                 box-shadow: 0 15px 40px rgba(139, 92, 246, 0.5);
             }
 
@@ -507,7 +521,7 @@
                 border-top: 1px solid rgba(203, 213, 225, 0.2);
             }
 
-            .links-container.dark {
+            .links-container.dark-mode-bg {
                 border-top-color: rgba(148, 163, 184, 0.2);
             }
 
@@ -535,11 +549,11 @@
                 width: 100%;
             }
 
-            .forgot-link.dark {
+            .forgot-link.dark-mode-text {
                 color: #a78bfa;
             }
 
-            .forgot-link.dark::after {
+            .forgot-link.dark-mode-text::after {
                 background: #a78bfa;
             }
 
@@ -549,7 +563,7 @@
                 font-weight: 500;
             }
 
-            .register-link.dark {
+            .register-link.dark-mode-text {
                 color: #94a3b8;
             }
 
@@ -576,11 +590,11 @@
                 width: 100%;
             }
 
-            .register-link.dark a {
+            .register-link.dark-mode-text a {
                 color: #a78bfa;
             }
 
-            .register-link.dark a::after {
+            .register-link.dark-mode-text a::after {
                 background: #a78bfa;
             }
 
@@ -598,7 +612,7 @@
                 border-left: 3px solid #dc2626;
             }
 
-            .error-message.dark {
+            .error-message.dark-mode-text {
                 color: #f87171;
                 background: rgba(220, 38, 38, 0.15);
                 border-left-color: #f87171;
@@ -616,7 +630,7 @@
                 border-left: 4px solid #16a34a;
             }
 
-            .status-message.dark {
+            .status-message.dark-mode-text {
                 background: rgba(34, 197, 94, 0.15);
                 border-color: rgba(34, 197, 94, 0.3);
                 color: #86efac;
@@ -648,7 +662,7 @@
                 transform: scale(1.1) rotate(15deg);
             }
 
-            .theme-toggle.dark {
+            .theme-toggle.dark-mode-bg {
                 background: rgba(30, 41, 59, 0.8);
                 border: 1px solid rgba(148, 163, 184, 0.2);
                 box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
@@ -728,24 +742,24 @@
         <div class="main-container">
             <!-- Left Hero Section -->
             <section class="hero-section animate-slide" style="animation-delay: 0.1s;">
-                <div class="glass-card hero-content">
+                <div class="glass-card hero-content" id="glassCard">
                     <!-- Brand -->
                     <div class="brand-logo">
-                        <div class="logo-icon-wrapper">
+                        <div class="logo-icon-wrapper" id="logoIcon">
                             <svg width="28" height="28" viewBox="0 0 24 24" fill="white">
                                 <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h4m-4 4h4m2-8h2m-2 4h2"/>
                             </svg>
                         </div>
-                        <h1 class="brand-name">Legal Management System</h1>
+                        <h1 class="brand-name" id="brandName">Legal Management System</h1>
                     </div>
 
                     <!-- Hero Text -->
-                    <h2 class="hero-title">
+                    <h2 class="hero-title" id="heroTitle">
                         Streamline Your<br>
-                        <span style="color: #4f46e5">Document Management</span>
+                        <span>Document Management</span>
                     </h2>
                     
-                    <p class="hero-subtitle">
+                    <p class="hero-subtitle" id="heroSubtitle">
                         Experience the next generation of contract workflow automation. 
                         Sign, manage, and track contracts effortlessly with our 
                         intelligent platform.
@@ -753,49 +767,49 @@
 
                     <!-- Features Grid -->
                     <div class="features-grid">
-                        <div class="feature-item">
-                            <div class="feature-icon">
+                        <div class="feature-item" id="feature1">
+                            <div class="feature-icon" id="featureIcon1">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
                                     <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
                                 </svg>
                             </div>
-                            <div class="feature-text">
+                            <div class="feature-text" id="featureText1">
                                 <h4>Lightning Fast</h4>
                                 <p>Process contracts 10x faster</p>
                             </div>
                         </div>
 
-                        <div class="feature-item">
-                            <div class="feature-icon">
+                        <div class="feature-item" id="feature2">
+                            <div class="feature-icon" id="featureIcon2">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
                                     <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
                                 </svg>
                             </div>
-                            <div class="feature-text">
+                            <div class="feature-text" id="featureText2">
                                 <h4>Bank-Level Security</h4>
                                 <p>256-bit encryption</p>
                             </div>
                         </div>
 
-                        <div class="feature-item">
-                            <div class="feature-icon">
+                        <div class="feature-item" id="feature3">
+                            <div class="feature-icon" id="featureIcon3">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
                                     <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                 </svg>
                             </div>
-                            <div class="feature-text">
+                            <div class="feature-text" id="featureText3">
                                 <h4>Smart Tracking</h4>
                                 <p>Real-time notifications</p>
                             </div>
                         </div>
 
-                        <div class="feature-item">
-                            <div class="feature-icon">
+                        <div class="feature-item" id="feature4">
+                            <div class="feature-icon" id="featureIcon4">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
                                     <path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
                                 </svg>
                             </div>
-                            <div class="feature-text">
+                            <div class="feature-text" id="featureText4">
                                 <h4>Team Collaboration</h4>
                                 <p>Work together seamlessly</p>
                             </div>
@@ -806,16 +820,16 @@
 
             <!-- Right Login Section -->
             <section class="login-section animate-slide" style="animation-delay: 0.2s;">
-                <div class="glass-card login-card">
+                <div class="glass-card login-card" id="loginGlassCard">
                     <!-- Login Header -->
                     <div class="login-header">
-                        <h2 class="login-title">Welcome Back</h2>
-                        <p class="login-subtitle">Sign in to your HRMS account</p>
+                        <h2 class="login-title" id="loginTitle">Welcome Back</h2>
+                        <p class="login-subtitle" id="loginSubtitle">Sign in to your HRMS account</p>
                     </div>
 
                     <!-- Session Status -->
                     @if (session('status'))
-                        <div class="status-message">
+                        <div class="status-message" id="statusMessage">
                             {{ session('status') }}
                         </div>
                     @endif
@@ -826,7 +840,7 @@
 
                         <!-- Email Address -->
                         <div class="form-group">
-                            <label class="form-label" for="email">Email Address</label>
+                            <label class="form-label" for="email" id="emailLabel">Email Address</label>
                             <input 
                                 id="email" 
                                 class="glass-input" 
@@ -839,7 +853,7 @@
                                 placeholder="name@company.com"
                             >
                             @if ($errors->has('email'))
-                                <div class="error-message">
+                                <div class="error-message" id="emailError">
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                                         <path d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                     </svg>
@@ -850,7 +864,7 @@
 
                         <!-- Password -->
                         <div class="form-group">
-                            <label class="form-label" for="password">Password</label>
+                            <label class="form-label" for="password" id="passwordLabel">Password</label>
                             <input 
                                 id="password" 
                                 class="glass-input"
@@ -861,7 +875,7 @@
                                 placeholder="Enter your password"
                             >
                             @if ($errors->has('password'))
-                                <div class="error-message">
+                                <div class="error-message" id="passwordError">
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                                         <path d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                     </svg>
@@ -873,35 +887,31 @@
                         <!-- Remember Me & Forgot Password -->
                         <div class="checkbox-container">
                             <div class="checkbox-wrapper">
-                                <div class="custom-checkbox" onclick="toggleCheckbox(this)"></div>
-                                <label class="checkbox-label" for="remember_me" onclick="toggleCheckbox(this.previousElementSibling)">
+                                <div class="custom-checkbox" onclick="toggleCheckbox(this)" id="customCheckbox"></div>
+                                <label class="checkbox-label" for="remember_me" onclick="toggleCheckbox(this.previousElementSibling)" id="checkboxLabel">
                                     Remember me
                                 </label>
                                 <input id="remember_me" type="checkbox" name="remember" class="hidden-checkbox" style="display: none;">
                             </div>
                             
                             @if (Route::has('password.request'))
-                                <a class="forgot-link" href="{{ route('password.request') }}">
+                                <a class="forgot-link" href="{{ route('password.request') }}" id="forgotLink">
                                     Forgot password?
                                 </a>
                             @endif
                         </div>
 
                         <!-- Submit Button -->
-                        <button type="submit" class="login-button">
+                        <button type="submit" class="login-button" id="loginButton">
                             Sign In
                         </button>
                     </form>
 
                     <!-- Register Link -->
                     @if (Route::has('register'))
-                        <div class="links-container">
-                            <div class="register-link">
-                                Don't have an account?
-                                <a href="{{ route('register') }}">Create Account</a>
-                            </div>
+                        <div class="links-container" id="linksContainer">
                             
-                            <div class="register-link">
+                            <div class="register-link" id="backLink">
                                 <a href="{{ url('/') }}">← Back to Home</a>
                             </div>
                         </div>
@@ -911,22 +921,60 @@
         </div>
 
         <script>
-            // Dark Mode Toggle
+            // Dark Mode Toggle - PERBAIKAN
             function toggleDarkMode() {
                 const body = document.body;
                 const themeToggle = document.querySelector('.theme-toggle');
-                const elements = document.querySelectorAll('.glass-card, .logo-icon-wrapper, .brand-name, .hero-title, .hero-subtitle, .feature-item, .feature-icon, .feature-text, .login-title, .login-subtitle, .form-label, .glass-input, .custom-checkbox, .checkbox-label, .login-button, .links-container, .forgot-link, .register-link, .status-message, .error-message');
                 
+                // Toggle dark mode pada body
                 body.classList.toggle('dark-mode');
-                themeToggle.classList.toggle('dark');
                 
-                elements.forEach(el => {
-                    if (el.classList.contains('dark')) {
-                        el.classList.remove('dark');
-                    } else {
-                        el.classList.add('dark');
-                    }
-                });
+                // Toggle class untuk theme toggle
+                themeToggle.classList.toggle('dark-mode-bg');
+                
+                // Dapatkan semua elemen yang perlu diubah
+                const glassCards = document.querySelectorAll('.glass-card');
+                const logoIcons = document.querySelectorAll('.logo-icon-wrapper');
+                const brandNames = document.querySelectorAll('.brand-name');
+                const heroTitles = document.querySelectorAll('.hero-title');
+                const heroSubtitles = document.querySelectorAll('.hero-subtitle');
+                const featureItems = document.querySelectorAll('.feature-item');
+                const featureIcons = document.querySelectorAll('.feature-icon');
+                const featureTexts = document.querySelectorAll('.feature-text');
+                const loginTitles = document.querySelectorAll('.login-title');
+                const loginSubtitles = document.querySelectorAll('.login-subtitle');
+                const formLabels = document.querySelectorAll('.form-label');
+                const glassInputs = document.querySelectorAll('.glass-input');
+                const customCheckboxes = document.querySelectorAll('.custom-checkbox');
+                const checkboxLabels = document.querySelectorAll('.checkbox-label');
+                const loginButtons = document.querySelectorAll('.login-button');
+                const linksContainers = document.querySelectorAll('.links-container');
+                const forgotLinks = document.querySelectorAll('.forgot-link');
+                const registerLinks = document.querySelectorAll('.register-link');
+                const statusMessages = document.querySelectorAll('.status-message');
+                const errorMessages = document.querySelectorAll('.error-message');
+                
+                // Toggle classes untuk setiap grup elemen
+                glassCards.forEach(el => el.classList.toggle('dark'));
+                logoIcons.forEach(el => el.classList.toggle('dark-mode-bg'));
+                brandNames.forEach(el => el.classList.toggle('dark-mode-text'));
+                heroTitles.forEach(el => el.classList.toggle('dark-mode-text'));
+                heroSubtitles.forEach(el => el.classList.toggle('dark-mode-text'));
+                featureItems.forEach(el => el.classList.toggle('dark-mode-bg'));
+                featureIcons.forEach(el => el.classList.toggle('dark-mode-bg'));
+                featureTexts.forEach(el => el.classList.toggle('dark-mode-text'));
+                loginTitles.forEach(el => el.classList.toggle('dark-mode-text'));
+                loginSubtitles.forEach(el => el.classList.toggle('dark-mode-text'));
+                formLabels.forEach(el => el.classList.toggle('dark-mode-text'));
+                glassInputs.forEach(el => el.classList.toggle('dark-mode-bg'));
+                customCheckboxes.forEach(el => el.classList.toggle('dark-mode-bg'));
+                checkboxLabels.forEach(el => el.classList.toggle('dark-mode-text'));
+                loginButtons.forEach(el => el.classList.toggle('dark-mode-bg'));
+                linksContainers.forEach(el => el.classList.toggle('dark-mode-bg'));
+                forgotLinks.forEach(el => el.classList.toggle('dark-mode-text'));
+                registerLinks.forEach(el => el.classList.toggle('dark-mode-text'));
+                statusMessages.forEach(el => el.classList.toggle('dark-mode-text'));
+                errorMessages.forEach(el => el.classList.toggle('dark-mode-text'));
                 
                 // Toggle moon/sun icon
                 const svg = themeToggle.querySelector('svg');
@@ -970,49 +1018,51 @@
 
             // Button Effects
             const loginButton = document.querySelector('.login-button');
-            loginButton.addEventListener('mousedown', function() {
-                this.style.transform = 'translateY(0)';
-            });
-            
-            loginButton.addEventListener('mouseup', function() {
-                this.style.transform = 'translateY(-3px)';
-            });
-            
-            loginButton.addEventListener('mouseleave', function() {
-                this.style.transform = '';
-            });
+            if (loginButton) {
+                loginButton.addEventListener('mousedown', function() {
+                    this.style.transform = 'translateY(0)';
+                });
+                
+                loginButton.addEventListener('mouseup', function() {
+                    this.style.transform = 'translateY(-3px)';
+                });
+                
+                loginButton.addEventListener('mouseleave', function() {
+                    this.style.transform = '';
+                });
 
-            // Ripple effect on button click
-            loginButton.addEventListener('click', function(e) {
-                // Remove any existing ripples
-                const existingRipples = this.querySelectorAll('.ripple');
-                existingRipples.forEach(ripple => ripple.remove());
-                
-                const ripple = document.createElement('span');
-                const rect = this.getBoundingClientRect();
-                const size = Math.max(rect.width, rect.height);
-                const x = e.clientX - rect.left - size / 2;
-                const y = e.clientY - rect.top - size / 2;
-                
-                ripple.style.cssText = `
-                    position: absolute;
-                    border-radius: 50%;
-                    background: rgba(255, 255, 255, 0.5);
-                    transform: scale(0);
-                    animation: ripple 0.6s linear;
-                    width: ${size}px;
-                    height: ${size}px;
-                    left: ${x}px;
-                    top: ${y}px;
-                    pointer-events: none;
-                `;
-                
-                this.appendChild(ripple);
-                
-                setTimeout(() => {
-                    ripple.remove();
-                }, 600);
-            });
+                // Ripple effect on button click
+                loginButton.addEventListener('click', function(e) {
+                    // Remove any existing ripples
+                    const existingRipples = this.querySelectorAll('.ripple');
+                    existingRipples.forEach(ripple => ripple.remove());
+                    
+                    const ripple = document.createElement('span');
+                    const rect = this.getBoundingClientRect();
+                    const size = Math.max(rect.width, rect.height);
+                    const x = e.clientX - rect.left - size / 2;
+                    const y = e.clientY - rect.top - size / 2;
+                    
+                    ripple.style.cssText = `
+                        position: absolute;
+                        border-radius: 50%;
+                        background: rgba(255, 255, 255, 0.5);
+                        transform: scale(0);
+                        animation: ripple 0.6s linear;
+                        width: ${size}px;
+                        height: ${size}px;
+                        left: ${x}px;
+                        top: ${y}px;
+                        pointer-events: none;
+                    `;
+                    
+                    this.appendChild(ripple);
+                    
+                    setTimeout(() => {
+                        ripple.remove();
+                    }, 600);
+                });
+            }
 
             // Add ripple animation
             const style = document.createElement('style');
@@ -1032,14 +1082,6 @@
                 .hidden-checkbox {
                     display: none;
                 }
-                
-                /* Enhance hero title gradient in dark mode */
-                body.dark-mode .hero-title span {
-                    background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
-                    -webkit-background-clip: text;
-                    -webkit-text-fill-color: transparent;
-                    background-clip: text;
-                }
             `;
             document.head.appendChild(style);
 
@@ -1047,13 +1089,13 @@
             document.addEventListener('DOMContentLoaded', function() {
                 const savedDarkMode = localStorage.getItem('darkMode') === 'true';
                 const themeToggle = document.querySelector('.theme-toggle');
-                const svg = themeToggle.querySelector('svg');
                 
                 if (savedDarkMode) {
-                    // Apply dark mode
+                    // Panggil fungsi toggleDarkMode untuk mengaplikasikan semua perubahan
                     toggleDarkMode();
                     
                     // Set sun icon for dark mode
+                    const svg = themeToggle.querySelector('svg');
                     svg.innerHTML = '<path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>';
                 }
                 
