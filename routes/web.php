@@ -17,6 +17,7 @@ use App\Http\Controllers\HrmsLoginController;
 use App\Http\Controllers\CompletedController;
 use App\Http\Controllers\Legal\EditWorkflowController;
 use App\Http\Controllers\SuratController;
+use App\Http\Controllers\ArchiveController;
 use Illuminate\Support\Facades\Mail;
 
 /*

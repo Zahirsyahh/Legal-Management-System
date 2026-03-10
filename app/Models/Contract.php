@@ -965,6 +965,40 @@ class Contract extends Model
             ->orderBy('sequence')
             ->first();
     }
+
+    public function currentReviewStage()
+{
+    return $this->reviewStages()
+        ->whereIn('status', ['assigned', 'in_progress'])
+        ->orderBy('sequence')
+        ->first();
+}
+
+    public function getDisplayStatusAttribute(): string
+    {
+        if ($this->status === self::STATUS_UNDER_REVIEW) {
+            $stage = $this->currentReviewStage();
+
+            if ($stage && $stage->assignedUser) {
+                return 'Under Review: ' . $stage->assignedUser->nama_user;
+            }
+
+            return 'Under Review';
+        }
+
+        if ($this->status === self::STATUS_REVISION_NEEDED) {
+            $stage = $this->currentReviewStage();
+
+            if ($stage && $stage->assignedUser) {
+                return 'Revision Needed: ' . $stage->assignedUser->nama_user;
+            }
+
+            return 'Revision Needed';
+        }
+
+        // Untuk status lainnya, ambil dari getStatuses() yang sudah ada
+        return self::getStatuses()[$this->status] ?? ucfirst(str_replace('_', ' ', $this->status));
+    }
     
     public function hasActiveStage(): bool
     {

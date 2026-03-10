@@ -689,39 +689,6 @@
                         @endif
                     </div>
                 </div>
-
-                <!-- NOTES SECTION -->
-                @if(in_array($stage->status, ['in_progress', 'completed']))
-                <div class="glass-card rounded-2xl p-6">
-                    <div class="flex items-center gap-3 mb-4">
-                        <div class="p-2 rounded-lg {{ $stageColor['light'] }}">
-                            <svg class="w-5 h-5 {{ $stageColor['text'] }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                        </div>
-                        <div>
-                            <h3 class="text-lg font-bold text-gray-300">Review Notes</h3>
-                            <p class="text-sm text-gray-400">Add your notes and observations</p>
-                        </div>
-                    </div>
-                    
-                    <form action="{{ route('review-stages.save-notes', [$contract, $stage]) }}" method="POST">
-                        @csrf
-                        <div class="mb-4">
-                            <textarea name="notes" rows="6"
-                                      class="w-full bg-gray-800/50 border border-gray-700/50 rounded-lg px-4 py-3 text-gray-300 focus:ring-1 focus:ring-blue-500/30 focus:border-blue-500/50 transition-all placeholder:text-gray-500/70 {{ $stage->status === 'completed' ? 'opacity-70' : '' }}"
-                                      placeholder="Add your review notes here..." {{ $stage->status === 'completed' ? 'disabled' : '' }}>{{ $stage->notes }}</textarea>
-                        </div>
-                        
-                        @if($stage->status !== 'completed')
-                        <button type="submit" 
-                                class="px-6 py-3 bg-gradient-to-r {{ $stageColor['gradient'] }} hover:opacity-95 rounded-lg font-medium text-white transition-all duration-300 shadow-md {{ $stageColor['shadow'] }} hover:shadow-lg">
-                            Save Notes
-                        </button>
-                        @endif
-                    </form>
-                </div>
-                @endif
             </div>
 
             <!-- Right Column: Stage Info & Timeline -->

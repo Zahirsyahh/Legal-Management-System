@@ -899,16 +899,22 @@
                     @if($submittedDocs->count() > 0)
                         <div class="space-y-4 max-h-[400px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-700">
                             @foreach($submittedDocs as $contract)
-                                @include('components.contract-card', [
-                                    'contract' => $contract,
-                                    'compact' => true,
-                                    'showStatus' => true,
-                                    'actionLabel' => 'Review',
-                                    'actionUrl' => ($contract->contract_type === 'surat' && $contract->workflow_type === 'static')
-                                        ? route('surat.show', $contract)
-                                        : route('contracts.show', $contract)
-                                ])
-                            @endforeach
+    @include('components.contract-card', [
+        'contract'    => $contract,
+        'compact'     => true,
+        'showStatus'  => true,
+        'actionLabel' => 'Review',
+        'actionUrl'   => ($contract->contract_type === 'surat' && $contract->workflow_type === 'static')
+            ? route('surat.show', $contract)
+            : route('contracts.show', $contract),
+        'extraInfo'   => [
+            'icon'  => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>',
+            'label' => 'Submitted by',
+            'value' => $contract->user->nama_user ?? '-',
+            'extra' => $contract->submitted_at?->diffForHumans() ?? $contract->created_at->diffForHumans(),
+        ],
+    ])
+@endforeach
                         </div>
 
                         @if($submittedDocs->count() >= 5)
@@ -966,16 +972,29 @@
                     @if($ongoingDocs->count() > 0)
                         <div class="space-y-4 max-h-[400px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-700">
                             @foreach($ongoingDocs as $contract)
-                                @include('components.contract-card', [
-                                    'contract' => $contract,
-                                    'compact' => true,
-                                    'showStatus' => true,
-                                    'actionLabel' => 'Continue',
-                                    'actionUrl' => ($contract->contract_type === 'surat' && !$contract->isInReviewStageSystem())
-                                        ? route('surat.show', $contract)
-                                        : route('contracts.show', $contract)
-                                ])
-                            @endforeach
+    @php
+        $activeStage = $contract->activeStage();
+        $reviewer    = $activeStage?->assignedUser?->nama_user ?? null;
+        $stageTotal  = $contract->reviewStages()->count();
+        $stageDone   = $contract->reviewStages()->where('status', 'completed')->count();
+    @endphp
+
+    @include('components.contract-card', [
+        'contract'    => $contract,
+        'compact'     => true,
+        'showStatus'  => true,
+        'actionLabel' => 'Continue',
+        'actionUrl'   => ($contract->contract_type === 'surat' && !$contract->isInReviewStageSystem())
+            ? route('surat.show', $contract)
+            : route('contracts.show', $contract),
+        'extraInfo'   => [
+            'icon'  => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>',
+            'label' => 'Reviewer',
+            'value' => $reviewer ?? 'Unassigned',
+            'extra' => $stageTotal > 0 ? "Stage {$stageDone}/{$stageTotal}" : null,
+        ],
+    ])
+@endforeach
                         </div>
 
                         @if($ongoingDocs->count() >= 5)
@@ -1136,7 +1155,7 @@
                                 <table class="min-w-full divide-y divide-gray-800">
                                     <thead>
                                         <tr>
-                                            <th class="px-4 py-3 text-left text-xs font-medium text-body">Contract #</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-body">Document #</th>
                                             <th class="px-4 py-3 text-left text-xs font-medium text-body">Title</th>
                                             <th class="px-4 py-3 text-left text-xs font-medium text-body">Status</th>
                                             <th class="px-4 py-3 text-left text-xs font-medium text-body">Last Updated</th>
@@ -1158,9 +1177,9 @@
                                                 </div>
                                             </td>
                                             <td class="px-4 py-3">
-                                                <span class="px-2 py-1 text-xs rounded-full {{ $contract->status_color }}">
-                                                    {{ $contract->status_label }}
-                                                </span>
+                                            <span class="px-2 py-1 text-xs rounded-full {{ $contract->status_color }}">
+                                                {{ $contract->display_status }}
+                                            </span>
                                             </td>
                                             <td class="px-4 py-3 text-sm text-body">
                                                 {{ $contract->updated_at->diffForHumans() }}
