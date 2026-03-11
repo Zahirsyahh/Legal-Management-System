@@ -14,24 +14,19 @@
              style="width: {{ $contract->review_progress }}%"></div>
     </div>
     
-    <!-- Stage Indicators - DYNAMIC LAYOUT -->
+    <!-- Stage Indicators - SCROLLABLE LAYOUT -->
     <div class="relative">
         <!-- Connecting Line -->
         <div class="absolute top-5 left-0 right-0 h-0.5 bg-gray-700 -z-10"></div>
         
-        <!-- Stages Container -->
-        <div class="flex justify-between relative z-10">
+        <!-- Stages Container - SCROLLABLE -->
+        <div class="flex items-start gap-10 overflow-x-auto pb-4 relative z-10 stage-scroll">
             @php
                 $stages = $contract->reviewStages->sortBy('sequence');
-                $totalStages = $stages->count();
-                $stageWidth = $totalStages > 1 ? (100 / ($totalStages - 1)) : 100;
             @endphp
             
             @foreach($stages as $index => $stage)
-                <div class="flex flex-col items-center"
-                     style="width: {{ $stageWidth }}%; 
-                            margin-left: {{ $index === 0 ? '0' : '0' }};
-                            margin-right: {{ $index === $totalStages - 1 ? '0' : '0' }};">
+                <div class="flex flex-col items-center min-w-[120px]">
                     
                     <!-- Stage Circle with Status -->
                     <div class="relative mb-2">
@@ -63,15 +58,15 @@
                         </div>
                         
                         <!-- Line Connection (kecuali stage terakhir) -->
-                        @if($index < $totalStages - 1)
+                        @if($index < $stages->count() - 1)
                         <div class="absolute top-5 left-10 right-0 h-0.5 
                             {{ $stage->status === 'completed' ? 'bg-green-500' : 'bg-gray-700' }} 
                             -z-10"></div>
                         @endif
                     </div>
                     
-                    <!-- Stage Info -->
-                    <div class="text-center max-w-[120px]">
+                    <!-- Stage Info - WIDTH DIPERBESAR -->
+                    <div class="text-center w-[140px]">
                         <p class="text-xs font-medium text-gray-300 truncate" 
                            title="{{ $stage->stage_name }}">
                             {{ Str::limit($stage->stage_name, 20) }}
@@ -114,4 +109,24 @@
         </div>
     </div>
 </div>
+
+<!-- CSS untuk Scrollbar Styling -->
+<style>
+.stage-scroll::-webkit-scrollbar {
+    height: 6px;
+}
+
+.stage-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.stage-scroll::-webkit-scrollbar-thumb {
+    background: #374151;
+    border-radius: 10px;
+}
+
+.stage-scroll::-webkit-scrollbar-thumb:hover {
+    background: #4B5563;
+}
+</style>
 @endif

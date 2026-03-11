@@ -187,7 +187,7 @@
             transition: opacity 0.3s ease;
         }
         
-        .department-checkbox.peer-checked::before {
+        .department-checkbox.selected::before {
             opacity: 1;
         }
         
@@ -530,64 +530,62 @@
                     </div>
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        @foreach($otherDepartments as $dept)
-                            <label class="cursor-pointer department-checkbox-container">
-                                <input type="checkbox" 
-                                       name="selected_departments[]" 
-                                       value="{{ $dept->code }}" 
-                                       id="dept_{{ $dept->code }}"
-                                       class="hidden peer department-checkbox-input">
-                                <div class="department-checkbox h-full p-4 rounded-xl border-2 border-gray-700/50 bg-gray-800/30 
-                                           peer-checked:border-purple-500 peer-checked:bg-purple-500/10 
-                                           peer-checked:shadow-lg peer-checked:shadow-purple-500/20 
-                                           hover:border-purple-400/50 hover:bg-gray-800/50 
-                                           transition-all duration-300 transform peer-checked:scale-[1.02] 
-                                           peer-checked:-translate-y-1">
-                                    <div class="flex items-start justify-between">
-                                        <div class="flex items-start gap-3 flex-1">
-                                            <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500/20 to-pink-500/20 
-                                                      flex items-center justify-center flex-shrink-0 
-                                                      peer-checked:from-purple-500/30 peer-checked:to-pink-500/30">
-                                                <span class="text-sm font-bold text-gray-300 peer-checked:text-white">{{ $dept->code }}</span>
-                                            </div>
-                                            <div class="flex-1 min-w-0">
-                                                <h4 class="text-sm font-semibold text-gray-300 mb-1 peer-checked:text-purple-300">
-                                                    {{ $dept->name }}
-                                                </h4>
-                                                @if($dept->description)
-                                                    <p class="text-xs text-gray-400 peer-checked:text-purple-200/70">
-                                                        {{ Str::limit($dept->description, 60) }}
-                                                    </p>
-                                                @endif
-                                            </div>
-                                        </div>
-                                        
-                                        <!-- Checkmark indicator -->
-                                        <div class="checkmark-indicator ml-3 flex-shrink-0">
-                                            <div class="w-6 h-6 rounded-full border-2 border-gray-600 
-                                                      flex items-center justify-center 
-                                                      peer-checked:bg-purple-500 peer-checked:border-purple-500 
-                                                      transition-all duration-300">
-                                                <svg class="w-3 h-3 text-white opacity-0 peer-checked:opacity-100 transition-opacity duration-200" 
-                                                     fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
-                                                </svg>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Selected badge (appears when checked) -->
-                                    <div class="mt-3 pt-3 border-t border-gray-700/30 opacity-0 peer-checked:opacity-100 transition-opacity duration-300">
-                                        <div class="flex items-center gap-2">
-                                            <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                                            </svg>
-                                            <span class="text-xs font-medium text-purple-400">Selected for review</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </label>
-                        @endforeach
+@foreach($otherDepartments as $dept)
+    <label class="cursor-pointer department-checkbox-container" for="dept_{{ $dept->code }}">
+        <input type="checkbox"
+               name="selected_departments[]"
+               value="{{ $dept->code }}"
+               id="dept_{{ $dept->code }}"
+               class="hidden department-checkbox-input">
+
+        {{-- 
+            Hapus semua peer-checked: class.
+            Gunakan class "dept-card" sebagai hook JS, 
+            dan class "selected" ditambah/hapus lewat JS.
+        --}}
+        <div class="dept-card h-full p-4 rounded-xl border-2 border-gray-700/50 bg-gray-800/30
+                    hover:border-purple-400/50 hover:bg-gray-800/50
+                    transition-all duration-300">
+
+            <div class="flex items-start justify-between">
+                <div class="flex items-start gap-3 flex-1">
+                    <div class="dept-icon w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500/20 to-pink-500/20
+                                flex items-center justify-center flex-shrink-0">
+                        <span class="text-sm font-bold text-gray-300">{{ $dept->code }}</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h4 class="dept-title text-sm font-semibold text-gray-300 mb-1">
+                            {{ $dept->name }}
+                        </h4>
+                        @if($dept->description)
+                            <p class="text-xs text-gray-400">
+                                {{ Str::limit($dept->description, 60) }}
+                            </p>
+                        @endif
+                    </div>
+                </div>
+
+                {{-- Checkmark circle — JS tambah class "checked" --}}
+                <div class="dept-checkmark ml-3 flex-shrink-0 w-6 h-6 rounded-full border-2 border-gray-600
+                            flex items-center justify-center transition-all duration-300">
+                    <svg class="w-3 h-3 text-white hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+                    </svg>
+                </div>
+            </div>
+
+            {{-- Selected badge — JS toggle class "hidden" --}}
+            <div class="dept-selected-badge mt-3 pt-3 border-t border-gray-700/30 hidden">
+                <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span class="text-xs font-medium text-purple-400">Selected for review</span>
+                </div>
+            </div>
+        </div>
+    </label>
+@endforeach
                     </div>
                     
                     <!-- Department selection summary -->
@@ -619,29 +617,7 @@
                     </div>
                 </div>
                 @endif
-                
-                <!-- ============================================
-                    SECTION 4: ADDITIONAL NOTES
-                ============================================ -->
-                <div class="gradient-border p-6">
-                    <div class="flex items-center gap-3 mb-4">
-                        <div class="p-2 rounded-lg bg-gradient-to-br from-gray-500/10 to-gray-600/10">
-                            <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                        </div>
-                        <div>
-                            <h2 class="text-xl font-bold text-gray-300">Additional Notes (Optional)</h2>
-                            <p class="text-sm text-gray-400">Add special instructions or context for reviewers</p>
-                        </div>
-                    </div>
-                    
-                    <textarea name="notes" 
-                              id="notes" 
-                              rows="4"
-                              class="w-full input-field rounded-lg px-4 py-3 text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/30 resize-none"
-                              placeholder="Add any special instructions, context, or notes for reviewers..."></textarea>
-                </div>
+
                 
                 <!-- ============================================
                     SECTION 5: REVIEW SUMMARY
@@ -945,136 +921,99 @@
             }
         });
         
-        // Department checkbox functionality
+        // ── Department checkbox ──────────────────────────────────────────
         const deptCheckboxes = document.querySelectorAll('.department-checkbox-input');
-        const deptCountElement = document.getElementById('deptCount');
-        const selectedDeptCountElement = document.getElementById('selectedDeptCount');
-        const selectedDeptListElement = document.getElementById('selectedDeptList');
+        const deptCountEl = document.getElementById('deptCount');
+        const selectedDeptCountEl = document.getElementById('selectedDeptCount');
+        const selectedDeptListEl = document.getElementById('selectedDeptList');
         
-        if (deptCheckboxes.length > 0) {
-            // Function to update department selection
-            function updateDepartmentSelection() {
-                const checkedBoxes = Array.from(deptCheckboxes).filter(cb => cb.checked);
-                const checkedCount = checkedBoxes.length;
-                
-                // Update counters
-                if (deptCountElement) deptCountElement.textContent = checkedCount;
-                if (selectedDeptCountElement) selectedDeptCountElement.textContent = checkedCount;
-                
-                // Update selected departments list
-                updateSelectedDeptList(checkedBoxes);
-                
-                console.log(`✅ ${checkedCount} departments selected`);
-            }
-            
-            // Function to update selected departments list
-            function updateSelectedDeptList(checkedBoxes) {
-                if (!selectedDeptListElement) return;
-                
-                const container = selectedDeptListElement.querySelector('.flex-wrap');
-                if (!container) return;
-                
-                // Clear existing list
-                container.innerHTML = '';
-                
-                // Add selected departments
-                checkedBoxes.forEach(checkbox => {
-                    const deptCode = checkbox.value;
-                    const deptName = checkbox.closest('label')?.querySelector('h4')?.textContent?.trim() || deptCode;
-                    
-                    const badge = document.createElement('div');
-                    badge.className = 'selected-dept-badge px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2';
-                    badge.innerHTML = `
-                        <span>${deptName}</span>
-                        <button type="button" class="deselect-btn text-xs hover:text-red-400" data-dept="${deptCode}">
-                            ×
-                        </button>
-                    `;
-                    container.appendChild(badge);
-                });
-                
-                // Show/hide list container
-                if (checkedBoxes.length > 0) {
-                    selectedDeptListElement.classList.remove('hidden');
-                } else {
-                    selectedDeptListElement.classList.add('hidden');
-                }
-                
-                // Add event listeners to deselect buttons
-                container.querySelectorAll('.deselect-btn').forEach(btn => {
-                    btn.addEventListener('click', function(e) {
-                        e.stopPropagation();
-                        const deptCode = this.dataset.dept;
-                        const checkbox = document.getElementById(`dept_${deptCode}`);
-                        if (checkbox) {
-                            checkbox.checked = false;
-                            checkbox.dispatchEvent(new Event('change'));
-                        }
+        function refreshDeptUI() {
+            const checked = Array.from(deptCheckboxes).filter(cb => cb.checked);
+        
+            if (deptCountEl) deptCountEl.textContent = checked.length;
+            if (selectedDeptCountEl) selectedDeptCountEl.textContent = checked.length;
+        
+            // Rebuild badge list
+            if (selectedDeptListEl) {
+                const wrap = selectedDeptListEl.querySelector('.flex-wrap');
+                if (wrap) {
+                    wrap.innerHTML = '';
+                    checked.forEach(cb => {
+                        const name = cb.closest('label')?.querySelector('.dept-title')?.textContent?.trim() || cb.value;
+                        const badge = document.createElement('div');
+                        badge.className = 'selected-dept-badge px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2';
+                        badge.innerHTML = `<span>${name}</span>
+                            <button type="button" class="deselect-btn text-xs hover:text-red-400" data-dept="${cb.value}">×</button>`;
+                        wrap.appendChild(badge);
                     });
-                });
-            }
-            
-            // Add change event listeners to all checkboxes
-            deptCheckboxes.forEach(checkbox => {
-                checkbox.addEventListener('change', function() {
-                    // Add visual feedback
-                    const label = this.closest('label');
-                    if (this.checked) {
-                        label.classList.add('checked');
-                        // Add a subtle animation
-                        const checkboxDiv = label.querySelector('.department-checkbox');
-                        if (checkboxDiv) {
-                            checkboxDiv.style.animation = 'pulse 0.3s ease';
-                            setTimeout(() => {
-                                checkboxDiv.style.animation = '';
-                            }, 300);
-                        }
-                    } else {
-                        label.classList.remove('checked');
-                    }
-                    
-                    updateDepartmentSelection();
-                });
-                
-                // Add click effect for better UX
-                const checkboxDiv = checkbox.closest('label')?.querySelector('.department-checkbox');
-                if (checkboxDiv) {
-                    checkboxDiv.addEventListener('click', function(e) {
-                        if (!e.target.closest('.deselect-btn')) {
-                            // Add ripple effect
-                            const ripple = document.createElement('span');
-                            ripple.className = 'ripple-effect';
-                            ripple.style.cssText = `
-                                position: absolute;
-                                border-radius: 50%;
-                                background: rgba(168, 85, 247, 0.3);
-                                transform: scale(0);
-                                animation: ripple-animation 0.6s linear;
-                                pointer-events: none;
-                            `;
-                            
-                            const rect = this.getBoundingClientRect();
-                            const size = Math.max(rect.width, rect.height);
-                            const x = e.clientX - rect.left - size / 2;
-                            const y = e.clientY - rect.top - size / 2;
-                            
-                            ripple.style.width = ripple.style.height = size + 'px';
-                            ripple.style.left = x + 'px';
-                            ripple.style.top = y + 'px';
-                            
-                            this.appendChild(ripple);
-                            
-                            setTimeout(() => {
-                                ripple.remove();
-                            }, 600);
-                        }
+        
+                    // Deselect from badge
+                    wrap.querySelectorAll('.deselect-btn').forEach(btn => {
+                        btn.addEventListener('click', e => {
+                            e.stopPropagation();
+                            const cb = document.getElementById(`dept_${btn.dataset.dept}`);
+                            if (cb) { 
+                                cb.checked = false; 
+                                applyCardState(cb); 
+                                refreshDeptUI(); 
+                            }
+                        });
                     });
                 }
-            });
-            
-            // Initialize
-            updateDepartmentSelection();
+                checked.length > 0
+                    ? selectedDeptListEl.classList.remove('hidden')
+                    : selectedDeptListEl.classList.add('hidden');
+            }
         }
+        
+        function applyCardState(checkbox) {
+            const card      = checkbox.closest('label')?.querySelector('.dept-card');
+            const checkmark = checkbox.closest('label')?.querySelector('.dept-checkmark');
+            const checkIcon = checkmark?.querySelector('svg');
+            const badge     = checkbox.closest('label')?.querySelector('.dept-selected-badge');
+            const icon      = checkbox.closest('label')?.querySelector('.dept-icon');
+            const title     = checkbox.closest('label')?.querySelector('.dept-title');
+        
+            if (!card) return;
+        
+            if (checkbox.checked) {
+                card.classList.add('border-purple-500', 'bg-purple-500/10', 'shadow-lg', 'shadow-purple-500/20', '-translate-y-1', 'scale-[1.02]');
+                card.classList.remove('border-gray-700/50', 'bg-gray-800/30');
+        
+                if (checkmark) {
+                    checkmark.classList.add('bg-purple-500', 'border-purple-500');
+                    checkmark.classList.remove('border-gray-600');
+                }
+                if (checkIcon)  checkIcon.classList.remove('hidden');
+                if (badge)      badge.classList.remove('hidden');
+                if (icon)       icon.classList.add('from-purple-500/30', 'to-pink-500/30');
+                if (title)      title.classList.add('text-purple-300');
+            } else {
+                card.classList.remove('border-purple-500', 'bg-purple-500/10', 'shadow-lg', 'shadow-purple-500/20', '-translate-y-1', 'scale-[1.02]');
+                card.classList.add('border-gray-700/50', 'bg-gray-800/30');
+        
+                if (checkmark) {
+                    checkmark.classList.remove('bg-purple-500', 'border-purple-500');
+                    checkmark.classList.add('border-gray-600');
+                }
+                if (checkIcon)  checkIcon.classList.add('hidden');
+                if (badge)      badge.classList.add('hidden');
+                if (icon)       icon.classList.remove('from-purple-500/30', 'to-pink-500/30');
+                if (title)      title.classList.remove('text-purple-300');
+            }
+        }
+        
+        deptCheckboxes.forEach(cb => {
+            cb.addEventListener('change', () => {
+                applyCardState(cb);
+                refreshDeptUI();
+            });
+            // Initialize state on load
+            applyCardState(cb);
+        });
+        
+        refreshDeptUI();
+        // ── End Department checkbox ──────────────────────────────────────
         
         // Synology Drive link status
         const synologyInput = document.getElementById('synology_drive_link');
@@ -1178,6 +1117,6 @@
             });
         }
     });
-</script>
+    </script>
 
 </x-app-layout-dark>

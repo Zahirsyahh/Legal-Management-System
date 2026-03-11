@@ -707,6 +707,7 @@
                         Cancel
                     </a>
                     <button type="submit"
+                            id="saveWorkflowBtn"
                             class="btn-primary px-8 py-3 rounded-xl flex items-center gap-2 font-semibold">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
@@ -758,6 +759,18 @@
         let draggedItem = null;
 
         document.addEventListener('DOMContentLoaded', function() {
+            // RESET BUTTON IF PAGE REFRESHED
+            const submitButton = document.getElementById('saveWorkflowBtn');
+            if (submitButton) {
+                submitButton.disabled = false;
+                submitButton.innerHTML = `
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    Save Workflow Changes
+                `;
+            }
+
             initializeDragAndDrop();
             updateSequenceNumbers();
             
@@ -771,6 +784,20 @@
                 updateSequenceNumbers();
                 showLoading();
             });
+        });
+
+        // Add pageshow event handler untuk handle browser back/forward cache
+        window.addEventListener('pageshow', function() {
+            const btn = document.getElementById('saveWorkflowBtn');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = `
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    Save Workflow Changes
+                `;
+            }
         });
 
         // ========================================
@@ -1020,7 +1047,7 @@
         // SHOW LOADING
         // ========================================
         function showLoading() {
-            const submitButton = document.querySelector('#workflowForm button[type="submit"]');
+            const submitButton = document.getElementById('saveWorkflowBtn');
             if (submitButton) {
                 submitButton.innerHTML = `
                     <svg class="animate-spin h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24">

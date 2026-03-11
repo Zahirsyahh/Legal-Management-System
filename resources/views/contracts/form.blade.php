@@ -106,7 +106,7 @@
                 <!-- NEW: Contract Drafting Deadline -->
                 <div>
                     <label for="drafting_deadline" class="block text-sm font-medium text-gray-300 mb-2">
-                        Drafting Deadline
+                        Expected Deadline
                     </label>
                     <input type="date" 
                            name="drafting_deadline" 

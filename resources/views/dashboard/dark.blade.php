@@ -999,7 +999,7 @@
 
                         @if($ongoingDocs->count() >= 5)
                             <div class="mt-6 text-center border-t border-gray-700/30 pt-4">
-                                <a href="{{ route('contracts.index', ['status' => ['under_review', 'revision_needed']]) }}"
+                                <a href="{{ route('contracts.index', ['status' => ['under_review', 'revision_needed', 'final_approved']]) }}"
                                    class="text-xs text-primary hover:text-primary/80 transition-all inline-flex items-center gap-1 bg-white/5 px-4 py-2 rounded-lg">
                                     <span>View all {{ $ongoingDocs->count() }} ongoing reviews</span>
                                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">

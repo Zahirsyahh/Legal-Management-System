@@ -428,7 +428,7 @@ private function getLegalData($user)
         // TABLE 2: ONGOING DOCUMENTS (Sedang Diproses)
         // =====================================
         // ✅ YANG BENAR
-        $ongoingDocuments = Contract::whereIn('status', ['under_review', 'revision_needed'])
+        $ongoingDocuments = Contract::whereIn('status', ['under_review', 'revision_needed', 'final_approved'])
             ->whereHas('reviewStages', function($sq) use ($user) {
                 $sq->where('assigned_user_id', $user->id_user)
            ->whereIn('status', ['in_progress', 'assigned', 'revision_requested']);

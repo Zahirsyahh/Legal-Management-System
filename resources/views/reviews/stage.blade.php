@@ -72,6 +72,42 @@
         'admin_legal' => '👑',
         default => '👤'
     };
+    
+    // Siapkan data untuk dropdown Approve & Jump
+    $availableStagesForJump = [];
+    foreach($contract->reviewStages as $s) {
+        if ($s->id != $stage->id && !$s->is_user_stage) {
+            $availableStagesForJump[] = [
+                'id' => $s->id,
+                'stage_name' => $s->stage_name,
+                'stage_type' => $s->stage_type,
+                'assigned_user_name' => $s->assignedUser->name ?? 'Unassigned',
+                'sequence' => $s->sequence,
+                'is_completed' => $s->status === 'completed'
+            ];
+        }
+    }
+    
+    // Kelompokkan stages untuk Approve & Jump
+    $nextStages = [];
+    $otherStages = [];
+    
+    foreach($availableStagesForJump as $availableStage) {
+        if($availableStage['sequence'] > $stage->sequence) {
+            $nextStages[] = $availableStage;
+        } else {
+            $otherStages[] = $availableStage;
+        }
+    }
+    
+    // Urutkan berdasarkan sequence
+    usort($nextStages, function($a, $b) {
+        return ($a['sequence'] ?? 0) <=> ($b['sequence'] ?? 0);
+    });
+    
+    usort($otherStages, function($a, $b) {
+        return ($a['sequence'] ?? 0) <=> ($b['sequence'] ?? 0);
+    });
 @endphp
 
 <x-app-layout-dark title="Stage Review - {{ $contract->title }}">
@@ -324,38 +360,10 @@
                                                 <select name="jump_to_stage_id" 
                                                         required
                                                         class="w-full bg-gray-800/50 border {{ $errors->has('jump_to_stage_id') ? 'border-red-500/50' : 'border-gray-700/50' }} rounded-lg px-4 py-3 text-gray-300 focus:ring-1 focus:ring-green-500/30 focus:border-green-500/50 transition-all backdrop-blur-sm"
-                                                        id="jumpStageSelect">
+                                                        id="jumpStageSelectApprove">
                                                     <option value="">-- Select stage to jump to --</option>
                                                     
                                                     <!-- Group: Next Sequential Stages -->
-                                                    @php
-                                                        $nextStages = [];
-                                                        $otherStages = [];
-                                                        
-                                                        foreach($availableStages as $availableStage) {
-                                                            $stageData = is_array($availableStage) ? $availableStage : (array) $availableStage;
-                                                            $stageId = $stageData['id'] ?? '';
-                                                            $isUserStage = $stageData['is_user_stage'] ?? false;
-                                                            $sequence = $stageData['sequence'] ?? 0;
-                                                            
-                                                            if(!$isUserStage && $stageId != $stage->id) {
-                                                                if($sequence > $stage->sequence) {
-                                                                    $nextStages[] = $stageData;
-                                                                } else {
-                                                                    $otherStages[] = $stageData;
-                                                                }
-                                                            }
-                                                        }
-                                                        
-                                                        usort($nextStages, function($a, $b) {
-                                                            return ($a['sequence'] ?? 0) <=> ($b['sequence'] ?? 0);
-                                                        });
-                                                        
-                                                        usort($otherStages, function($a, $b) {
-                                                            return ($a['sequence'] ?? 0) <=> ($b['sequence'] ?? 0);
-                                                        });
-                                                    @endphp
-                                                    
                                                     @if(!empty($nextStages))
                                                         <optgroup label="📈 Next Stages in Sequence" class="bg-gray-800">
                                                             @foreach($nextStages as $nextStage)
@@ -370,26 +378,22 @@
                                                                         {{ old('jump_to_stage_id') == $stageId ? 'selected' : '' }}>
                                                                     @switch($stageType)
                                                                         @case('legal')
-                                                                            ⚖️ 
+                                                                            ⚖️ Stage {{ $sequence }} - {{ $assignedUserName }} - {{ ucfirst(str_replace('_', ' ', $stageName)) }}
                                                                             @break
                                                                         @case('admin_legal')
-                                                                            👑 
+                                                                            👑 Stage {{ $sequence }} - {{ $assignedUserName }} - {{ ucfirst(str_replace('_', ' ', $stageName)) }}
                                                                             @break
                                                                         @case('fat')
-                                                                            💼 
+                                                                            💼 Stage {{ $sequence }} - {{ $assignedUserName }} - {{ ucfirst(str_replace('_', ' ', $stageName)) }}
                                                                             @break
                                                                         @default
-                                                                            📋 
+                                                                            📋 Stage {{ $sequence }} - {{ $assignedUserName }} - {{ ucfirst(str_replace('_', ' ', $stageName)) }}
                                                                     @endswitch
-                                                                    
-                                                                    {{ ucfirst(str_replace('_', ' ', $stageName)) }}
-                                                                    <span class="text-gray-500 text-xs">(Stage {{ $sequence }})</span>
-                                                                    - {{ $assignedUserName }}
                                                                 </option>
                                                             @endforeach
                                                         </optgroup>
                                                     @endif
-                                                    
+
                                                     @if(!empty($otherStages))
                                                         <optgroup label="↩️ Other Available Stages" class="bg-gray-800">
                                                             @foreach($otherStages as $otherStage)
@@ -405,26 +409,21 @@
                                                                         {{ old('jump_to_stage_id') == $stageId ? 'selected' : '' }}>
                                                                     @switch($stageType)
                                                                         @case('legal')
-                                                                            ⚖️ 
+                                                                            ⚖️ Stage {{ $sequence }} - {{ $assignedUserName }} - {{ ucfirst(str_replace('_', ' ', $stageName)) }}
                                                                             @break
                                                                         @case('admin_legal')
-                                                                            👑 
+                                                                            👑 Stage {{ $sequence }} - {{ $assignedUserName }} - {{ ucfirst(str_replace('_', ' ', $stageName)) }}
                                                                             @break
                                                                         @case('fat')
-                                                                            💼 
+                                                                            💼 Stage {{ $sequence }} - {{ $assignedUserName }} - {{ ucfirst(str_replace('_', ' ', $stageName)) }}
                                                                             @break
                                                                         @default
-                                                                            📋 
+                                                                            📋 Stage {{ $sequence }} - {{ $assignedUserName }} - {{ ucfirst(str_replace('_', ' ', $stageName)) }}
                                                                     @endswitch
                                                                     
-                                                                    {{ ucfirst(str_replace('_', ' ', $stageName)) }}
-                                                                    <span class="text-gray-500 text-xs">(Stage {{ $sequence }})</span>
-                                                                    
                                                                     @if($isCompleted)
-                                                                        <span class="text-green-400">✓</span>
+                                                                        ✓
                                                                     @endif
-                                                                    
-                                                                    - {{ $assignedUserName }}
                                                                 </option>
                                                             @endforeach
                                                         </optgroup>
@@ -522,7 +521,7 @@
                                             </label>
                                             <select name="jump_to_stage_id" 
                                                     class="w-full bg-gray-800/50 border {{ $errors->has('jump_to_stage_id') ? 'border-red-500/50' : 'border-gray-700/50' }} rounded-lg px-4 py-3 text-gray-300 focus:ring-1 focus:ring-amber-500/30 focus:border-amber-500/50 transition-all backdrop-blur-sm"
-                                                    id="jumpStageSelect">
+                                                    id="jumpStageSelectRevision">
                                                 <option value="">-- Select stage to jump to --</option>
                                                 
                                                 @php
@@ -530,49 +529,42 @@
                                                 @endphp
                                                 @if($userStage)
                                                     <option value="{{ $userStage->id }}" {{ old('jump_to_stage_id') == $userStage->id ? 'selected' : '' }}>
-                                                        🏠 USER Stage (Back to Contract Owner: {{ $userStage->assignedUser->name ?? 'Unassigned' }})
+                                                        🏠 Stage {{ $userStage->sequence }} - {{ $userStage->assignedUser->name ?? 'Unassigned' }} - USER (Back to Contract Owner)
                                                     </option>
                                                 @endif
                                                 
                                                 <option disabled class="bg-gray-800 text-gray-500">────────── Other Stages ──────────</option>
                                                 
-                                                @foreach($availableStages as $availableStage)
+                                                @foreach($availableStagesForJump as $availableStage)
                                                     @php
-                                                        $stageData = is_array($availableStage) ? $availableStage : (array) $availableStage;
-                                                        $stageName = $stageData['stage_name'] ?? '';
-                                                        $stageId = $stageData['id'] ?? '';
-                                                        $isUserStage = $stageData['is_user_stage'] ?? false;
-                                                        $assignedUserName = $stageData['assigned_user_name'] ?? 'Unassigned';
-                                                        $stageType = $stageData['stage_type'] ?? '';
-                                                        $isCompleted = $stageData['is_completed'] ?? false;
+                                                        $stageName = $availableStage['stage_name'] ?? '';
+                                                        $stageId = $availableStage['id'] ?? '';
+                                                        $assignedUserName = $availableStage['assigned_user_name'] ?? 'Unassigned';
+                                                        $stageType = $availableStage['stage_type'] ?? '';
+                                                        $isCompleted = $availableStage['is_completed'] ?? false;
+                                                        $sequence = $availableStage['sequence'] ?? 0;
                                                     @endphp
                                                     
-                                                    @if(!$isUserStage && $stageId != $stage->id)
-                                                        <option value="{{ $stageId }}" 
-                                                                {{ old('jump_to_stage_id') == $stageId ? 'selected' : '' }}>
-                                                            @switch($stageType)
-                                                                @case('legal')
-                                                                    ⚖️ 
-                                                                    @break
-                                                                @case('admin_legal')
-                                                                    👑 
-                                                                    @break
-                                                                @case('fat')
-                                                                    💼 
-                                                                    @break
-                                                                @default
-                                                                    📋 
-                                                            @endswitch
-                                                            
-                                                            {{ ucfirst(str_replace('_', ' ', $stageName)) }}
-                                                            
-                                                            @if($isCompleted)
-                                                                <span class="text-green-400">✓</span>
-                                                            @endif
-                                                            
-                                                            ({{ $assignedUserName }})
-                                                        </option>
-                                                    @endif
+                                                    <option value="{{ $stageId }}" 
+                                                            {{ old('jump_to_stage_id') == $stageId ? 'selected' : '' }}>
+                                                        @switch($stageType)
+                                                            @case('legal')
+                                                                ⚖️ Stage {{ $sequence }} - {{ $assignedUserName }} - {{ ucfirst(str_replace('_', ' ', $stageName)) }}
+                                                                @break
+                                                            @case('admin_legal')
+                                                                👑 Stage {{ $sequence }} - {{ $assignedUserName }} - {{ ucfirst(str_replace('_', ' ', $stageName)) }}
+                                                                @break
+                                                            @case('fat')
+                                                                💼 Stage {{ $sequence }} - {{ $assignedUserName }} - {{ ucfirst(str_replace('_', ' ', $stageName)) }}
+                                                                @break
+                                                            @default
+                                                                📋 Stage {{ $sequence }} - {{ $assignedUserName }} - {{ ucfirst(str_replace('_', ' ', $stageName)) }}
+                                                        @endswitch
+                                                        
+                                                        @if($isCompleted)
+                                                            ✓
+                                                        @endif
+                                                    </option>
                                                 @endforeach
                                             </select>
                                             
@@ -735,7 +727,7 @@
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                     </svg>
                                     User
-                                    </span>
+                                </span>
                                 @endif
                             </div>
                         </div>

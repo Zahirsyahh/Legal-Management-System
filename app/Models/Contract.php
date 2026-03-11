@@ -28,6 +28,8 @@ class Contract extends Model
     const STATUS_FINAL_APPROVED = 'final_approved';
     const STATUS_NUMBER_ISSUED = 'number_issued';
     const STATUS_RELEASED = 'released';
+    const STATUS_EXECUTED = 'executed';
+    const STATUS_ARCHIVED = 'archived';
     const STATUS_REVISION_NEEDED = 'revision_needed';
     const STATUS_DECLINED = 'declined';
     const STATUS_CANCELLED = 'cancelled';
@@ -101,6 +103,10 @@ class Contract extends Model
         'final_approved_by',
         'released_at',           
         'number_issued_at', 
+        'executed_at',
+        'executed_by',
+        'archived_at',
+        'archived_by',
         'user_id',
         'legal_assigned_id',
         'finance_assigned_id',              // 🔄 Ganti fat_assigned dengan finance_assigned
@@ -140,6 +146,8 @@ class Contract extends Model
         'legal_approved_at' => 'datetime',
         'final_approved_at' => 'datetime',
         'number_issued_at' => 'datetime',
+        'executed_at' => 'datetime',
+        'archived_at' => 'datetime',
         'released_at' => 'datetime',
         'current_stage' => 'integer',
         'legal_review_started_at' => 'datetime',
@@ -171,6 +179,8 @@ class Contract extends Model
                     self::STATUS_SUBMITTED => ['submitted_at' => now()],
                     self::STATUS_LEGAL_APPROVED => ['legal_approved_at' => now()],
                     self::STATUS_FINAL_APPROVED => ['final_approved_at' => now()],
+                    self::STATUS_EXECUTED => ['executed_at' => now()],
+                    self::STATUS_ARCHIVED => ['archived_at' => now()],
                 ];
 
                 if (isset($timestampMap[$newStatus])) {
@@ -273,9 +283,19 @@ class Contract extends Model
     public function taxDepartmentReview()
     {
         return $this->hasOne(\App\Models\ContractDepartment::class, 'contract_id')
-                    ->whereHas('department', function($q) {
-                        $q->where('code', 'TAX');
-                    });
+            ->whereHas('department', function($q) {
+                $q->where('code', 'TAX');
+        });
+    }
+
+    public function executedBy()
+    {
+        return $this->belongsTo(TblUser::class, 'executed_by', 'id_user');
+    }
+
+    public function archivedBy()
+    {
+        return $this->belongsTo(TblUser::class, 'archived_by', 'id_user');
     }
 
     // NEW RELATIONSHIPS FOR REVIEW STAGE SYSTEM
@@ -493,6 +513,26 @@ class Contract extends Model
         return (int) $this->user_id === (int) $user->id;
     }
 
+    public function canBeExecuted(TblUser $user): bool{
+        return $this->status === self::STATUS_FINAL_APPROVED
+            && (int) $this->user_id === (int) $user->id_user;
+    }
+
+    public function canBeArchived(TblUser $user): bool{
+        return $this->status === self::STATUS_EXECUTED
+            && $user->hasRole('legal');
+    }
+
+    public function isExecuted(): bool
+    {
+        return $this->status === self::STATUS_EXECUTED;
+    }
+
+    public function isArchived(): bool
+    {
+        return $this->status === self::STATUS_ARCHIVED;
+    }
+
     // Contract.php
     /**
      * Check if contract can have number generated
@@ -631,6 +671,8 @@ class Contract extends Model
             self::STATUS_FINAL_APPROVED => 'Approved',
             self::STATUS_NUMBER_ISSUED => 'Number Issued',
             self::STATUS_RELEASED => 'Completed',
+            self::STATUS_EXECUTED => 'Executed',
+            self::STATUS_ARCHIVED => 'Archived',
             self::STATUS_REVISION_NEEDED => 'Revision Needed',
             self::STATUS_DECLINED => 'Declined',
             self::STATUS_CANCELLED => 'Cancelled',
@@ -755,6 +797,8 @@ class Contract extends Model
             'accounting_approved' => 'bg-indigo-500/30 text-indigo-400',
             'tax_reviewing' => 'bg-pink-500/20 text-pink-300',
             'tax_approved' => 'bg-pink-500/30 text-pink-400',
+            'executed' => 'bg-blue-700 text-blue-200',
+            'archived' => 'bg-slate-700 text-slate-300',
             'final_approved' => 'bg-green-700 text-green-300',
             'released' => 'bg-green-700 text-green-300',
             'revision_needed' => 'bg-red-500/20 text-red-300',

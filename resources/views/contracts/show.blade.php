@@ -1,3 +1,4 @@
+{{-- resources/views/contracts/show.blade.php --}}
 @php
     $activeStage = $contract->activeStage();
     $isInProgress = $activeStage && $activeStage->status === 'in_progress';
@@ -20,151 +21,226 @@
     $legalComments = \App\Models\LegalContractComment::where('contract_id', $contract->id)
         ->orderBy('created_at', 'asc')  // ASC = lama ke baru, terbaru di bawah
         ->get();
+    
+    // Status colors untuk badge
+    $statusColors = [
+        'draft' => 'bg-gray-500/10 text-gray-400 border-gray-500/30',
+        'submitted' => 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30',
+        'under_review' => 'bg-blue-500/10 text-blue-400 border-blue-500/30',
+        'revision_needed' => 'bg-orange-500/10 text-orange-400 border-orange-500/30',
+        'final_approved' => 'bg-green-500/10 text-green-400 border-green-500/30',
+        'executed' => 'bg-purple-500/10 text-purple-400 border-purple-500/30',
+        'archived' => 'bg-gray-500/10 text-gray-400 border-gray-500/30',
+    ];
+    
+    $contract->status_color = $statusColors[$contract->status] ?? 'bg-gray-500/10 text-gray-400 border-gray-500/30';
+    $contract->status_label = ucwords(str_replace('_', ' ', $contract->status));
 @endphp
 
 <x-app-layout-dark title="Contract Details">
     <x-slot name="scripts">
-    <script>
-        // Fungsi untuk toggle inline edit
-        function toggleInlineEdit() {
-            const displayPath = document.getElementById('displayPath');
-            const inlineEdit = document.getElementById('inlineEdit');
-            const editButton = document.getElementById('editButton');
+<script>
+    // Fungsi untuk toggle inline edit
+    function toggleInlineEdit() {
+        const displayPath = document.getElementById('displayPath');
+        const inlineEdit = document.getElementById('inlineEdit');
+        const editButton = document.getElementById('editButton');
+        
+        if (displayPath && inlineEdit) {
+            displayPath.classList.toggle('hidden');
+            inlineEdit.classList.toggle('hidden');
             
-            if (displayPath && inlineEdit) {
-                displayPath.classList.toggle('hidden');
-                inlineEdit.classList.toggle('hidden');
-                
-                // Ubah teks tombol
-                if (editButton) {
-                    if (!displayPath.classList.contains('hidden')) {
-                        editButton.innerHTML = `
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                            </svg>
-                            Edit Path
-                        `;
-                    } else {
-                        editButton.innerHTML = `
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                            Cancel
-                        `;
-                    }
+            // Ubah teks tombol
+            if (editButton) {
+                if (!displayPath.classList.contains('hidden')) {
+                    editButton.innerHTML = `
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                        Edit Path
+                    `;
+                } else {
+                    editButton.innerHTML = `
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        Cancel
+                    `;
                 }
             }
         }
+    }
 
-        // Copy to clipboard function
-        function copyToClipboard(text) {
-            navigator.clipboard.writeText(text).then(() => {
-                // Show success toast
-                const toast = document.createElement('div');
-                toast.className = 'fixed top-4 right-4 px-4 py-3 bg-green-600 text-white rounded-lg shadow-lg z-50 flex items-center gap-2 animate-fade-in';
-                toast.innerHTML = `
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span>Link copied to clipboard!</span>
-                `;
-                document.body.appendChild(toast);
-                
-                setTimeout(() => {
-                    toast.remove();
-                }, 3000);
-            }).catch(err => {
-                console.error('Failed to copy:', err);
-                alert('Gagal menyalin link');
-            });
-        }
-
-        // Close modal when clicking outside
-        document.addEventListener('DOMContentLoaded', function() {
-            const modal = document.getElementById('editPathModal');
-            if (modal) {
-                modal.addEventListener('click', function(e) {
-                    if (e.target === this) {
-                        hideEditPathModal();
-                    }
-                });
-            }
+    // Copy to clipboard function
+    function copyToClipboard(text) {
+        navigator.clipboard.writeText(text).then(() => {
+            // Show success toast
+            const toast = document.createElement('div');
+            toast.className = 'fixed top-4 right-4 px-4 py-3 bg-green-600 text-white rounded-lg shadow-lg z-50 flex items-center gap-2 animate-fade-in';
+            toast.innerHTML = `
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                <span>Link copied to clipboard!</span>
+            `;
+            document.body.appendChild(toast);
             
-            // Close modal with Escape key
-            document.addEventListener('keydown', function(e) {
-                if (e.key === 'Escape') {
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }).catch(err => {
+            console.error('Failed to copy:', err);
+            alert('Gagal menyalin link');
+        });
+    }
+
+    // Close modal when clicking outside
+    document.addEventListener('DOMContentLoaded', function() {
+        const modal = document.getElementById('editPathModal');
+        if (modal) {
+            modal.addEventListener('click', function(e) {
+                if (e.target === this) {
                     hideEditPathModal();
                 }
             });
-        });
-
-        window.switchTab = function(tabName) {
-            // Sembunyikan semua tab content
-            document.querySelectorAll('.tab-content').forEach(el => {
-                el.classList.add('hidden');
-            });
-
-            // Tampilkan tab content yang dipilih
-            document.getElementById(tabName + '-tab').classList.remove('hidden');
-
-            // Reset semua tab button
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.classList.remove('border-blue-500', 'text-blue-600');
-                btn.classList.add('border-transparent', 'text-gray-500');
-            });
-
-            // Aktifkan tab button yang dipilih
-            document.querySelector('[data-tab="'+tabName+'"]')
-                .classList.add('border-blue-500', 'text-blue-600');
-
-            // Auto-scroll chat ke bawah saat membuka tab discussion
-            if (tabName === 'discussion') {
-                setTimeout(() => {
-                    const chatContainer = document.getElementById('chat-messages');
-                    if (chatContainer) {
-                        chatContainer.scrollTop = chatContainer.scrollHeight;
-                    }
-                }, 100);
+        }
+        
+        // Close modal with Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                hideEditPathModal();
             }
-        }
+        });
+    });
 
-        // Inisialisasi tab saat halaman dimuat
-        document.addEventListener('DOMContentLoaded', function() {
-            // Set default tab ke history
-            window.switchTab('history');
-            
-            // Auto-resize textarea
-            const textareas = document.querySelectorAll('textarea');
-            textareas.forEach(textarea => {
-                textarea.addEventListener('input', function() {
-                    this.style.height = 'auto';
-                    this.style.height = (this.scrollHeight) + 'px';
-                });
-            });
+    // Fungsi switch tab dengan auto-scroll
+    window.switchTab = function(tabName) {
+        // Sembunyikan semua tab content
+        document.querySelectorAll('.tab-content').forEach(el => {
+            el.classList.add('hidden');
         });
 
-        // Copy to clipboard function
-        window.copyToClipboard = function(text) {
-            navigator.clipboard.writeText(text).then(() => {
-                const toast = document.createElement('div');
-                toast.className = 'fixed top-4 right-4 px-4 py-3 bg-green-600 text-white rounded-lg shadow-lg z-50 flex items-center gap-2 animate-fade-in';
-                toast.innerHTML = `
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                    </svg>
-                    <span>Link copied to clipboard!</span>
-                `;
-                document.body.appendChild(toast);
-                
-                setTimeout(() => {
-                    toast.remove();
-                }, 3000);
-            }).catch(err => {
-                console.error('Failed to copy:', err);
-                alert('Gagal menyalin link');
+        // Tampilkan tab content yang dipilih
+        document.getElementById(tabName + '-tab').classList.remove('hidden');
+
+        // Reset semua tab button
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('border-blue-500', 'text-blue-600');
+            btn.classList.add('border-transparent', 'text-gray-500');
+        });
+
+        // Aktifkan tab button yang dipilih
+        document.querySelector('[data-tab="'+tabName+'"]')
+            .classList.add('border-blue-500', 'text-blue-600');
+
+        // Auto-scroll ke bawah untuk tab tertentu
+        setTimeout(() => {
+            if (tabName === 'discussion') {
+                const chatContainer = document.getElementById('chat-messages');
+                if (chatContainer) {
+                    chatContainer.style.scrollBehavior = 'smooth';
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                }
+            } else if (tabName === 'history') {
+                const historyTab = document.getElementById('history-tab');
+                if (historyTab) {
+                    const historyContainer = historyTab.querySelector('.overflow-y-auto');
+                    if (historyContainer) {
+                        historyContainer.style.scrollBehavior = 'smooth';
+                        historyContainer.scrollTop = historyContainer.scrollHeight;
+                    }
+                }
+            }
+        }, 150);
+    }
+
+    // Observer untuk mendeteksi perubahan di review history
+    function observeHistoryChanges() {
+        const historyTab = document.getElementById('history-tab');
+        if (!historyTab) return;
+        
+        const historyContainer = historyTab.querySelector('.overflow-y-auto');
+        if (!historyContainer) return;
+        
+        // Buat MutationObserver untuk mendeteksi penambahan log baru
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                    // Jika ada node baru ditambahkan, scroll ke bawah dengan smooth
+                    historyContainer.style.scrollBehavior = 'smooth';
+                    historyContainer.scrollTop = historyContainer.scrollHeight;
+                    
+                    // Reset scroll behavior setelah selesai
+                    setTimeout(() => {
+                        historyContainer.style.scrollBehavior = 'auto';
+                    }, 500);
+                }
             });
-        }
-    </script>
+        });
+        
+        // Observasi perubahan pada container
+        observer.observe(historyContainer, {
+            childList: true,
+            subtree: true
+        });
+    }
+
+    // Inisialisasi tab saat halaman dimuat
+    document.addEventListener('DOMContentLoaded', function() {
+        // Set default tab ke history
+        window.switchTab('history');
+        
+        // Auto-resize textarea
+        const textareas = document.querySelectorAll('textarea');
+        textareas.forEach(textarea => {
+            textarea.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = (this.scrollHeight) + 'px';
+            });
+        });
+        
+        // Aktifkan observer untuk review history
+        observeHistoryChanges();
+        
+        // Scroll ke bawah untuk pertama kali dengan sedikit delay
+        setTimeout(() => {
+            const historyTab = document.getElementById('history-tab');
+            if (historyTab) {
+                const historyContainer = historyTab.querySelector('.overflow-y-auto');
+                if (historyContainer) {
+                    historyContainer.style.scrollBehavior = 'smooth';
+                    historyContainer.scrollTop = historyContainer.scrollHeight;
+                    
+                    setTimeout(() => {
+                        historyContainer.style.scrollBehavior = 'auto';
+                    }, 500);
+                }
+            }
+        }, 200);
+    });
+
+    // Copy to clipboard function (global)
+    window.copyToClipboard = function(text) {
+        navigator.clipboard.writeText(text).then(() => {
+            const toast = document.createElement('div');
+            toast.className = 'fixed top-4 right-4 px-4 py-3 bg-green-600 text-white rounded-lg shadow-lg z-50 flex items-center gap-2 animate-fade-in';
+            toast.innerHTML = `
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                <span>Link copied to clipboard!</span>
+            `;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }).catch(err => {
+            console.error('Failed to copy:', err);
+            alert('Gagal menyalin link');
+        });
+    }
+</script>
     </x-slot>
 
     <div class="pb-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
@@ -554,7 +630,6 @@
                         </div>
                     </div>
                     @endif
-
                 </div>
 
                 {{-- ============================= --}}
@@ -626,9 +701,6 @@
                                     {{ $legalComments->count() }}
                                 </span>
                             @endif
-                            
-                            {{-- Live indicator untuk status UNDER REVIEW --}}
-
                         </button>
                         @endif
                     </div>
@@ -650,81 +722,75 @@
                             <div class="space-y-3 max-h-[400px] overflow-y-auto pr-2 scrollbar-thin">
                                 @foreach ($reviewLogs as $log)
                                     @php
-                                    $metadata = is_array($log->metadata ?? null) ? $log->metadata : [];
+                                        $metadata = is_array($log->metadata ?? null) ? $log->metadata : [];
 
-                                    $displayNotes =
-                                        !empty(trim($log->notes ?? '')) ? $log->notes
-                                        : (!empty(trim($metadata['notes'] ?? '')) ? $metadata['notes']
-                                        : (!empty(trim($metadata['revision_notes'] ?? '')) ? $metadata['revision_notes']
-                                        : (!empty(trim($metadata['rejection_reason'] ?? '')) ? $metadata['rejection_reason']
-                                        : (!empty(trim($metadata['response'] ?? '')) ? $metadata['response']
-                                        : (!empty(trim($metadata['feedback'] ?? '')) ? $metadata['feedback']
-                                        : null)))));
+                                        $displayNotes =
+                                            !empty(trim($log->notes ?? '')) ? $log->notes
+                                            : (!empty(trim($metadata['notes'] ?? '')) ? $metadata['notes']
+                                            : (!empty(trim($metadata['revision_notes'] ?? '')) ? $metadata['revision_notes']
+                                            : (!empty(trim($metadata['rejection_reason'] ?? '')) ? $metadata['rejection_reason']
+                                            : (!empty(trim($metadata['response'] ?? '')) ? $metadata['response']
+                                            : (!empty(trim($metadata['feedback'] ?? '')) ? $metadata['feedback']
+                                            : null)))));
 
-                                    $isJumpAction = in_array($log->action, [
-                                        'approve_jump',
-                                        'request_revision',
-                                        'revision_requested',
-                                    ]);
+                                        $isJumpAction = in_array($log->action, [
+                                            'approve_jump',
+                                            'request_revision',
+                                            'revision_requested',
+                                        ]);
 
-                                    $jumpToStage = null;
-                                    $jumpToReviewer = null;
+                                        $jumpToStage    = null;
+                                        $jumpToReviewer = null;
 
-                                    if ($isJumpAction) {
-                                        if (!empty($metadata['to_stage']['stage_name'])) {
-                                            $jumpToStage = $metadata['to_stage']['stage_name'];
+                                        if ($isJumpAction) {
+                                            $jumpToStage    = $metadata['to_stage']['stage_name']  ?? $metadata['to_stage_name']    ?? null;
+                                            $jumpToReviewer = $metadata['to_reviewer']['name']     ?? $metadata['to_reviewer_name'] ?? $metadata['target_reviewer'] ?? null;
                                         }
 
-                                        if (!empty($metadata['to_reviewer']['name'])) {
-                                            $jumpToReviewer = $metadata['to_reviewer']['name'];
-                                        }
+                                        $actionColors = [
+                                            'approve'          => 'bg-green-500/10 text-green-400 border-green-500/30',
+                                            'approve_jump'     => 'bg-blue-500/10 text-blue-400 border-blue-500/30',
+                                            'request_revision' => 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30',
+                                            'revision_requested'=> 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30',
+                                            'revision'         => 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30',
+                                            'user_response'    => 'bg-purple-500/10 text-purple-400 border-purple-500/30',
+                                            'reject'           => 'bg-red-500/10 text-red-400 border-red-500/30',
+                                            'final_approve'    => 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
+                                            'stage_started'    => 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30',
+                                            'stage_completed'  => 'bg-green-500/10 text-green-400 border-green-500/30',
+                                            'stage_added'      => 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30',
+                                            'stage_deleted'    => 'bg-red-500/10 text-red-400 border-red-500/30',
+                                            'stage_removed'    => 'bg-red-500/10 text-red-400 border-red-500/30',
+                                            'workflow_updated' => 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30',
+                                        ];
 
-                                        $jumpToStage ??= $metadata['to_stage_name'] ?? null;
-                                        $jumpToReviewer ??= $metadata['to_reviewer_name'] ?? $metadata['target_reviewer'] ?? null;
-                                    }
+                                        $actionColor = $actionColors[$log->action] ?? 'bg-gray-500/10 text-gray-400 border-gray-500/30';
 
-                                    $actionColors = [
-                                        'approve' => 'bg-green-500/10 text-green-400 border-green-500/30',
-                                        'approve_jump' => 'bg-blue-500/10 text-blue-400 border-blue-500/30',
-                                        'request_revision' => 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30',
-                                        'revision_requested' => 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30',
-                                        'revision' => 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30',
-                                        'user_response' => 'bg-purple-500/10 text-purple-400 border-purple-500/30',
-                                        'reject' => 'bg-red-500/10 text-red-400 border-red-500/30',
-                                        'final_approve' => 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
-                                        'stage_started' => 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30',
-                                        'stage_completed' => 'bg-green-500/10 text-green-400 border-green-500/30',
-                                        'stage_added' => 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30',
-                                        'stage_deleted' => 'bg-red-500/10 text-red-400 border-red-500/30',
-                                        'stage_removed' => 'bg-red-500/10 text-red-400 border-red-500/30',
-                                        'workflow_updated' => 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30',
-                                    ];
+                                        $actionLabels = [
+                                            'approve'          => 'Approved',
+                                            'approve_jump'     => 'Approved & Jump',
+                                            'request_revision' => 'Revision Requested',
+                                            'revision_requested'=> 'Revision Requested',
+                                            'revision'         => 'Revision Submitted',
+                                            'user_response'    => 'User Response',
+                                            'reject'           => 'Rejected',
+                                            'final_approve'    => 'Final Approved',
+                                            'stage_started'    => 'Stage Started',
+                                            'stage_completed'  => 'Stage Completed',
+                                            'stage_added'      => 'Stage Added',
+                                            'stage_deleted'    => 'Stage Deleted',
+                                            'stage_removed'    => 'Stage Removed',
+                                            'workflow_updated' => 'Workflow Updated',
+                                            'sequence_changed' => 'Sequence Changed',
+                                            'reviewer_changed' => 'Reviewer Changed',
+                                        ];
 
-                                    $actionColor = $actionColors[$log->action] ?? 'bg-gray-500/10 text-gray-400 border-gray-500/30';
-
-                                    $actionLabels = [
-                                        'approve' => 'Approved',
-                                        'approve_jump' => 'Approved & Jump',
-                                        'request_revision' => 'Revision Requested',
-                                        'revision_requested' => 'Revision Requested',
-                                        'revision' => 'Revision Submitted',
-                                        'user_response' => 'User Response',
-                                        'reject' => 'Rejected',
-                                        'final_approve' => 'Final Approved',
-                                        'stage_started' => 'Stage Started',
-                                        'stage_completed' => 'Stage Completed',
-                                        'stage_added' => 'Stage Added',
-                                        'stage_deleted' => 'Stage Deleted',
-                                        'stage_removed' => 'Stage Removed',
-                                        'workflow_updated' => 'Workflow Updated',
-                                        'sequence_changed' => 'Sequence Changed',
-                                        'reviewer_changed' => 'Reviewer Changed',
-                                    ];
-
-                                    $actionLabel = $actionLabels[$log->action] ?? ucfirst(str_replace('_', ' ', $log->action));
+                                        $actionLabel = $actionLabels[$log->action] ?? ucfirst(str_replace('_', ' ', $log->action));
                                     @endphp
 
-                                    <div class="border border-gray-700/30 rounded-lg p-4 bg-gray-900/30 hover:bg-gray-900/50 transition-colors">
+                                    {{-- Review Log Card --}}
+                                    <div class="glass-card rounded-lg p-4 bg-gray-900/30 hover:bg-gray-900/50 transition-colors border border-gray-700/30">
+                                        {{-- Header: Avatar + Name + Badge --}}
                                         <div class="flex items-start justify-between mb-3">
                                             <div class="flex items-center gap-3">
                                                 <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500/30 to-indigo-500/30 flex items-center justify-center flex-shrink-0 border border-blue-500/30">
@@ -732,38 +798,34 @@
                                                         {{ substr($log->user->nama_user ?? 'S', 0, 1) }}
                                                     </span>
                                                 </div>
-                                                
+
                                                 <div class="flex flex-col">
                                                     <div class="flex items-center gap-2 flex-wrap">
                                                         <span class="text-sm font-semibold text-gray-200">
                                                             {{ $log->user->nama_user ?? 'System' }}
                                                         </span>
-                                                        
+
                                                         @if($log->user && $log->user->jabatan)
                                                             @php
                                                                 $roleDisplay = match($log->user->jabatan) {
-                                                                    'ADMIN' => 'Admin',
-                                                                    'LEGAL' => 'Legal',
-                                                                    'USER' => 'User',
+                                                                    'ADMIN'     => 'Admin',
+                                                                    'LEGAL'     => 'Legal',
+                                                                    'USER'      => 'User',
                                                                     'ADMIN_FIN' => 'Admin Finance',
                                                                     'ADMIN_ACC' => 'Admin Accounting',
                                                                     'ADMIN_TAX' => 'Admin Tax',
                                                                     'STAFF_FIN' => 'Staff Finance',
                                                                     'STAFF_ACC' => 'Staff Accounting',
                                                                     'STAFF_TAX' => 'Staff Tax',
-                                                                    default => $log->user->jabatan
+                                                                    default     => $log->user->jabatan
                                                                 };
                                                             @endphp
                                                             <span class="px-1.5 py-0.5 rounded bg-gray-800 text-xs text-gray-300">
                                                                 {{ $roleDisplay }}
                                                             </span>
                                                         @endif
-                                                        
-                                                        <span class="text-xs text-gray-500 ml-1">
-                                                            • {{ $log->created_at->format('M d, H:i') }}
-                                                        </span>
                                                     </div>
-                                                    
+
                                                     @if($log->user && $log->user->email)
                                                         <div class="text-xs text-gray-500 mt-0.5">
                                                             {{ $log->user->email }}
@@ -771,14 +833,16 @@
                                                     @endif
                                                 </div>
                                             </div>
-                                            
+
                                             <span class="text-xs px-3 py-1.5 rounded-full border font-medium {{ $actionColor }} shadow-sm">
                                                 {{ $actionLabel }}
                                             </span>
                                         </div>
-                                        
-                                        @if($log->stage_id && $log->stage)
-                                            <div class="mb-3 p-3 bg-gray-800/40 rounded-lg border border-gray-700/50">
+
+                                        {{-- Stage Info Box (kecuali stage_added & stage_deleted) --}}
+                                        @if($log->stage_id && $log->stage && !in_array($log->action, ['stage_added', 'stage_deleted']))
+                                            <div class="mb-3 p-3 bg-gray-800/40 rounded-lg border border-gray-700/50 space-y-3">
+                                                {{-- Stage name --}}
                                                 <div class="flex items-center gap-2 text-sm">
                                                     <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
@@ -787,73 +851,92 @@
                                                         Stage {{ $log->stage->sequence }}: {{ $log->stage->stage_name }}
                                                     </span>
                                                     <span class="text-xs px-2 py-0.5 rounded-full bg-gray-700 text-gray-300">
-                                                        @if($log->stage->is_user_stage)
-                                                            USER
-                                                        @else
-                                                            {{ strtoupper($log->stage->stage_type) }}
-                                                        @endif
+                                                        {{ $log->stage->is_user_stage ? 'USER' : strtoupper($log->stage->stage_type) }}
                                                     </span>
                                                 </div>
-                                                
-                                                @if($log->stage->assignedUser)
-                                                    <div class="flex items-center gap-2 mt-2 ml-6 text-xs">
-                                                        <div class="w-5 h-5 rounded-full bg-indigo-500/20 flex items-center justify-center">
-                                                            <svg class="w-3 h-3 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+
+                                                {{-- Jump / Revision target --}}
+                                                @if($isJumpAction && ($jumpToStage || $jumpToReviewer))
+                                                    <div class="ml-6 space-y-1">
+                                                        <span class="text-xs font-medium text-blue-400 flex items-center gap-1">
+                                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                                                             </svg>
-                                                        </div>
-                                                        <div class="flex items-center gap-1 flex-wrap">
-                                                            <span class="text-gray-400">Reviewer:</span>
-                                                            <span class="font-medium text-indigo-300">
-                                                                {{ $log->stage->assignedUser->nama_user }}
-                                                            </span>
-                                                            @if($log->stage->assignedUser->jabatan)
-                                                                <span class="px-1.5 py-0.5 rounded bg-indigo-900/30 text-indigo-300 text-xs">
-                                                                    {{ $log->stage->assignedUser->jabatan }}
-                                                                </span>
-                                                            @endif
-                                                        </div>
-                                                    </div>
-                                                @else
-                                                    <div class="flex items-center gap-2 mt-2 ml-6 text-xs">
-                                                        <div class="w-5 h-5 rounded-full bg-gray-700 flex items-center justify-center">
-                                                            <svg class="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                                            </svg>
-                                                        </div>
-                                                        <span class="text-gray-500">No reviewer assigned</span>
+                                                            {{ $log->action === 'approve_jump' ? 'Jumped to:' : 'Requested revision to:' }}
+                                                        </span>
+                                                        @if($jumpToStage)
+                                                            <div class="flex items-center gap-2 text-xs">
+                                                                <span class="text-gray-400">Stage:</span>
+                                                                <span class="font-medium text-blue-300">{{ $jumpToStage }}</span>
+                                                            </div>
+                                                        @endif
+                                                        @if($jumpToReviewer)
+                                                            <div class="flex items-center gap-2 text-xs">
+                                                                <span class="text-gray-400">Reviewer:</span>
+                                                                <span class="font-medium text-blue-300">{{ $jumpToReviewer }}</span>
+                                                            </div>
+                                                        @endif
                                                     </div>
                                                 @endif
-                                                
-                                                <div class="flex items-center gap-4 mt-2 ml-6 text-xs text-gray-500">
-                                                    @if($log->stage->assigned_at)
-                                                        <span class="flex items-center gap-1">
-                                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+
+                                                {{-- Timestamps --}}
+                                                @if($log->stage->assigned_at || $log->stage->started_at || $log->stage->completed_at)
+                                                    <div class="flex items-center gap-4 ml-6 text-xs text-gray-500">
+                                                        @if($log->stage->assigned_at)
+                                                            <span class="flex items-center gap-1">
+                                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                                </svg>
+                                                                Assigned: {{ $log->stage->assigned_at->format('M d, H:i') }}
+                                                            </span>
+                                                        @endif
+                                                        @if($log->stage->started_at)
+                                                            <span class="flex items-center gap-1">
+                                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                                                                </svg>
+                                                                Started: {{ $log->stage->started_at->format('M d, H:i') }}
+                                                            </span>
+                                                        @endif
+                                                        @if($log->stage->completed_at)
+                                                            <span class="flex items-center gap-1 text-green-400">
+                                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                                                </svg>
+                                                                Completed: {{ $log->stage->completed_at->format('M d, H:i') }}
+                                                            </span>
+                                                        @endif
+                                                    </div>
+                                                @endif
+
+                                                {{-- Notes --}}
+                                                @if($displayNotes)
+                                                    <div class="pt-3 border-t border-gray-700/50">
+                                                        <div class="flex items-center gap-2 mb-1">
+                                                            <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
                                                             </svg>
-                                                            Assigned: {{ $log->stage->assigned_at->format('M d, H:i') }}
-                                                        </span>
-                                                    @endif
-                                                    @if($log->stage->started_at)
-                                                        <span class="flex items-center gap-1">
-                                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                                                            </svg>
-                                                            Started: {{ $log->stage->started_at->format('M d, H:i') }}
-                                                        </span>
-                                                    @endif
-                                                    @if($log->stage->completed_at)
-                                                        <span class="flex items-center gap-1">
-                                                            <svg class="w-3 h-3 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                                                            </svg>
-                                                            Completed: {{ $log->stage->completed_at->format('M d, H:i') }}
-                                                        </span>
-                                                    @endif
-                                                </div>
+                                                            <span class="text-sm font-medium text-gray-300">Notes:</span>
+                                                        </div>
+                                                        <p class="ml-6 text-gray-300 text-sm leading-relaxed whitespace-pre-line">{{ $displayNotes }}</p>
+
+                                                        @if($log->action === 'request_revision' && isset($metadata['feedback_for_user']))
+                                                            <div class="mt-3 pt-3 border-t border-gray-700/50 ml-6">
+                                                                <div class="flex items-center gap-2 mb-1">
+                                                                    <svg class="w-4 h-4 text-yellow-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.998-.833-2.732 0L4.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                                                    </svg>
+                                                                    <span class="text-sm font-medium text-yellow-300">Feedback for User:</span>
+                                                                </div>
+                                                                <p class="text-yellow-200 text-sm leading-relaxed whitespace-pre-line">{{ $metadata['feedback_for_user'] }}</p>
+                                                            </div>
+                                                        @endif
+                                                    </div>
+                                                @endif
                                             </div>
                                         @endif
-                                        
+
+                                        {{-- Stage Added Box --}}
                                         @if($log->action === 'stage_added' && isset($metadata['reviewer_name']))
                                             <div class="mb-3 p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-lg">
                                                 <div class="flex items-center gap-2 text-sm">
@@ -881,15 +964,11 @@
                                                             </span>
                                                         @endif
                                                     </div>
-                                                    @if(isset($metadata['added_by']))
-                                                        <div class="text-xs text-gray-500">
-                                                            Added by: {{ $metadata['added_by'] }}
-                                                        </div>
-                                                    @endif
                                                 </div>
                                             </div>
                                         @endif
-                                        
+
+                                        {{-- Stage Deleted Box --}}
                                         @if($log->action === 'stage_deleted' && isset($metadata['stage_name']))
                                             <div class="mb-3 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
                                                 <div class="flex items-center gap-2 text-sm">
@@ -914,15 +993,11 @@
                                                             <span class="font-medium text-red-300">{{ $metadata['reviewer'] }}</span>
                                                         </div>
                                                     @endif
-                                                    @if(isset($metadata['deleted_by']))
-                                                        <div class="text-xs text-gray-500">
-                                                            Deleted by: {{ $metadata['deleted_by'] }}
-                                                        </div>
-                                                    @endif
                                                 </div>
                                             </div>
                                         @endif
-                                        
+
+                                        {{-- Workflow Updated Box --}}
                                         @if($log->action === 'workflow_updated' && !empty($log->metadata['changes']))
                                             <div class="mt-2 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
                                                 <div class="flex items-center gap-2 text-sm font-medium text-yellow-400 mb-2">
@@ -942,78 +1017,7 @@
                                             </div>
                                         @endif
 
-                                        @if($isJumpAction && ($jumpToStage || $jumpToReviewer))
-                                            <div class="mb-3 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                                                <div class="flex items-center gap-2 text-sm">
-                                                    <svg class="w-4 h-4 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                                                    </svg>
-                                                    <span class="text-blue-300 font-medium">
-                                                        {{ $log->action === 'approve_jump' ? 'Jumped to:' : 'Requested revision to:' }}
-                                                    </span>
-                                                </div>
-                                                
-                                                <div class="mt-2 ml-6 space-y-2">
-                                                    @if($jumpToStage)
-                                                        <div class="flex items-center gap-2 text-sm">
-                                                            <span class="text-gray-400">Stage:</span>
-                                                            <span class="font-medium text-blue-300">{{ $jumpToStage }}</span>
-                                                        </div>
-                                                    @endif
-                                                    
-                                                    @if($jumpToReviewer)
-                                                        <div class="flex items-center gap-2 text-sm">
-                                                            <div class="w-5 h-5 rounded-full bg-blue-500/20 flex items-center justify-center">
-                                                                <svg class="w-3 h-3 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                                                </svg>
-                                                            </div>
-                                                            <span class="text-gray-400">Reviewer:</span>
-                                                            <span class="font-medium text-blue-300">{{ $jumpToReviewer }}</span>
-                                                        </div>
-                                                    @endif
-                                                    
-                                                    @if(isset($metadata['jump_reason']))
-                                                        <div class="text-xs text-gray-400 mt-1">
-                                                            <span class="text-gray-500">Reason:</span> {{ $metadata['jump_reason'] }}
-                                                        </div>
-                                                    @endif
-                                                </div>
-                                            </div>
-                                        @endif
-                                        
-                                        @if($displayNotes)
-                                            <div class="mt-3 p-3 bg-gray-800/50 rounded-lg border border-gray-700/50">
-                                                <div class="flex items-start gap-2 mb-2">
-                                                    <svg class="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-                                                    </svg>
-                                                    <span class="text-sm font-medium text-gray-300">Notes:</span>
-                                                </div>
-                                                <div class="ml-6">
-                                                    <p class="text-gray-300 text-sm leading-relaxed whitespace-pre-line">
-                                                        {{ $displayNotes }}
-                                                    </p>
-                                                </div>
-                                                
-                                                @if($log->action === 'request_revision' && isset($metadata['feedback_for_user']))
-                                                    <div class="mt-3 pt-3 border-t border-gray-700">
-                                                        <div class="flex items-start gap-2">
-                                                            <svg class="w-4 h-4 text-yellow-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.998-.833-2.732 0L4.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                                                            </svg>
-                                                            <span class="text-sm font-medium text-yellow-300">Feedback for User:</span>
-                                                        </div>
-                                                        <div class="ml-6 mt-1">
-                                                            <p class="text-yellow-200 text-sm leading-relaxed whitespace-pre-line">
-                                                                {{ $metadata['feedback_for_user'] }}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                @endif
-                                            </div>
-                                        @endif
-                                        
+                                        {{-- Footer: Timestamp + Label --}}
                                         <div class="mt-3 pt-3 border-t border-gray-700/30 flex justify-between items-center">
                                             <div class="flex items-center gap-2 text-xs text-gray-500">
                                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1021,19 +1025,13 @@
                                                 </svg>
                                                 <span>{{ $log->created_at->format('M d, Y H:i:s') }}</span>
                                             </div>
-                                            
+
                                             @if($log->created_at->isToday())
-                                                <span class="px-2 py-0.5 bg-blue-500/10 text-blue-400 rounded-full text-xs">
-                                                    Today
-                                                </span>
+                                                <span class="px-2 py-0.5 bg-blue-500/10 text-blue-400 rounded-full text-xs">Today</span>
                                             @elseif($log->created_at->isYesterday())
-                                                <span class="px-2 py-0.5 bg-gray-500/10 text-gray-400 rounded-full text-xs">
-                                                    Yesterday
-                                                </span>
+                                                <span class="px-2 py-0.5 bg-gray-500/10 text-gray-400 rounded-full text-xs">Yesterday</span>
                                             @elseif($log->created_at->gt(now()->subDays(7)))
-                                                <span class="px-2 py-0.5 bg-green-500/10 text-green-400 rounded-full text-xs">
-                                                    This week
-                                                </span>
+                                                <span class="px-2 py-0.5 bg-green-500/10 text-green-400 rounded-full text-xs">This week</span>
                                             @endif
                                         </div>
                                     </div>
@@ -1174,7 +1172,6 @@
                     </div>
                     @endif
                 </div>
-
             </div> <!-- END LEFT COLUMN -->
 
             <!-- RIGHT COLUMN -->
@@ -1230,6 +1227,34 @@
                                     </span>
                                 </button>
                             </form>
+                        @endif
+
+                        {{-- EXECUTED: hanya contract owner, saat status final_approved --}}
+                        @if($contract->canBeExecuted(auth()->user()))
+                            <button onclick="document.getElementById('modal-execute').showModal()"
+                                    class="group relative w-full px-4 py-3 bg-gradient-to-r from-green-600 via-emerald-500 to-teal-600 hover:from-green-700 hover:via-emerald-600 hover:to-teal-700 text-white font-medium rounded-xl transition-all duration-300 transform hover:-translate-y-0.5 active:scale-95 shadow-lg shadow-green-500/30 hover:shadow-green-500/50">
+                                <div class="absolute inset-0 rounded-xl bg-gradient-to-r from-white/0 via-white/10 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                <span class="relative flex items-center justify-center">
+                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    Mark as Executed
+                                </span>
+                            </button>
+                        @endif
+
+                        {{-- ARCHIVED: hanya legal, saat status executed --}}
+                        @if($contract->canBeArchived(auth()->user()))
+                            <button onclick="document.getElementById('modal-archive').showModal()"
+                                    class="group relative w-full px-4 py-3 bg-gradient-to-r from-amber-600 via-orange-500 to-red-600 hover:from-amber-700 hover:via-orange-600 hover:to-red-700 text-white font-medium rounded-xl transition-all duration-300 transform hover:-translate-y-0.5 active:scale-95 shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50">
+                                <div class="absolute inset-0 rounded-xl bg-gradient-to-r from-white/0 via-white/10 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                <span class="relative flex items-center justify-center">
+                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                                    </svg>
+                                    Archive Contract
+                                </span>
+                            </button>
                         @endif
 
                         {{-- NEW REVIEW STAGE SYSTEM --}}
@@ -1506,6 +1531,137 @@
             </div> <!-- END RIGHT COLUMN -->
         </div> <!-- END Content Layout grid -->
 
+        {{-- ================================ --}}
+        {{-- MODALS - di luar glass-card      --}}
+        {{-- ================================ --}}
+
+        {{-- Modal Execute --}}
+        @if($contract->canBeExecuted(auth()->user()))
+        <dialog id="modal-execute" class="modal p-0 bg-transparent" style="border: none; padding: 0; background: transparent;">
+            <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: -1;" onclick="document.getElementById('modal-execute').close()"></div>
+            <div class="glass-card rounded-xl p-0 max-w-md w-full mx-4 overflow-hidden border border-green-500/30 shadow-2xl shadow-green-500/20 relative z-50">
+                <div class="bg-gradient-to-r from-green-600/20 via-emerald-500/20 to-teal-600/20 px-6 py-4 border-b border-green-500/30">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center shadow-lg shadow-green-500/30">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-bold text-green-300">Mark Contract as Executed</h3>
+                    </div>
+                </div>
+                
+                <div class="p-6">
+                    <div class="mb-6">
+                        <div class="flex items-start gap-3 p-4 bg-green-500/5 border border-green-500/20 rounded-lg">
+                            <svg class="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <div>
+                                <p class="text-gray-300 text-sm leading-relaxed">
+                                    This confirms that the contract document has been <span class="text-green-400 font-semibold">signed and executed</span>.
+                                </p>
+                                <p class="text-gray-400 text-sm mt-2">
+                                    This action will:
+                                </p>
+                                <ul class="text-gray-400 text-sm mt-1 space-y-1 list-disc list-inside">
+                                    <li>Mark the contract as <span class="text-green-400">Executed</span></li>
+                                    <li>Record the execution date</li>
+                                    <li>Move contract to archival queue</li>
+                                    <li><span class="text-yellow-400">This action cannot be undone</span></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex justify-end gap-3">
+                        <button type="button" 
+                                onclick="document.getElementById('modal-execute').close()"
+                                class="px-4 py-2 bg-gray-800/80 hover:bg-gray-700 text-gray-300 font-medium rounded-lg transition-all duration-200 border border-gray-700 hover:border-gray-600">
+                            Cancel
+                        </button>
+                        
+                        <form method="POST" action="{{ route('contracts.execute', $contract) }}">
+                            @csrf
+                            <button type="submit" 
+                                    class="group relative inline-flex items-center justify-center px-5 py-2 bg-gradient-to-r from-green-600 via-emerald-500 to-teal-600 hover:from-green-700 hover:via-emerald-600 hover:to-teal-700 text-white font-medium rounded-lg transition-all duration-300 transform hover:-translate-y-0.5 active:scale-95 shadow-lg shadow-green-500/30 hover:shadow-green-500/50">
+                                <div class="absolute inset-0 rounded-lg bg-gradient-to-r from-white/0 via-white/10 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                <svg class="w-4 h-4 mr-2 relative" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                </svg>
+                                <span class="relative">Yes, Mark as Executed</span>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </dialog>
+        @endif
+
+        {{-- Modal Archive --}}
+        @if($contract->canBeArchived(auth()->user()))
+        <dialog id="modal-archive" class="modal p-0 bg-transparent" style="border: none; padding: 0; background: transparent;">
+            <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: -1;" onclick="document.getElementById('modal-archive').close()"></div>
+            <div class="glass-card rounded-xl p-0 max-w-md w-full mx-4 overflow-hidden border border-orange-500/30 shadow-2xl shadow-orange-500/20 relative z-50">
+                <div class="bg-gradient-to-r from-amber-600/20 via-orange-500/20 to-red-600/20 px-6 py-4 border-b border-orange-500/30">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg shadow-orange-500/30">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-bold text-orange-300">Archive Contract</h3>
+                    </div>
+                </div>
+                
+                <div class="p-6">
+                    <div class="mb-6">
+                        <div class="flex items-start gap-3 p-4 bg-orange-500/5 border border-orange-500/20 rounded-lg">
+                            <svg class="w-5 h-5 text-orange-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.998-.833-2.732 0L4.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                            </svg>
+                            <div>
+                                <p class="text-gray-300 text-sm leading-relaxed">
+                                    This will permanently close the review process and mark the contract as 
+                                    <span class="text-orange-400 font-semibold">Archived</span>.
+                                </p>
+                                <p class="text-gray-400 text-sm mt-2">
+                                    Archiving a contract means:
+                                </p>
+                                <ul class="text-gray-400 text-sm mt-1 space-y-1 list-disc list-inside">
+                                    <li>Contract moves to read-only mode</li>
+                                    <li>No further actions can be taken</li>
+                                    <li>Document is preserved for records</li>
+                                    <li><span class="text-yellow-400">This action is permanent and cannot be undone</span></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex justify-end gap-3">
+                        <button type="button" 
+                                onclick="document.getElementById('modal-archive').close()"
+                                class="px-4 py-2 bg-gray-800/80 hover:bg-gray-700 text-gray-300 font-medium rounded-lg transition-all duration-200 border border-gray-700 hover:border-gray-600">
+                            Cancel
+                        </button>
+                        
+                        <form method="POST" action="{{ route('contracts.archive', $contract) }}">
+                            @csrf
+                            <button type="submit" 
+                                    class="group relative inline-flex items-center justify-center px-5 py-2 bg-gradient-to-r from-amber-600 via-orange-500 to-red-600 hover:from-amber-700 hover:via-orange-600 hover:to-red-700 text-white font-medium rounded-lg transition-all duration-300 transform hover:-translate-y-0.5 active:scale-95 shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50">
+                                <div class="absolute inset-0 rounded-lg bg-gradient-to-r from-white/0 via-white/10 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                <svg class="w-4 h-4 mr-2 relative" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                </svg>
+                                <span class="relative">Yes, Archive Contract</span>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </dialog>
+        @endif
+
         <style>
             /* Scrollbar styling */
             .scrollbar-thin::-webkit-scrollbar {
@@ -1561,6 +1717,34 @@
             textarea {
                 min-height: 38px;
                 max-height: 150px;
+            }
+
+            /* Modal styles */
+            dialog.modal {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: transparent;
+                border: none;
+                padding: 0;
+                margin: 0;
+                max-width: 100%;
+                max-height: 100%;
+                z-index: 9999;
+            }
+
+            dialog.modal[open] {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            dialog.modal::backdrop {
+                background-color: rgba(0, 0, 0, 0.7);
+                backdrop-filter: blur(4px);
             }
         </style>
 

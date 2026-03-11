@@ -1660,7 +1660,7 @@ public function edit(Contract $contract)
 
         // hanya boleh saat under_review
         if ($contract->status !== 'under_review') {
-            return back()->with('error', 'Comment hanya bisa saat status Under Review.');
+            return back()->with('error', 'Comments are only possible when the status is Under Review.');
         }
 
         LegalContractComment::create([
@@ -1669,7 +1669,7 @@ public function edit(Contract $contract)
             'notes'         => $request->notes,
         ]);
 
-        return back()->with('success', 'Comment berhasil ditambahkan.');
+        return back()->with('success', 'Comment successfully added.');
     }
 
 

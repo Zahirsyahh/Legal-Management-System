@@ -18,6 +18,7 @@ use App\Http\Controllers\CompletedController;
 use App\Http\Controllers\Legal\EditWorkflowController;
 use App\Http\Controllers\SuratController;
 use App\Http\Controllers\ArchiveController;
+use App\Http\Controllers\ContractLifecycleController;
 use Illuminate\Support\Facades\Mail;
 
 /*
@@ -243,6 +244,12 @@ Route::middleware(['auth'])->group(function () {
 
         Route::post('/{contract}/submit-revision', [ContractController::class, 'submitRevision'])
             ->name('contracts.submit-revision');
+        
+        Route::post('/{contract}/execute', [ContractLifecycleController::class, 'markAsExecuted'])
+            ->name('contracts.execute');
+
+        Route::post('/{contract}/archive', [ContractLifecycleController::class, 'markAsArchived'])
+            ->name('contracts.archive');
         
         Route::post('/{contract}/update-synology-path', [ContractController::class, 'updateSynologyPath'])
             ->middleware('role:admin')
