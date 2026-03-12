@@ -51,7 +51,7 @@ class Contract extends Model
     const REVIEW_FLOW_IN_REVIEW = 'in_review';
     const REVIEW_FLOW_COMPLETED = 'completed';
     const REVIEW_FLOW_REVISION_REQUESTED = 'revision_requested';
-    const REVIEW_FLOW_REJECTED = 'rejected';
+    const REVIEW_FLOW_REJECTED = 'Declined';
 
     // ====================
     // LEGAL STATUS CONSTANTS
@@ -686,7 +686,7 @@ class Contract extends Model
             self::REVIEW_FLOW_IN_REVIEW => 'In Review',
             self::REVIEW_FLOW_COMPLETED => 'Completed',
             self::REVIEW_FLOW_REVISION_REQUESTED => 'Revision Requested',
-            self::REVIEW_FLOW_REJECTED => 'Rejected',
+            self::REVIEW_FLOW_REJECTED => 'Declined',
         ];
     }
 

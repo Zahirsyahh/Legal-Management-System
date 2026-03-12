@@ -1658,9 +1658,8 @@ public function edit(Contract $contract)
             abort(403, 'Unauthorized action.');
         }
 
-        // hanya boleh saat under_review
-        if ($contract->status !== 'under_review') {
-            return back()->with('error', 'Comments are only possible when the status is Under Review.');
+        if (!in_array($contract->status, ['under_review', 'submitted', 'revision_needed', 'final_approved', 'executed', 'archived', 'rejected', 'declined'])) {
+            return back()->with('error', 'Comment failed');
         }
 
         LegalContractComment::create([

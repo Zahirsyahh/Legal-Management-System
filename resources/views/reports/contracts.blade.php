@@ -827,6 +827,9 @@
                                 <span class="font-semibold text-gray-300">STATUS</span>
                             </th>
                             <th class="py-4 px-4 text-left">
+                                <span class="font-semibold text-gray-300">REJECTION REASON</span>
+                            </th>
+                            <th class="py-4 px-4 text-left">
                                 <span class="font-semibold text-gray-300">TIPE</span>
                             </th>
                         </tr>
@@ -873,6 +876,28 @@
                                 </span>
                             </td>
                             <td class="py-4 px-4">
+                                @if($contract->status === 'declined')
+                                    @php
+                                        $rejectLog = $contract->reviewLogs->first();
+                                    @endphp
+                                    @if($rejectLog && $rejectLog->notes)
+                                        <div class="max-w-[200px]">
+                                            <p class="text-red-300 text-sm line-clamp-2" title="{{ $rejectLog->notes }}">
+                                                {{ $rejectLog->notes }}
+                                            </p>
+                                            <p class="text-gray-500 text-xs mt-1">
+                                                by {{ $rejectLog->user->nama_user ?? '-' }}
+                                                · {{ $rejectLog->created_at->format('d/m/Y') }}
+                                            </p>
+                                        </div>
+                                    @else
+                                        <span class="text-gray-500 text-xs italic">No reason recorded</span>
+                                    @endif
+                                @else
+                                    <span class="text-gray-600">-</span>
+                                @endif
+                            </td>
+                            <td class="py-4 px-4">
                                 @if($contract->contract_type === 'surat')
                                 <span class="px-3 py-1.5 rounded-full text-sm font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
                                     Surat
@@ -888,7 +913,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="11" class="py-12 px-4 text-center">
+                            <td colspan="12" class="py-12 px-4 text-center">
                                 <div class="flex flex-col items-center justify-center">
                                     <div class="p-4 rounded-full bg-gradient-to-br from-gray-800/50 to-gray-900/50 mb-4">
                                         <svg class="w-12 h-12 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

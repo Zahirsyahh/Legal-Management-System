@@ -217,7 +217,13 @@ class ReportController extends Controller
         'legalAssigned',
         'financeAssigned',
         'accountingAssigned',
-        'taxAssigned'
+        'taxAssigned',
+        'reviewLogs' => function($q) {
+            $q->where('action', 'reject')
+              ->with('user:id_user,nama_user')
+              ->latest()
+              ->limit(1);
+            },
     ]);
 
     // ============================================

@@ -590,6 +590,7 @@ class RolePermissionSeeder extends Seeder
                     'email' => $userData['email'],
                     'password' => Hash::make('password123'),
                     'status_karyawan' => 'AKTIF',
+                    'kode_status_kepegawaian' => '1', 
                     'kode_department' => $userData['dept'],
                     'jabatan' => strtoupper($userData['role']),
                 ]

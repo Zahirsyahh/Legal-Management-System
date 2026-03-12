@@ -1085,7 +1085,7 @@
                                                         </span>
                                                     @endif
                                                     <span class="text-gray-500 text-[10px]">
-                                                        {{ $comment->created_at->format('H:i') }}
+                                                        {{ $comment->created_at->format('d M Y, H:i') }}
                                                     </span>
                                                     @if($isEdited)
                                                         <span class="text-gray-600 text-[10px] italic">

@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::table('contracts', function (Blueprint $table) {
 
             // Timestamps untuk tracking
-            $table->timestamp('submitted_at')->nullable()->after('fat_assigned_id');
+            $table->timestamp('submitted_at')->nullable();
             $table->timestamp('legal_reviewed_at')->nullable()->after('submitted_at');
             $table->timestamp('fat_reviewed_at')->nullable()->after('legal_reviewed_at');
             $table->timestamp('approved_at')->nullable()->after('fat_reviewed_at');

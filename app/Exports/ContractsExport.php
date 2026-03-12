@@ -43,7 +43,8 @@ class ContractsExport implements FromCollection, WithHeadings, WithMapping, Shou
             'SUBMITTED AT',
             'REQUESTED BY',
             'STATUS',
-            'DOCUMENT TYPE'
+            'DOCUMENT TYPE',
+            'REJECTION REASON'
         ];
     }
 
@@ -51,6 +52,10 @@ class ContractsExport implements FromCollection, WithHeadings, WithMapping, Shou
     {
         static $no = 0;
         $no++;
+
+        $rejectLog = $contract->status === 'declined'
+        ? $contract->reviewLogs->first()
+        : null;
 
         return [
             $no,
@@ -70,6 +75,7 @@ class ContractsExport implements FromCollection, WithHeadings, WithMapping, Shou
             optional($contract->user)->nama_user ?? '-',
             ucfirst(str_replace('_', ' ', $contract->status)),
             ucfirst($contract->contract_type),
+            $rejectLog->notes ?? '-',
         ];
     }
 
@@ -133,6 +139,11 @@ class ContractsExport implements FromCollection, WithHeadings, WithMapping, Shou
 
                     if (str_contains($value, 'pending')) {
                         $sheet->getStyle($cell)->getFont()->getColor()->setRGB('D97706');
+                    }
+                    $rejectCell = "L{$row}";
+                    $rejectValue = $sheet->getCell($rejectCell)->getValue();
+                    if ($rejectValue !== '-') {
+                        $sheet->getStyle($rejectCell)->getFont()->getColor()->setRGB('DC2626');
                     }
                 }
             }

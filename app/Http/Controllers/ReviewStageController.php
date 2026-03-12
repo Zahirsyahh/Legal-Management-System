@@ -1163,24 +1163,29 @@ class ReviewStageController extends Controller
     {
         $user = TblUser::find(Auth::id());
         
-        // Authorization: only assigned user or admin
         if ($stage->assigned_user_id !== $user->id_user && !$user->hasRole('admin')) {
             abort(403, 'Unauthorized action.');
         }
         
-        // Check if stage can be started
         if (!in_array($stage->status, ['assigned', 'revision_requested'])) {
             return redirect()->back()
                 ->with('error', 'Stage cannot be started at this time.');
         }
         
-        // Update stage status
         $stage->update([
             'status' => 'in_progress',
             'started_at' => now(),
         ]);
         
-        // Log action
+        // ✅ FIX: Kalau contract masih revision_needed dan ini bukan user stage,
+        // artinya reviewer sudah mulai handle revisi → kembalikan ke under_review
+        if ($contract->status === Contract::STATUS_REVISION_NEEDED && !$stage->is_user_stage) {
+            $contract->update([
+                'status' => Contract::STATUS_UNDER_REVIEW,
+                'review_flow_status' => Contract::REVIEW_FLOW_IN_REVIEW,
+            ]);
+        }
+        
         ContractReviewLog::create([
             'contract_id' => $contract->id,
             'stage_id' => $stage->id,
@@ -1345,6 +1350,8 @@ class ReviewStageController extends Controller
             // Update contract current stage
             $contract->update([
                 'current_stage' => $jumpToStage->sequence,
+                'status' => Contract::STATUS_UNDER_REVIEW,    
+                'review_flow_status' => Contract::REVIEW_FLOW_IN_REVIEW, 
             ]);
             
             DB::commit();
@@ -1524,12 +1531,8 @@ private function notifyNextReviewer($contract, $fromStage, $toStage)
              */
             $contract->update([
                 'current_stage' => $jumpToStage->sequence,
-                'review_flow_status' => $jumpToStage->is_user_stage
-                    ? Contract::REVIEW_FLOW_REVISION_REQUESTED
-                    : Contract::REVIEW_FLOW_IN_REVIEW,
-                'status' => $jumpToStage->is_user_stage
-                    ? Contract::STATUS_REVISION_NEEDED
-                    : Contract::STATUS_UNDER_REVIEW,
+                'review_flow_status' => Contract::REVIEW_FLOW_REVISION_REQUESTED, 
+                'status' => Contract::STATUS_REVISION_NEEDED,                     
             ]);
             
             /**
@@ -1784,6 +1787,7 @@ private function notifyNextReviewer($contract, $fromStage, $toStage)
                 'user_id' => $user->id_user,
                 'action' => 'reject',
                 'description' => 'Contract rejected',
+                'notes' => $request->rejection_reason,
                 'metadata' => ['reason' => $request->rejection_reason]
             ]);
             
