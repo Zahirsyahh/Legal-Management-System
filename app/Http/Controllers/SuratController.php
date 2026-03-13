@@ -47,12 +47,13 @@ class SuratController extends Controller
         try {
             if ($user && $user->email) {
                 $hrmsUser = DB::table('tbl_user')
-                    ->where('email', $user->email)
-                    ->first(['kode_department', 'nama_department']);
+                    ->leftJoin('tbl_department', 'tbl_user.kode_department', '=', 'tbl_department.kode_pendek')
+                    ->where('tbl_user.email', $user->email)
+                    ->first(['tbl_user.kode_department', 'tbl_department.nama_departemen']);
 
                 if ($hrmsUser) {
                     $departmentCode = $hrmsUser->kode_department ?? null;
-                    $departmentName = $hrmsUser->nama_department ?? null;
+                    $departmentName = $hrmsUser->nama_departemen ?? null;
                     
                     // ✅ WARNING jika department kosong (tapi form tetap bisa dibuka)
                     if (empty($departmentCode)) {

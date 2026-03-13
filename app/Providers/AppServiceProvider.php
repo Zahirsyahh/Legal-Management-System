@@ -6,6 +6,7 @@ use Illuminate\Support\ServiceProvider;
 use App\Models\Contract; // ← PERBAIKI INI!
 use App\Observers\ContractObserver;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\URL;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -47,6 +48,10 @@ class AppServiceProvider extends ServiceProvider
                 } catch (\Exception $e) {
                     return route('contracts.show', $contract);
                 }
+            }
+
+            if (config('app.env') === 'production') {
+                URL::forceScheme('https');
             }
             
             // Default ke contract.show

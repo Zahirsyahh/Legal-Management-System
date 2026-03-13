@@ -345,7 +345,7 @@
                                 </svg>
                             </div>
                             <div>
-                                <h3 class="text-lg font-semibold text-green-300">Generate Contract Number</h3>
+                                <h3 class="text-lg font-semibold text-green-300">Generate Document Number</h3>
                                 <p class="text-green-200/70 text-sm mt-1">
                                     This contract is <span class="font-medium text-green-300">FINAL APPROVED</span> and ready for official numbering.
                                 </p>
