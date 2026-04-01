@@ -17,7 +17,7 @@ use App\Http\Controllers\HrmsLoginController;
 use App\Http\Controllers\CompletedController;
 use App\Http\Controllers\Legal\EditWorkflowController;
 use App\Http\Controllers\SuratController;
-use App\Http\Controllers\ArchiveController;
+use App\Http\Controllers\Legal\ArchiveController;
 use App\Http\Controllers\ContractLifecycleController;
 use Illuminate\Support\Facades\Mail;
 
@@ -288,9 +288,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/{contract}/preview', [SuratController::class, 'preview'])->name('preview');
         Route::get('/{contract}/download', [SuratController::class, 'download'])->name('download');
 
-        // Temukan route group surat Anda, lalu tambahkan:
         Route::post('/{contract}/send-note', [SuratController::class, 'sendNote'])->name('send-note');
-
 
         Route::post('/{contract}/submit', [SuratController::class, 'submit'])->name('submit');
 
@@ -308,6 +306,41 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/{contract}', [SuratController::class, 'destroy'])->name('destroy');
 
         Route::get('/{contract}', [SuratController::class, 'show'])->name('show');
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | Archive Routes
+    |--------------------------------------------------------------------------
+    */
+    Route::prefix('archives')->name('archives.')->group(function () {
+
+        Route::get('/', [ArchiveController::class, 'index'])
+            ->name('index');
+
+        Route::get('/create', [ArchiveController::class, 'create'])
+            ->name('create');
+
+        Route::post('/', [ArchiveController::class, 'store'])
+            ->name('store');
+
+        // ✅ TAMBAHKAN INI
+        Route::post('/generate-record-id', [ArchiveController::class, 'generateRecordId'])
+            ->name('generate-record-id');
+
+        // Static routes dulu sebelum wildcard
+        Route::get('/{archive}/edit', [ArchiveController::class, 'edit'])
+            ->name('edit');
+
+        Route::put('/{archive}', [ArchiveController::class, 'update'])
+            ->name('update');
+
+        Route::delete('/{archive}', [ArchiveController::class, 'destroy'])
+            ->name('destroy');
+
+        // SHOW - paling bawah supaya tidak bentrok
+        Route::get('/{archive}', [ArchiveController::class, 'show'])
+            ->name('show');
     });
 
     /*

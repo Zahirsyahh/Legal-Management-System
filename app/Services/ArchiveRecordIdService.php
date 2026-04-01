@@ -10,24 +10,19 @@ class ArchiveRecordIdService
      * Generate Record ID
      * Format: YYDDTTNNN
      */
-    public function generate(string $year, string $departmentCode, string $docType): string
+    public function generate(string $company, string $year, string $departmentCode, string $docType): string
     {
-        $prefix = $year . $departmentCode . $docType;
+        $prefix = $company . $year . $departmentCode . $docType;
 
-        // cari record terakhir berdasarkan prefix
-        $lastRecord = Archive::where('record_id', 'like', $year.$departmentCode.'%')
+        $lastRecord = Archive::where('record_id', 'like', $prefix . '%')
             ->orderBy('record_id', 'desc')
             ->first();
 
         if ($lastRecord) {
-
-            $lastNumber = substr($lastRecord->record_id, -3);
+            $lastNumber = (int) substr($lastRecord->record_id, strlen($prefix));
             $nextNumber = str_pad(((int) $lastNumber) + 1, 3, '0', STR_PAD_LEFT);
-
         } else {
-
             $nextNumber = '001';
-
         }
 
         return $prefix . $nextNumber;

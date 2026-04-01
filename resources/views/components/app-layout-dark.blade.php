@@ -550,7 +550,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                 </div>
-                <span id="sidebarLogoText" class="text-xl font-bold gradient-text ml-3 opacity-0 transition-opacity">DocumentFlow</span>
+                <span id="sidebarLogoText" class="text-s font-bold gradient-text ml-3 opacity-0 transition-opacity">Legal Management System</span>
             </div>
             <div class="hidden sidebar.expanded:block">
                 <span class="text-xs bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-300 px-2 py-1 rounded-md font-medium">PRO</span>
@@ -677,15 +677,6 @@
                     </svg>
                     <span class="label">Master Data</span>
                 </a>
-                
-                <!-- User Management -->
-                <a href="{{ route('admin.users.index') }}" 
-                   class="sidebar-item {{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
-                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5 1.5l-5.5-5.5" />
-                    </svg>
-                    <span class="label">User Management</span>
-                </a>
 
             @elseif(auth()->user()->hasAnyRole(['admin_acc', 'admin_fin', 'admin_tax']))
                 <!-- DEPARTMENT ADMIN MENU - HANYA TERSISA DI SINI (TIDAK DI DROPDOWN) -->
@@ -719,7 +710,7 @@
                 </div>
                 
                 <!-- Legal Archive -->
-                <a href="{{ route('legal.contracts.index') }}" 
+                <a href="{{ route('archives.index') }}"
                    class="sidebar-item {{ request()->routeIs('legal.contracts.*') ? 'active' : '' }}">
                     <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />

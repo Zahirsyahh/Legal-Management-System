@@ -33,10 +33,9 @@ return new class extends Migration
             ]);
 
             $table->enum('version_status', [
-                'active',
+                'latest',
                 'obsolete',
                 'superseded',
-                'terminate'
             ])->default('active');
 
             $table->date('start_date')->nullable();

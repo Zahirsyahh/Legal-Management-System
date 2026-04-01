@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Contract;
 use App\Models\ContractDepartment;
 use App\Models\Department;
-use App\Models\TblUser; // ✅ FIXED: Changed from User
+use App\Models\TblUser;
 use App\Models\ContractReviewStage;
 use App\Models\ContractReviewLog;
 use Illuminate\Http\Request;
@@ -18,13 +18,11 @@ class DepartmentAdminController extends Controller
 {
     /**
      * Show department admin dashboard
-     * 🔥 FIXED: Added whereHas to filter only valid contracts
      */
     public function dashboard(Request $request)
     {
         $department = $this->requireDepartment();
 
-        // 🔥 FIX: Filter hanya contract_departments yang contractnya masih ada
         $pendingCount = ContractDepartment::whereHas('contract', function($query) {
                 $query->whereNull('deleted_at');
             })
@@ -53,7 +51,7 @@ class DepartmentAdminController extends Controller
             ->where('department_id', $department->id)
             ->where('status', 'pending_assignment')
             ->latest()
-            ->limit(10) // ✅ CHANGED from 5 to 10 for better UX
+            ->limit(10)
             ->get();
 
         $activeReviews = ContractDepartment::whereHas('contract', function($query) {
@@ -63,7 +61,7 @@ class DepartmentAdminController extends Controller
             ->where('department_id', $department->id)
             ->whereIn('status', ['assigned', 'in_progress'])
             ->latest('updated_at')
-            ->limit(10) // ✅ CHANGED from 5 to 10 for better UX
+            ->limit(10)
             ->get();
 
         return view(
@@ -81,7 +79,6 @@ class DepartmentAdminController extends Controller
 
     /**
      * Show pending assignments list
-     * 🔥 FIXED: Added whereHas
      */
     public function pendingAssignments()
     {
@@ -96,7 +93,6 @@ class DepartmentAdminController extends Controller
             ->latest()
             ->paginate(10);
 
-        // Hitung statistik tambahan
         $dueThisWeek = $pendingAssignments->filter(function($assignment) {
             if (!$assignment->due_date) return false;
             $dueDate = \Carbon\Carbon::parse($assignment->due_date);
@@ -111,7 +107,7 @@ class DepartmentAdminController extends Controller
         $availableStaff = $department->activeStaff()->count();
 
         return view('departments.pending-reviews', compact(
-            'pendingAssignments', 
+            'pendingAssignments',
             'department',
             'dueThisWeek',
             'overdueAssignments',
@@ -121,7 +117,6 @@ class DepartmentAdminController extends Controller
 
     /**
      * Show active reviews list
-     * 🔥 FIXED: Added whereHas
      */
     public function activeReviews()
     {
@@ -142,9 +137,9 @@ class DepartmentAdminController extends Controller
 
     /**
      * Show completed reviews list
-     * 🔥 FIXED: Added whereHas
      */
-    public function completedReviews(){
+    public function completedReviews()
+    {
         $department = $this->requireDepartment();
 
         $contracts = Contract::whereHas('departments', function ($q) use ($department) {
@@ -166,22 +161,21 @@ class DepartmentAdminController extends Controller
         return view('departments.completed', compact('contracts', 'counterparties'));
     }
 
-
     /**
      * Show assign staff form
-     * 🔥 FIXED: Added contract existence check & TblUser
+     *
+     * ✅ PERUBAHAN: Admin department sekarang juga muncul di daftar pilihan,
+     *    sehingga admin bisa menugaskan dirinya sendiri untuk ikut review.
      */
     public function showAssignForm(ContractDepartment $contractDepartment)
     {
         $department = $this->requireDepartment();
 
-        // 🔥 Check if contract still exists
         if (!$contractDepartment->contract) {
             return redirect()->route($this->getDepartmentRouteName($department))
                 ->with('error', 'Contract no longer exists or has been deleted.');
         }
 
-        // Authorization
         if ($contractDepartment->department_id !== $department->id) {
             abort(403, 'You can only assign staff to your own department contracts.');
         }
@@ -191,15 +185,15 @@ class DepartmentAdminController extends Controller
                 ->with('error', 'This contract has already been assigned.');
         }
 
-        // Get staff members
         $staffRole = $this->getStaffRoleName($department);
-        
-        // ✅ FIXED: Use TblUser instead of User
-        $staffMembers = TblUser::whereHas('roles', function($q) use ($staffRole) {
-            $q->where('name', $staffRole);
+        $adminRole = $this->getAdminRoleName($department); // ✅ BARU
+
+        // ✅ PERUBAHAN: Sertakan role admin department agar admin bisa pilih dirinya sendiri
+        $staffMembers = TblUser::whereHas('roles', function($q) use ($staffRole, $adminRole) {
+            $q->whereIn('name', [$staffRole, $adminRole]);
         })
-        ->where('status_karyawan', 'AKTIF') // ✅ FIXED: Changed from is_active
-        ->orderBy('nama_user') // ✅ FIXED: Changed from name
+        ->where('status_karyawan', 'AKTIF')
+        ->orderBy('nama_user')
         ->get();
 
         return view('departments.assign-staff', compact(
@@ -211,38 +205,39 @@ class DepartmentAdminController extends Controller
 
     /**
      * Process staff assignment
-     * 🔥 FIXED: Added contract existence check & TblUser
+     *
+     * ✅ PERUBAHAN: Validasi role sekarang menerima admin department,
+     *    bukan hanya staff. Sehingga admin bisa menugaskan dirinya sendiri.
      */
     public function assignStaff(Request $request, ContractDepartment $contractDepartment)
     {
         $user = Auth::user();
         $department = $this->requireDepartment();
 
-        // 🔥 Check if contract still exists
         if (!$contractDepartment->contract) {
             return back()->with('error', 'Contract no longer exists or has been deleted.');
         }
 
-        // Authorization
         if ($contractDepartment->department_id !== $department->id) {
             abort(403, 'Unauthorized action.');
         }
 
         $request->validate([
-            'staff_user_id' => 'required|exists:tbl_user,id_user', // ✅ FIXED: table and field
+            'staff_user_id' => 'required|exists:tbl_user,id_user',
             'notes' => 'nullable|string|max:1000',
         ]);
 
-        // ✅ FIXED: Use TblUser and id_user
         $staffUser = TblUser::where('id_user', $request->staff_user_id)->first();
-        
+
         if (!$staffUser) {
             return back()->with('error', 'Staff user not found.');
         }
-        
+
         $staffRole = $this->getStaffRoleName($department);
-        
-        if (!$staffUser->hasRole($staffRole)) {
+        $adminRole = $this->getAdminRoleName($department); // ✅ BARU
+
+        // ✅ PERUBAHAN: Izinkan juga admin department, bukan hanya staff
+        if (!$staffUser->hasRole($staffRole) && !$staffUser->hasRole($adminRole)) {
             return back()->with('error', 'Selected user is not a member of this department.');
         }
 
@@ -252,11 +247,11 @@ class DepartmentAdminController extends Controller
             // 1. Update contract_department
             $contractDepartment->update([
                 'status' => 'assigned',
-                'assigned_admin_id' => $user->id_user, // ✅ FIXED: Use id_user
+                'assigned_admin_id' => $user->id_user,
                 'assigned_at' => now(),
             ]);
 
-            // 2. Create review stage for staff
+            // 2. Create review stage for the assigned user (staff or admin)
             $sequence = ContractReviewStage::where('contract_id', $contractDepartment->contract_id)
                 ->max('sequence') ?? 0;
 
@@ -269,28 +264,35 @@ class DepartmentAdminController extends Controller
                 'sequence' => $sequence + 1,
                 'status' => 'pending',
                 'notes' => $request->notes,
-                'created_by' => $user->id_user, // ✅ FIXED: Use id_user
+                'created_by' => $user->id_user,
             ]);
 
-            // 3. Send notification to staff
-            $this->sendStaffAssignmentNotification(
-                $staffUser,
-                $contractDepartment->contract,
-                $department,
-                $user,
-                $request->notes
-            );
+            // 3. Send notification (skip jika user menugaskan dirinya sendiri)
+            if ((int) $staffUser->id_user !== (int) $user->id_user) {
+                $this->sendStaffAssignmentNotification(
+                    $staffUser,
+                    $contractDepartment->contract,
+                    $department,
+                    $user,
+                    $request->notes
+                );
+            }
 
             // 4. Log the assignment
+            $isSelfAssign = (int) $staffUser->id_user === (int) $user->id_user;
+
             ContractReviewLog::create([
                 'contract_id' => $contractDepartment->contract_id,
                 'stage_id' => $stage->id,
-                'user_id' => $user->id_user, // ✅ FIXED: Use id_user
+                'user_id' => $user->id_user,
                 'action' => 'staff_assigned',
-                'description' => "Staff assigned for {$department->name} review",
+                'description' => $isSelfAssign
+                    ? "Admin assigned themselves for {$department->name} review"
+                    : "Staff assigned for {$department->name} review",
                 'metadata' => [
                     'staff_user_id' => $request->staff_user_id,
-                    'staff_name' => $staffUser->nama_user, // ✅ FIXED: Use nama_user
+                    'staff_name' => $staffUser->nama_user,
+                    'is_self_assign' => $isSelfAssign, // ✅ BARU: catat jika self-assign
                     'department_id' => $department->id,
                     'notes' => $request->notes,
                 ]
@@ -298,8 +300,12 @@ class DepartmentAdminController extends Controller
 
             DB::commit();
 
+            $successMessage = $isSelfAssign
+                ? 'You have successfully assigned yourself to review this contract.'
+                : 'Staff assigned successfully. Notification sent to staff member.';
+
             return redirect()->route($this->getDepartmentRouteName($department))
-                ->with('success', 'Staff assigned successfully. Notification sent to staff member.');
+                ->with('success', $successMessage);
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -308,7 +314,7 @@ class DepartmentAdminController extends Controller
                 'contract_department_id' => $contractDepartment->id,
                 'staff_user_id' => $request->staff_user_id,
             ]);
-            
+
             return back()->with('error', 'Failed to assign staff: ' . $e->getMessage());
         }
     }
@@ -353,8 +359,22 @@ class DepartmentAdminController extends Controller
             'ACC' => 'staff_acc',
             'TAX' => 'staff_tax'
         ];
-        
+
         return $roleMapping[$department->code] ?? 'staff_' . strtolower($department->code);
+    }
+
+    /**
+     * ✅ BARU: Helper untuk mendapatkan nama role admin department
+     */
+    private function getAdminRoleName(Department $department): string
+    {
+        $roleMapping = [
+            'FIN' => 'admin_fin',
+            'ACC' => 'admin_acc',
+            'TAX' => 'admin_tax'
+        ];
+
+        return $roleMapping[$department->code] ?? 'admin_' . strtolower($department->code);
     }
 
     private function getUserDepartment($user)
@@ -373,9 +393,9 @@ class DepartmentAdminController extends Controller
 
     /**
      * Send notification to assigned staff
-     * ✅ FIXED: Support both TblUser fields
      */
-    private function sendStaffAssignmentNotification($staffUser, $contract, $department, $admin, $notes = null){
+    private function sendStaffAssignmentNotification($staffUser, $contract, $department, $admin, $notes = null)
+    {
         try {
             $staffUser->notify(new StaffAssignedNotification(
                 $contract,

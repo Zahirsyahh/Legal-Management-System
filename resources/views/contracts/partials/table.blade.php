@@ -68,64 +68,113 @@
                             @php
                                 $statusConfig = [
                                     'draft' => [
-                                        'bg' => 'bg-gray-700/30',
-                                        'text' => 'text-gray-300',
+                                        'bg'     => 'bg-gray-700/30',
+                                        'text'   => 'text-gray-300',
                                         'border' => 'border-gray-600/30',
-                                        'icon' => 'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z'
+                                        'icon'   => 'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z'
                                     ],
                                     'submitted' => [
-                                        'bg' => 'bg-yellow-500/20',
-                                        'text' => 'text-yellow-300',
+                                        'bg'     => 'bg-yellow-500/20',
+                                        'text'   => 'text-yellow-300',
                                         'border' => 'border-yellow-500/30',
-                                        'icon' => 'M13 5l7 7-7 7M5 5l7 7-7 7'
+                                        'icon'   => 'M13 5l7 7-7 7M5 5l7 7-7 7'
                                     ],
                                     'under_review' => [
-                                        'bg' => 'bg-blue-500/20',
-                                        'text' => 'text-blue-300',
+                                        'bg'     => 'bg-blue-500/20',
+                                        'text'   => 'text-blue-300',
                                         'border' => 'border-blue-500/30',
-                                        'icon' => 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'
+                                        'icon'   => 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'
+                                    ],
+                                    'revision_needed' => [
+                                        'bg'     => 'bg-amber-500/20',
+                                        'text'   => 'text-amber-300',
+                                        'border' => 'border-amber-500/30',
+                                        'icon'   => 'M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
                                     ],
                                     'final_approved' => [
-                                        'bg' => 'bg-green-500/20',
-                                        'text' => 'text-green-300',
+                                        'bg'     => 'bg-green-500/20',
+                                        'text'   => 'text-green-300',
                                         'border' => 'border-green-500/30',
-                                        'icon' => 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'
+                                        'icon'   => 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'
                                     ],
                                     'number_issued' => [
-                                        'bg' => 'bg-green-500/20',
-                                        'text' => 'text-green-300',
+                                        'bg'     => 'bg-green-500/20',
+                                        'text'   => 'text-green-300',
                                         'border' => 'border-green-500/30',
-                                        'icon' => 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'
+                                        'icon'   => 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'
                                     ],
                                     'declined' => [
-                                        'bg' => 'bg-red-500/20',
-                                        'text' => 'text-red-300',
+                                        'bg'     => 'bg-red-500/20',
+                                        'text'   => 'text-red-300',
                                         'border' => 'border-red-500/30',
-                                        'icon' => 'M6 18L18 6M6 6l12 12'
+                                        'icon'   => 'M6 18L18 6M6 6l12 12'
                                     ],
                                     'released' => [
-                                        'bg' => 'bg-emerald-500/20',
-                                        'text' => 'text-emerald-300',
+                                        'bg'     => 'bg-emerald-500/20',
+                                        'text'   => 'text-emerald-300',
                                         'border' => 'border-emerald-500/30',
-                                        'icon' => 'M5 13l4 4L19 7'
+                                        'icon'   => 'M5 13l4 4L19 7'
                                     ],
                                     'cancelled' => [
-                                        'bg' => 'bg-gray-600/30',
-                                        'text' => 'text-gray-400',
+                                        'bg'     => 'bg-gray-600/30',
+                                        'text'   => 'text-gray-400',
                                         'border' => 'border-gray-500/30',
-                                        'icon' => 'M6 18L18 6M6 6l12 12'
+                                        'icon'   => 'M6 18L18 6M6 6l12 12'
                                     ],
                                 ];
+
                                 $config = $statusConfig[$contract->status] ?? $statusConfig['draft'];
+
+                                // Hanya ambil stage info untuk status yang relevan
+                                $needsStageInfo = in_array($contract->status, ['under_review', 'revision_needed']);
+
+                                $reviewerName = null;
+                                $stageTotal   = 0;
+                                $stageDone    = 0;
+
+                                if ($needsStageInfo) {
+                                    $activeStage  = $contract->currentReviewStage();
+                                    $reviewerName = $activeStage?->assignedUser?->nama_user;
+                                    $stageTotal   = $contract->reviewStages->count();
+                                    $stageDone    = $contract->reviewStages->where('status', 'completed')->count();
+                                }
                             @endphp
 
-                            <div class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium 
+                            {{-- Badge Status --}}
+                            <div class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium
                                         {{ $config['bg'] }} {{ $config['text'] }} border {{ $config['border'] }}">
-                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $config['icon'] }}" />
                                 </svg>
                                 <span class="text-xs">{{ $contract->status_label }}</span>
                             </div>
+
+                            {{-- Info Reviewer + Stage (hanya muncul saat under_review / revision_needed) --}}
+                            @if($needsStageInfo)
+                                {{-- Nama Reviewer --}}
+                                <div class="flex items-center gap-1 mt-1.5">
+                                    <svg class="w-3 h-3 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                                    </svg>
+                                    <span class="text-xs text-gray-400 truncate max-w-[110px]">
+                                        {{ $reviewerName ?? 'Unassigned' }}
+                                    </span>
+                                </div>
+
+                                {{-- Progress Stage (hanya tampil jika ada stage) --}}
+                                @if($stageTotal > 0)
+                                    <div class="flex items-center gap-1 mt-0.5">
+                                        <svg class="w-3 h-3 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                                        </svg>
+                                        <span class="text-xs text-gray-500">
+                                            Stage {{ $stageDone }}/{{ $stageTotal }}
+                                        </span>
+                                    </div>
+                                @endif
+                            @endif
                         </td>
 
                         <!-- Timeline -->

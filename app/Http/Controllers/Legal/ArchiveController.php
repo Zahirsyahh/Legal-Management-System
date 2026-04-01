@@ -1,11 +1,14 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Legal;
 
+use App\Http\Controllers\Controller;
 use App\Models\Archive;
+use App\Models\ArchiveCrossReference;
 use App\Services\ArchiveRecordIdService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class ArchiveController extends Controller
@@ -15,11 +18,25 @@ class ArchiveController extends Controller
      * LIST ARCHIVES
      * ==========================================
      */
-    public function index()
+    public function index(Request $request)
     {
-        $archives = Archive::latest()->paginate(15);
+        $query = Archive::query();
 
-        return view('archive.index', compact('archives'));
+        if ($request->doc_name) {
+            $query->where('doc_name', 'like', '%' . $request->doc_name . '%');
+        }
+
+        if ($request->department) {
+            $query->where('department_code', $request->department);
+        }
+
+        if ($request->doc_type) {
+            $query->where('doc_type', $request->doc_type);
+        }
+
+        $archives = $query->latest()->paginate(15);
+
+        return view('archives.index', compact('archives'));
     }
 
     /**
@@ -27,58 +44,67 @@ class ArchiveController extends Controller
      * CREATE PAGE
      * ==========================================
      */
-    public function create()
-    {
-        $departments = [
-            'LG' => 'Legal',
-            'HR' => 'HRD',
-            'OP' => 'Operation',
-            'AC' => 'Accounting',
-            'FN' => 'Finance',
-            'TX' => 'Tax',
-            'EX' => 'Exim',
-            'CC' => 'CorCom',
-            'NP' => 'Nickel Ore',
-            'HE' => 'HSE',
-            'CP' => 'Coal',
-            'SL' => 'Sales',
-            'PC' => 'Purchasing',
-            'IT' => 'IT',
-            'GA' => 'GA',
+public function create()
+{
+    $departments = [
+        'LG' => 'Legal',
+        'HR' => 'HRD',
+        'OP' => 'Operation',
+        'AC' => 'Accounting',
+        'FN' => 'Finance',
+        'TX' => 'Tax',
+        'EX' => 'Exim',
+        'CC' => 'CorCom',
+        'NP' => 'Nickel Ore',
+        'HE' => 'HSE',
+        'CP' => 'Coal',
+        'SL' => 'Sales',
+        'PC' => 'Purchasing',
+        'IT' => 'IT',
+        'GA' => 'GA',
+        'DK' => 'Direksi & Komisaris',
+    ];
 
-            // Direksi & Komisaris share kode yang sama
-            'DK_DIR' => [
-                'label' => 'Direksi',
-                'code' => 'DK'
-            ],
+    // ✅ TAMBAHKAN INI — untuk dropdown cross reference
+    $archiveList = Archive::select('id', 'record_id', 'doc_name')
+        ->orderBy('record_id')
+        ->get()
+        ->map(function ($a) {
+            return [
+                'id'    => $a->id,
+                'label' => $a->record_id . ' — ' . $a->doc_name,
+            ];
+        });
 
-            'DK_KOM' => [
-                'label' => 'Komisaris',
-                'code' => 'DK'
-            ],
-        ];
+    return view('archives.create', [
+        'departments'   => $departments,
+        'docTypes'      => Archive::DOC_TYPES,
+        'docStatus'     => Archive::DOC_STATUS,
+        'versionStatus' => Archive::VERSION_STATUS,
+        'archiveList'   => $archiveList,  
+    ]);
+}
 
-        $docTypes = Archive::select('doc_type')
-                    ->distinct()
-                    ->pluck('doc_type');
-
-        return view('archive.create', compact('departments','docTypes'));
-    }
-
-    //generate record id otomatis berdasarkan tahun, departemen, dan jenis dokumen
+    /**
+     * ==========================================
+     * GENERATE RECORD ID (AJAX)
+     * ==========================================
+     */
     public function generateRecordId(Request $request, ArchiveRecordIdService $recordService)
     {
-        $request->validate([
-            'year' => 'required',
-            'department' => 'required',
-            'doc_type' => 'required'
-        ]);
+    $request->validate([
+        'company'    => 'required|in:GNI,AMI',
+        'year'       => 'required',
+        'department' => 'required',
+        'doc_type'   => 'required'
+    ]);
 
-        $recordId = $recordService->generate(
-            $request->year,
-            $request->department,
-            $request->doc_type
-        );
+    $recordId = $recordService->generate(
+        $request->company,
+        $request->year,
+        $request->department, 
+        $request->doc_type
+    );
 
         return response()->json([
             'record_id' => $recordId
@@ -90,56 +116,84 @@ class ArchiveController extends Controller
      * STORE ARCHIVE
      * ==========================================
      */
-    public function store(Request $request)
-    {
-        $request->validate([
-            'record_id' => 'required|string|max:255|unique:archives,record_id',
-            'doc_number' => 'nullable|string|max:255',
-            'doc_name' => 'required|string|max:255',
-            'doc_type' => 'required|string|max:10',
-            'department' => 'required|string|max:100',
-            'counterparty' => 'nullable|string|max:255',
-            'description' => 'nullable|string|max:500',
-            'doc_status' => 'required|in:copy,scancopy,hardcopy,born-digital',
-            'version_status' => 'required|in:active,obsolete,superseded,terminate',
-            'start_date' => 'nullable|date',
-            'end_date' => 'nullable|date',
-            'doc_location' => 'nullable|string|max:255',
-            'synology_path' => 'nullable|string|max:255',
+public function store(Request $request)
+{
+    $request->validate([
+        'record_id'      => 'required|string|max:255|unique:archives,record_id',
+        'doc_number'     => 'nullable|string|max:255',
+        'doc_name'       => 'required|string|max:255',
+        'company'        => 'required|in:GNI,AMI',
+        'doc_type'       => 'required|in:' . implode(',', array_keys(Archive::DOC_TYPES)),
+        'department'     => 'required|string|max:100',
+        'counterparty'   => 'nullable|string|max:255',
+        'description'    => 'nullable|string|max:500',
+        'doc_status'     => 'required|array|min:1',
+        'doc_status.*'   => 'in:' . implode(',', Archive::DOC_STATUS),
+        'version_status' => 'required|in:' . implode(',', Archive::VERSION_STATUS),
+        'start_date'     => 'nullable|date',
+        'end_date'       => 'nullable|date|after_or_equal:start_date',
+        'doc_location'   => 'nullable|string|max:255',
+        'synology_path'  => 'nullable|string|max:255',
+    ]);
+
+    try {
+
+        DB::beginTransaction();
+
+        $archive = Archive::create([
+            'record_id'      => $request->record_id,
+            'doc_number'     => $request->doc_number,
+            'doc_name'       => $request->doc_name,
+            'company'        => $request->company,
+            'doc_type'       => $request->doc_type,
+            'department_code'     => $request->department,
+            'counterparty'   => $request->counterparty,
+            'description'    => $request->description,
+            'doc_status'     => $request->doc_status, // array, disimpan sebagai JSON
+            'version_status' => $request->version_status,
+            'start_date'     => $request->start_date,
+            'end_date'       => $request->end_date,
+            'doc_location'   => $request->doc_location,
+            'synology_path'  => $request->synology_path,
+            'created_by'     => Auth::id(),
         ]);
 
-        try {
+        // ======================
+        // CROSS REFERENCES
+        // ======================
+        if ($request->filled('ref_doc_name')) {
+            foreach ($request->ref_doc_name as $index => $docName) {
 
-            Archive::create([
-                'record_id' => $request->record_id,
-                'doc_number' => $request->doc_number,
-                'doc_name' => $request->doc_name,
-                'doc_type' => $request->doc_type,
-                'department' => $request->department,
-                'counterparty' => $request->counterparty,
-                'description' => $request->description,
-                'doc_status' => $request->doc_status,
-                'version_status' => $request->version_status,
-                'start_date' => $request->start_date,
-                'end_date' => $request->end_date,
-                'doc_location' => $request->doc_location,
-                'synology_path' => $request->synology_path,
-                'created_by' => Auth::user()->id_user,
-            ]);
+                // Skip baris kosong
+                if (empty(trim($docName))) continue;
 
-            return redirect()
-                ->route('archive.index')
-                ->with('success', 'Archive created successfully');
-
-        } catch (\Exception $e) {
-
-            Log::error('Archive creation failed', [
-                'error' => $e->getMessage()
-            ]);
-
-            return back()->with('error', 'Failed to create archive');
+                ArchiveCrossReference::create([
+                    'archive_id'    => $archive->id,
+                    'ref_doc_name'  => $docName,
+                    'ref_record_id' => $request->ref_record_id[$index] ?? null,
+                    'ref_location'  => $request->ref_location[$index] ?? null,
+                    'ref_relation'  => $request->ref_relation[$index] ?? null,
+                ]);
+            }
         }
+
+        DB::commit();
+
+        return redirect()
+            ->route('archives.index')
+            ->with('success', 'Archive created successfully');
+
+    } catch (\Exception $e) {
+
+        DB::rollBack();
+
+        Log::error('Archive creation failed', [
+            'error' => $e->getMessage()
+        ]);
+
+        return back()->withInput()->with('error', 'Failed to create archive');
     }
+}
 
     /**
      * ==========================================
@@ -148,9 +202,9 @@ class ArchiveController extends Controller
      */
     public function show($id)
     {
-        $archive = Archive::findOrFail($id);
+        $archive = Archive::with('crossReferences')->findOrFail($id);
 
-        return view('archive.show', compact('archive'));
+        return view('archives.show', compact('archive'));
     }
 
     /**
@@ -160,18 +214,14 @@ class ArchiveController extends Controller
      */
     public function edit($id)
     {
-        $archive = Archive::findOrFail($id);
+        $archive = Archive::with('crossReferences')->findOrFail($id);
 
-        $docTypes = Archive::DOC_TYPES;
-        $docStatus = Archive::DOC_STATUS;
-        $versionStatus = Archive::VERSION_STATUS;
-
-        return view('archive.edit', compact(
-            'archive',
-            'docTypes',
-            'docStatus',
-            'versionStatus'
-        ));
+        return view('archives.edit', [
+            'archive'       => $archive,
+            'docTypes'      => Archive::DOC_TYPES,
+            'docStatus'     => Archive::DOC_STATUS,
+            'versionStatus' => Archive::VERSION_STATUS,
+        ]);
     }
 
     /**
@@ -184,36 +234,80 @@ class ArchiveController extends Controller
         $archive = Archive::findOrFail($id);
 
         $request->validate([
-            'record_id' => 'required|string|max:255|unique:archives,record_id,' . $id,
-            'doc_number' => 'nullable|string|max:255',
-            'doc_name' => 'required|string|max:255',
-            'doc_type' => 'required|string|max:10',
-            'department' => 'required|string|max:100',
-            'counterparty' => 'nullable|string|max:255',
-            'description' => 'nullable|string|max:500',
-            'doc_status' => 'required|in:copy,scancopy,hardcopy,born-digital',
-            'version_status' => 'required|in:active,obsolete,superseded,terminate',
-            'start_date' => 'nullable|date',
-            'end_date' => 'nullable|date',
-            'doc_location' => 'nullable|string|max:255',
-            'synology_path' => 'nullable|string|max:255',
+            'record_id'      => 'required|string|max:255|unique:archives,record_id,' . $id,
+            'doc_number'     => 'nullable|string|max:255',
+            'doc_name'       => 'required|string|max:255',
+            'company'        => 'required|in:GNI,AMI',
+            'doc_type'       => 'required|in:' . implode(',', array_keys(Archive::DOC_TYPES)),
+            'department'     => 'required|string|max:100',
+            'counterparty'   => 'nullable|string|max:255',
+            'description'    => 'nullable|string|max:500',
+            'doc_status'     => 'required|array|min:1',
+            'doc_status.*'   => 'in:' . implode(',', Archive::DOC_STATUS),
+            'version_status' => 'required|in:' . implode(',', Archive::VERSION_STATUS),
+            'start_date'     => 'nullable|date',
+            'end_date'       => 'nullable|date|after_or_equal:start_date',
+            'doc_location'   => 'nullable|string|max:255',
+            'synology_path'  => 'nullable|string|max:255',
         ]);
 
         try {
 
-            $archive->update($request->all());
+            DB::beginTransaction();
+
+            $archive->update([
+                'record_id'      => $request->record_id,
+                'doc_number'     => $request->doc_number,
+                'doc_name'       => $request->doc_name,
+                'company'        => $request->company,
+                'doc_type'       => $request->doc_type,
+                'department_code'     => $request->department,
+                'counterparty'   => $request->counterparty,
+                'description'    => $request->description,
+                'doc_status'     => $request->doc_status, // array, disimpan sebagai JSON
+                'version_status' => $request->version_status,
+                'start_date'     => $request->start_date,
+                'end_date'       => $request->end_date,
+                'doc_location'   => $request->doc_location,
+                'synology_path'  => $request->synology_path,
+            ]);
+
+            // ======================
+            // RESET DAN SIMPAN ULANG CROSS REFERENCES
+            // ======================
+            ArchiveCrossReference::where('archive_id', $archive->id)->delete();
+
+            if ($request->filled('ref_doc_name')) {
+                foreach ($request->ref_doc_name as $index => $docName) {
+
+                    // Skip baris kosong
+                    if (empty(trim($docName))) continue;
+
+                    ArchiveCrossReference::create([
+                        'archive_id'    => $archive->id,
+                        'ref_doc_name'  => $docName,
+                        'ref_record_id' => $request->ref_record_id[$index] ?? null,
+                        'ref_location'  => $request->ref_location[$index] ?? null,
+                        'ref_relation'  => $request->ref_relation[$index] ?? null,
+                    ]);
+                }
+            }
+
+            DB::commit();
 
             return redirect()
-                ->route('archive.index')
+                ->route('archives.index')
                 ->with('success', 'Archive updated successfully');
 
         } catch (\Exception $e) {
+
+            DB::rollBack();
 
             Log::error('Archive update failed', [
                 'error' => $e->getMessage()
             ]);
 
-            return back()->with('error', 'Failed to update archive');
+            return back()->withInput()->with('error', 'Failed to update archive');
         }
     }
 
@@ -230,7 +324,7 @@ class ArchiveController extends Controller
             $archive->delete();
 
             return redirect()
-                ->route('archive.index')
+                ->route('archives.index')
                 ->with('success', 'Archive deleted successfully');
 
         } catch (\Exception $e) {

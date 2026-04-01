@@ -4,7 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Models\ArchiveCrossReference;
 use Carbon\Carbon;
+use App\Models\TblUser;
 
 class Archive extends Model
 {
@@ -16,8 +18,9 @@ class Archive extends Model
         'record_id',
         'doc_number',
         'doc_name',
+        'company',
         'doc_type',
-        'department',
+        'department_code',
         'counterparty',
         'description',
         'doc_status',
@@ -32,6 +35,7 @@ class Archive extends Model
     protected $casts = [
         'start_date' => 'date',
         'end_date' => 'date',
+        'doc_status' => 'array'
     ];
 
     /*
@@ -61,10 +65,15 @@ class Archive extends Model
     */
 
     public const DOC_STATUS = [
+        'scan',
         'copy',
-        'scancopy',
-        'hardcopy',
-        'born-digital'
+        'original_hardcopy'
+    ];
+
+    public const DOC_STATUS_LABEL = [
+        'scan' => 'Scan',
+        'copy' => 'Copy',
+        'original_hardcopy' => 'Original Hardcopy',
     ];
 
     /*
@@ -74,10 +83,15 @@ class Archive extends Model
     */
 
     public const VERSION_STATUS = [
-        'active',
+        'latest',
         'obsolete',
-        'superseded',
-        'terminate'
+        'superseded'
+    ];
+
+    public const VERSION_STATUS_LABEL = [
+        'latest' => 'Latest',
+        'obsolete' => 'Obsolete',
+        'superseded' => 'Superseded',
     ];
 
     /*
@@ -116,5 +130,17 @@ class Archive extends Model
     public function creator()
     {
         return $this->belongsTo(TblUser::class, 'created_by', 'id_user');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | RELATION : CROSS REFERENCES
+    |--------------------------------------------------------------------------
+    */
+
+    // dia punya banyak cross reference
+    public function crossReferences()
+    {
+        return $this->hasMany(ArchiveCrossReference::class, 'archive_id');
     }
 }
