@@ -8,6 +8,7 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Notifications\Messages\BroadcastMessage;
 
 class SuratNoteNotification extends Notification implements ShouldQueue
 {
@@ -21,7 +22,7 @@ class SuratNoteNotification extends Notification implements ShouldQueue
 
     public function via(object $notifiable): array
     {
-        return ['mail', 'database'];
+        return ['mail', 'database', 'broadcast'];
     }
 
     public function toMail(object $notifiable): MailMessage
@@ -133,5 +134,25 @@ class SuratNoteNotification extends Notification implements ShouldQueue
             'icon'            => 'fa-comment-dots',
             'color'           => 'info'
         ];
+    }
+
+    public function toBroadcast($notifiable)
+    {
+        return new BroadcastMessage([
+            'id' => $this->id,
+            'type' => 'surat_note',
+            'title' => 'Legal Notes Added',
+            'message' => 'Legal team added notes to your document.',
+            'contract_id' => $this->contract->id,
+            'contract_title' => $this->contract->title,
+            'contract_status' => $this->contract->status,
+            'sender_name' => $this->sender->nama_user ?? $this->sender->name,
+            'sender_id' => $this->sender->id_user ?? $this->sender->id,
+            'notes' => $this->notes,
+            'action_url' => route('surat.show', $this->contract),
+            'icon' => 'fa-comment-dots',
+            'color' => 'info',
+            'timestamp' => now()->toDateTimeString(),
+        ]);
     }
 }

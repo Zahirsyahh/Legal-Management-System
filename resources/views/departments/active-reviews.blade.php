@@ -482,360 +482,361 @@
                     @endphp
                     
                     <div class="review-card group" 
-                         data-id="{{ $review->id }}"
-                         data-status="{{ $isOverdue ? 'overdue' : $review->status }}" 
-                         data-duedate="{{ $review->due_date ?? '' }}"
-                         data-assigned="{{ $review->assigned_at ?? '' }}"
-                         data-contract-number="{{ $review->contract->contract_number ?? '' }}"
-                         data-title="{{ $review->contract->title ?? '' }}"
-                         data-assigned-staff="{{ $review->assignedStaff->name ?? '' }}"
-                         data-staff-id="{{ $review->assignedStaff->id ?? '' }}"
-                         data-priority="{{ $priority }}">
-                        <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between p-5 bg-white/5 rounded-xl hover:bg-white/10 transition-all border border-gray-700/50 hover:border-gray-600/50 relative overflow-hidden">
-                            <!-- Priority Indicator -->
-                            @if($priority != 'normal')
-                            <div class="absolute top-0 right-0 w-16 h-16 overflow-hidden">
-                                <div class="absolute top-0 right-0 transform translate-x-8 -translate-y-8 rotate-45 w-16 h-16 {{ $priority == 'high' ? 'bg-red-500/20' : 'bg-yellow-500/20' }}"></div>
+     data-id="{{ $review->id }}"
+     data-status="{{ $isOverdue ? 'overdue' : $review->status }}" 
+     data-duedate="{{ $review->due_date ?? '' }}"
+     data-assigned="{{ $review->assigned_at ?? '' }}"
+     data-contract-number="{{ $review->contract->contract_number ?? '' }}"
+     data-title="{{ $review->contract->title ?? '' }}"
+     data-assigned-staff="{{ $review->assignedStaff->name ?? '' }}"
+     data-staff-id="{{ $review->assignedStaff->id ?? '' }}"
+     data-priority="{{ $priority }}">
+    
+    <!-- MAIN CONTAINER - compact padding -->
+    <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between p-4 bg-white/5 rounded-xl hover:bg-white/10 transition-all border border-gray-700/50 hover:border-gray-600/50 relative overflow-hidden">
+        
+        <!-- Priority Indicator - compact -->
+        @if($priority != 'normal')
+        <div class="absolute top-0 right-0 w-12 h-12 overflow-hidden">
+            <div class="absolute top-0 right-0 transform translate-x-6 -translate-y-6 rotate-45 w-12 h-12 {{ $priority == 'high' ? 'bg-red-500/20' : 'bg-yellow-500/20' }}"></div>
+        </div>
+        @endif
+        
+        <div class="flex-1 min-w-0 w-full lg:w-auto">
+            <div class="flex items-start space-x-3">
+                <!-- Icon - compact -->
+                <div class="flex-shrink-0 relative">
+                    <div class="w-10 h-10 rounded-xl {{ $currentColor['bg'] }} flex items-center justify-center border {{ $currentColor['border'] }} group-hover:scale-105 transition-transform">
+                        <svg class="w-5 h-5 {{ $currentColor['text'] }} animate-pulse-slow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $currentStatusColor['icon'] }}" />
+                        </svg>
+                    </div>
+                    @if($isOverdue)
+                    <span class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-ping"></span>
+                    @endif
+                </div>
+                
+                <div class="flex-1 min-w-0">
+                    @if ($review->contract)
+                        <!-- Document Title - compact -->
+                        <div class="mb-2">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <h3 class="text-base font-bold text-white group-hover:text-{{ $department->code == 'FIN' ? 'blue' : ($department->code == 'ACC' ? 'indigo' : 'red') }}-300 transition-colors truncate" 
+                                    title="{{ $review->contract->title }}">
+                                    {{ Str::limit($review->contract->title, 50) }}
+                                </h3>
+                                @if($priority != 'normal')
+                                <span class="px-1.5 py-0.5 text-[0.6rem] rounded-full {{ $priority == 'high' ? 'bg-red-500/20 text-red-300' : 'bg-yellow-500/20 text-yellow-300' }} animate-pulse">
+                                    {{ ucfirst($priority) }}
+                                </span>
+                                @endif
+                            </div>
+                            
+                            <!-- Contract Info Row - compact -->
+                            <div class="flex flex-wrap items-center gap-2 text-xs">
+                                @if($review->contract->contract_number)
+                                    <div class="flex items-center gap-1 text-gray-400 group/copy">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                                        </svg>
+                                        <span class="font-mono">{{ $review->contract->contract_number }}</span>
+                                        <button class="opacity-0 group-hover/copy:opacity-100 transition-opacity" onclick="copyToClipboard('{{ $review->contract->contract_number }}')">
+                                            <svg class="w-3 h-3 text-gray-500 hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                @endif
+                                
+                                @if($review->contract->contract_type)
+                                    @php
+                                        $typeColors = [
+                                            'service' => 'bg-blue-500/20 text-blue-300',
+                                            'procurement' => 'bg-green-500/20 text-green-300',
+                                            'sales' => 'bg-purple-500/20 text-purple-300',
+                                            'partnership' => 'bg-yellow-500/20 text-yellow-300',
+                                            'employment' => 'bg-pink-500/20 text-pink-300',
+                                            'confidential' => 'bg-red-500/20 text-red-300',
+                                        ];
+                                        $typeClass = $typeColors[strtolower($review->contract->contract_type)] ?? 'bg-gray-500/20 text-gray-300';
+                                    @endphp
+                                    <span class="px-1.5 py-0.5 text-[0.6rem] rounded-full {{ $typeClass }}">
+                                        {{ $review->contract->contract_type }}
+                                    </span>
+                                @endif
+                                
+                                @if($review->contract->counterparty_name)
+                                    <div class="flex items-center gap-1 text-gray-400">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                        </svg>
+                                        <span class="truncate max-w-[150px]" title="{{ $review->contract->counterparty_name }}">{{ Str::limit($review->contract->counterparty_name, 20) }}</span>
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+                    @else
+                        <div class="mb-2">
+                            <h3 class="text-base font-bold text-red-400 italic flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                                Contract Deleted
+                            </h3>
+                        </div>
+                    @endif
+                    
+                    <!-- Status and Dates Row - compact -->
+                    <div class="flex flex-wrap items-center gap-x-3 gap-y-1 mb-2">
+                        <span class="px-2 py-0.5 text-[0.65rem] rounded-full {{ $currentStatusColor['bg'] }} {{ $currentStatusColor['text'] }} flex items-center gap-1">
+                            <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $currentStatusColor['icon'] }}" />
+                            </svg>
+                            @if($isOverdue)
+                                Overdue ({{ $daysOverdue }}d)
+                            @else
+                                {{ ucfirst(str_replace('_', ' ', $review->status)) }}
+                            @endif
+                        </span>
+                        
+                        @if($review->due_date)
+                            @php
+                                $dueDateCarbon = \Carbon\Carbon::parse($review->due_date);
+                                $daysUntilDue = now()->diffInDays($dueDateCarbon, false);
+                            @endphp
+                            <div class="flex items-center gap-1 text-xs {{ $isOverdue ? 'text-red-400' : ($daysUntilDue <= 2 ? 'text-yellow-400' : 'text-gray-400') }}">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span>{{ $dueDateCarbon->format('d M Y') }}</span>
+                                @if(!$isOverdue && $daysUntilDue > 0 && $daysUntilDue <= 7)
+                                    <span class="text-[0.6rem]">({{ $daysUntilDue }}d left)</span>
+                                @endif
+                            </div>
+                        @endif
+                        
+                        @if($review->assignedStaff)
+                            <div class="flex items-center gap-1 text-xs text-gray-400">
+                                <div class="w-4 h-4 rounded-full bg-gradient-to-br {{ $currentColor['bg'] }} flex items-center justify-center">
+                                    <span class="text-[0.6rem] font-medium {{ $currentColor['text'] }}">
+                                        {{ strtoupper(substr($review->assignedStaff->name, 0, 1)) }}
+                                    </span>
+                                </div>
+                                <span class="{{ $currentColor['text'] }}">{{ Str::limit($review->assignedStaff->name, 15) }}</span>
+                            </div>
+                        @endif
+                        
+                        @if($review->assigned_at)
+                            <div class="flex items-center gap-1 text-xs text-gray-500">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span>{{ $review->assigned_at->diffForHumans() }}</span>
+                            </div>
+                        @endif
+                    </div>
+                    
+                    @if ($review->contract)
+                        <!-- Detailed Information Grid - compact but complete -->
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2 text-xs">
+                            <!-- Creator -->
+                            <div class="flex items-center gap-1.5 group/creator">
+                                <svg class="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                </svg>
+                                <div class="truncate">
+                                    <div class="text-[0.55rem] text-gray-500">Creator</div>
+                                    <div class="text-gray-300">{{ Str::limit($review->contract->user->name ?? 'Unknown', 12) }}</div>
+                                </div>
+                            </div>
+                            
+                            <!-- Contract Value -->
+                            @if($review->contract->contract_value)
+                            <div class="flex items-center gap-1.5">
+                                <svg class="w-3 h-3 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <div class="truncate">
+                                    <div class="text-[0.55rem] text-gray-500">Value</div>
+                                    <div class="text-green-300 font-medium">{{ $review->contract->currency ?? 'IDR' }} {{ number_format($review->contract->contract_value/1000000, 1) }}M</div>
+                                </div>
                             </div>
                             @endif
                             
-                            <div class="flex-1 min-w-0 w-full lg:w-auto">
-                                <div class="flex items-start space-x-4">
-                                    <!-- Animated Icon -->
-                                    <div class="flex-shrink-0 relative">
-                                        <div class="w-12 h-12 rounded-xl {{ $currentColor['bg'] }} flex items-center justify-center border {{ $currentColor['border'] }} group-hover:scale-110 transition-transform">
-                                            <svg class="w-6 h-6 {{ $currentColor['text'] }} animate-pulse-slow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $currentStatusColor['icon'] }}" />
-                                            </svg>
-                                        </div>
-                                        @if($isOverdue)
-                                        <span class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-ping"></span>
-                                        @endif
-                                    </div>
-                                    
-                                    <div class="flex-1 min-w-0">
-                                        <!-- Document Title with Priority Badge -->
-                                        @if ($review->contract)
-                                            <div class="mb-3">
-                                                <div class="flex items-center gap-3">
-                                                    <h3 class="text-xl font-bold text-white group-hover:text-{{ $department->code == 'FIN' ? 'blue' : ($department->code == 'ACC' ? 'indigo' : 'red') }}-300 transition-colors truncate" 
-                                                        title="{{ $review->contract->title }}">
-                                                        {{ $review->contract->title }}
-                                                    </h3>
-                                                    @if($priority != 'normal')
-                                                    <span class="px-2 py-0.5 text-xs rounded-full {{ $priority == 'high' ? 'bg-red-500/20 text-red-300' : 'bg-yellow-500/20 text-yellow-300' }} animate-pulse">
-                                                        {{ ucfirst($priority) }} Priority
-                                                    </span>
-                                                    @endif
-                                                </div>
-                                                
-                                                <!-- Enhanced Contract Info Row -->
-                                                <div class="flex flex-wrap items-center gap-3 mt-2">
-                                                    <!-- Contract Number with Copy -->
-                                                    @if($review->contract->contract_number)
-                                                        <div class="flex items-center gap-1.5 text-sm text-gray-400 group/copy">
-                                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                                                            </svg>
-                                                            <span class="font-medium">{{ $review->contract->contract_number }}</span>
-                                                            <button class="opacity-0 group-hover/copy:opacity-100 transition-opacity" onclick="copyToClipboard('{{ $review->contract->contract_number }}')">
-                                                                <svg class="w-3.5 h-3.5 text-gray-500 hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                                                </svg>
-                                                            </button>
-                                                        </div>
-                                                    @endif
-                                                    
-                                                    <!-- Contract Type with Color -->
-                                                    @if($review->contract->contract_type)
-                                                        @php
-                                                            $typeColors = [
-                                                                'service' => 'bg-blue-500/20 text-blue-300 border-blue-500/30',
-                                                                'procurement' => 'bg-green-500/20 text-green-300 border-green-500/30',
-                                                                'sales' => 'bg-purple-500/20 text-purple-300 border-purple-500/30',
-                                                                'partnership' => 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
-                                                                'employment' => 'bg-pink-500/20 text-pink-300 border-pink-500/30',
-                                                                'confidential' => 'bg-red-500/20 text-red-300 border-red-500/30',
-                                                            ];
-                                                            $typeClass = $typeColors[strtolower($review->contract->contract_type)] ?? 'bg-gray-500/20 text-gray-300 border-gray-500/30';
-                                                        @endphp
-                                                        <span class="px-2.5 py-0.5 text-xs rounded-full {{ $typeClass }} border">
-                                                            {{ $review->contract->contract_type }}
-                                                        </span>
-                                                    @endif
-                                                    
-                                                    <!-- Counterparty with Company Icon -->
-                                                    @if($review->contract->counterparty_name)
-                                                        <div class="flex items-center gap-1.5 text-sm text-gray-400">
-                                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                                                            </svg>
-                                                            <span class="truncate max-w-[200px]" title="{{ $review->contract->counterparty_name }}">{{ $review->contract->counterparty_name }}</span>
-                                                        </div>
-                                                    @endif
-                                                </div>
-                                            </div>
-                                        @else
-                                            <div class="mb-3">
-                                                <h3 class="text-xl font-bold text-red-400 italic flex items-center gap-2">
-                                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                                    </svg>
-                                                    Contract Deleted
-                                                </h3>
-                                            </div>
-                                        @endif
-                                        
-                                        <!-- Enhanced Status and Dates Row -->
-                                        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-4">
-                                            <!-- Left: Status Badge and Dates -->
-                                            <div class="flex flex-wrap items-center gap-3">
-                                                <!-- Status Badge with Icon -->
-                                                <span class="px-3 py-1.5 text-xs rounded-full {{ $currentStatusColor['bg'] }} {{ $currentStatusColor['text'] }} flex items-center gap-1.5">
-                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $currentStatusColor['icon'] }}" />
-                                                    </svg>
-                                                    @if($isOverdue)
-                                                        Overdue ({{ $daysOverdue }} {{ Str::plural('day', $daysOverdue) }})
-                                                    @else
-                                                        {{ ucfirst(str_replace('_', ' ', $review->status)) }}
-                                                    @endif
-                                                </span>
-                                                
-                                                <!-- Review Due Date with Countdown -->
-                                                @if($review->due_date)
-                                                    @php
-                                                        $dueDateCarbon = \Carbon\Carbon::parse($review->due_date);
-                                                        $daysUntilDue = now()->diffInDays($dueDateCarbon, false);
-                                                    @endphp
-                                                    <div class="flex items-center gap-1.5 text-sm {{ $isOverdue ? 'text-red-400' : ($daysUntilDue <= 2 ? 'text-yellow-400' : 'text-gray-400') }}">
-                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                        </svg>
-                                                        <span title="Review Due Date">{{ $dueDateCarbon->format('M d, Y') }}</span>
-                                                        @if(!$isOverdue && $daysUntilDue > 0)
-                                                            <span class="text-xs">({{ $daysUntilDue }} days left)</span>
-                                                        @elseif($isOverdue)
-                                                            <span class="text-xs">(overdue)</span>
-                                                        @endif
-                                                    </div>
-                                                @endif
-                                                
-                                                <!-- Assigned Staff with Avatar -->
-                                                @if($review->assignedStaff)
-                                                    <div class="flex items-center gap-1.5 text-sm text-gray-400">
-                                                        <div class="w-5 h-5 rounded-full bg-gradient-to-br {{ $currentColor['bg'] }} flex items-center justify-center">
-                                                            <span class="text-xs font-medium {{ $currentColor['text'] }}">
-                                                                {{ strtoupper(substr($review->assignedStaff->name, 0, 1)) }}
-                                                            </span>
-                                                        </div>
-                                                        <span class="{{ $currentColor['text'] }}">{{ $review->assignedStaff->name }}</span>
-                                                    </div>
-                                                @endif
-                                            </div>
-                                            
-                                            <!-- Right: Time Information -->
-                                            <div class="flex items-center gap-3 text-sm text-gray-400">
-                                                @if($review->assigned_at)
-                                                    <div class="flex items-center gap-1.5" title="Assigned at">
-                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                        </svg>
-                                                        <span>{{ $review->assigned_at->diffForHumans() }}</span>
-                                                    </div>
-                                                @endif
-                                                
-                                                @if($review->contract && $review->contract->contract_value)
-                                                    <div class="flex items-center gap-1.5 text-green-400">
-                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                        </svg>
-                                                        <span>{{ $review->contract->currency ?? 'IDR' }} {{ number_format($review->contract->contract_value/1000000, 1) }}M</span>
-                                                    </div>
-                                                @endif
-                                            </div>
-                                        </div>
-                                        
-                                        @if ($review->contract)
-                                            <!-- Enhanced Detailed Information Grid -->
-                                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4 text-sm">
-                                                <!-- Creator with Tooltip -->
-                                                <div class="flex items-center gap-2 group/creator">
-                                                    <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                                    </svg>
-                                                    <div class="truncate">
-                                                        <div class="text-xs text-gray-500">Creator</div>
-                                                        <div class="text-gray-300 flex items-center gap-1">
-                                                            {{ $review->contract->user->name ?? 'Unknown' }}
-                                                            @if($review->contract->user)
-                                                                <span class="opacity-0 group-hover/creator:opacity-100 transition-opacity text-xs text-gray-500">({{ $review->contract->user->email }})</span>
-                                                            @endif
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                
-                                                <!-- Contract Value with Trend -->
-                                                @if($review->contract->contract_value)
-                                                <div class="flex items-center gap-2">
-                                                    <svg class="w-4 h-4 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                    </svg>
-                                                    <div class="truncate">
-                                                        <div class="text-xs text-gray-500">Value</div>
-                                                        <div class="text-green-300 font-medium">{{ $review->contract->currency ?? 'IDR' }} {{ number_format($review->contract->contract_value, 0) }}</div>
-                                                    </div>
-                                                </div>
-                                                @endif
-                                                
-                                                <!-- Contract Period with Duration -->
-                                                @if($review->contract->effective_date || $review->contract->expiry_date)
-                                                <div class="flex items-center gap-2">
-                                                    <svg class="w-4 h-4 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                                    </svg>
-                                                    <div class="truncate">
-                                                        <div class="text-xs text-gray-500">Contract Period</div>
-                                                        <div class="text-blue-300">
-                                                            @if($review->contract->effective_date && $review->contract->expiry_date)
-                                                                @php
-                                                                    $start = \Carbon\Carbon::parse($review->contract->effective_date);
-                                                                    $end = \Carbon\Carbon::parse($review->contract->expiry_date);
-                                                                    $duration = $start->diffInMonths($end);
-                                                                @endphp
-                                                                {{ $start->format('M d, Y') }} - {{ $end->format('M d, Y') }}
-                                                                <span class="text-xs text-gray-500">({{ $duration }} months)</span>
-                                                            @elseif($review->contract->effective_date)
-                                                                From {{ \Carbon\Carbon::parse($review->contract->effective_date)->format('M d, Y') }}
-                                                            @elseif($review->contract->expiry_date)
-                                                                Until {{ \Carbon\Carbon::parse($review->contract->expiry_date)->format('M d, Y') }}
-                                                            @endif
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                @endif
-                                                
-                                                <!-- Department Specific Fields -->
-                                                @if($department->code === 'TAX' && $review->contract->tax_implications)
-                                                <div class="flex items-center gap-2">
-                                                    <svg class="w-4 h-4 text-purple-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                                    </svg>
-                                                    <div class="truncate">
-                                                        <div class="text-xs text-gray-500">Tax Review</div>
-                                                        <div class="text-purple-300 flex items-center gap-1">
-                                                            Required
-                                                            <span class="text-xs text-gray-500">({{ $review->contract->tax_implications }})</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                @endif
-                                                
-                                                @if($department->code === 'FIN' && $review->contract->budget_code)
-                                                <div class="flex items-center gap-2">
-                                                    <svg class="w-4 h-4 text-cyan-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6h18M3 12h18M3 18h18" />
-                                                    </svg>
-                                                    <div class="truncate">
-                                                        <div class="text-xs text-gray-500">Budget Code</div>
-                                                        <div class="text-cyan-300">{{ $review->contract->budget_code }}</div>
-                                                    </div>
-                                                </div>
-                                                @endif
-                                            </div>
-                                            
-                                            <!-- Enhanced Progress Bar -->
-                                            <div class="mt-4">
-                                                <div class="flex items-center justify-between mb-1">
-                                                    <div class="flex items-center gap-2">
-                                                        <span class="text-xs text-gray-400">Review Progress</span>
-                                                        @if($progress >= 75)
-                                                            <span class="text-xs bg-green-500/20 text-green-300 px-2 py-0.5 rounded-full">Almost Done</span>
-                                                        @elseif($progress <= 25)
-                                                            <span class="text-xs bg-yellow-500/20 text-yellow-300 px-2 py-0.5 rounded-full">Just Started</span>
-                                                        @endif
-                                                    </div>
-                                                    <span class="text-xs font-medium {{ $currentColor['text'] }}">{{ $progress }}%</span>
-                                                </div>
-                                                <div class="relative">
-                                                    <div class="w-full bg-gray-700 rounded-full h-2.5 overflow-hidden">
-                                                        <div class="bg-gradient-to-r {{ $currentColor['gradient'] }} h-2.5 rounded-full transition-all duration-700 ease-out" 
-                                                             style="width: {{ $progress }}%"></div>
-                                                    </div>
-                                                    <!-- Milestone Markers -->
-                                                    <div class="absolute top-0 left-0 w-full flex justify-between px-1">
-                                                        <div class="w-1 h-2.5 bg-gray-600/50 rounded-full"></div>
-                                                        <div class="w-1 h-2.5 bg-gray-600/50 rounded-full"></div>
-                                                        <div class="w-1 h-2.5 bg-gray-600/50 rounded-full"></div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            
-                                            <!-- Review Comments Preview -->
-                                            @if($review->comments && $review->comments->count() > 0)
-                                            <div class="mt-3 text-sm">
-                                                <div class="flex items-start gap-2 p-2 bg-gray-800/30 rounded-lg border border-gray-700/50">
-                                                    <svg class="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                                                    </svg>
-                                                    <div>
-                                                        <span class="text-gray-400">{{ $review->comments->last()->user->name }}:</span>
-                                                        <span class="text-gray-300">{{ Str::limit($review->comments->last->content, 100) }}</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            @endif
-                                        @else
-                                            <div class="text-red-400 italic mb-4">
-                                                Contract data not available. This contract may have been deleted.
-                                            </div>
+                            <!-- Contract Period -->
+                            @if($review->contract->effective_date || $review->contract->expiry_date)
+                            <div class="flex items-center gap-1.5">
+                                <svg class="w-3 h-3 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                <div class="truncate">
+                                    <div class="text-[0.55rem] text-gray-500">Period</div>
+                                    <div class="text-blue-300 text-[0.65rem]">
+                                        @if($review->contract->effective_date && $review->contract->expiry_date)
+                                            {{ \Carbon\Carbon::parse($review->contract->effective_date)->format('d/m/y') }} - {{ \Carbon\Carbon::parse($review->contract->expiry_date)->format('d/m/y') }}
+                                        @elseif($review->contract->effective_date)
+                                            From {{ \Carbon\Carbon::parse($review->contract->effective_date)->format('d/m/y') }}
+                                        @elseif($review->contract->expiry_date)
+                                            Until {{ \Carbon\Carbon::parse($review->contract->expiry_date)->format('d/m/y') }}
                                         @endif
                                     </div>
                                 </div>
                             </div>
+                            @endif
                             
-                            <!-- Enhanced Action Buttons -->
-                            <div class="flex items-center gap-3 mt-4 lg:mt-0 lg:ml-6">
-                                @if ($review->contract)
-                                    <a href="{{ route('contracts.show', $review->contract) }}" 
-                                       class="px-4 py-2 text-sm bg-gray-800/50 hover:bg-gray-700/50 text-gray-300 rounded-lg transition-colors flex items-center gap-2 border border-gray-700/50 group/btn">
-                                        <svg class="w-4 h-4 group-hover/btn:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                        </svg>
-                                        <span>View Details</span>
-                                    </a>
-                                @endif
+                            <!-- Department Specific -->
+                            @if($department->code === 'TAX' && $review->contract->tax_implications)
+                            <div class="flex items-center gap-1.5">
+                                <svg class="w-3 h-3 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                <div class="truncate">
+                                    <div class="text-[0.55rem] text-gray-500">Tax Review</div>
+                                    <div class="text-purple-300">{{ $review->contract->tax_implications }}</div>
+                                </div>
+                            </div>
+                            @endif
+                            
+                            @if($department->code === 'FIN' && $review->contract->budget_code)
+                            <div class="flex items-center gap-1.5">
+                                <svg class="w-3 h-3 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6h18M3 12h18M3 18h18" />
+                                </svg>
+                                <div class="truncate">
+                                    <div class="text-[0.55rem] text-gray-500">Budget Code</div>
+                                    <div class="text-cyan-300">{{ Str::limit($review->contract->budget_code, 10) }}</div>
+                                </div>
+                            </div>
+                            @endif
+                        </div>
+                        
+                        <!-- Progress Bar - compact but complete -->
+                        <div class="mt-2">
+                            @php
+                                $progressPercent = 0;
+                                $reviewerCount = 0;
+                                $completedReviewerCount = 0;
+                                $activeStage = null;
                                 
-                                @if($review->assignedStaff)
-                                    <a href="mailto:{{ $review->assignedStaff->email }}" 
-                                       class="px-4 py-2 text-sm {{ $currentColor['bg'] }} hover:opacity-90 text-white rounded-lg transition-colors flex items-center gap-2 border {{ $currentColor['border'] }} group/btn relative">
-                                        <svg class="w-4 h-4 group-hover/btn:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                if ($review->contract && $review->contract->reviewStages) {
+                                    $stages = $review->contract->reviewStages->sortBy('sequence');
+                                    $totalStages = $stages->count();
+                                    $completedStages = $stages->where('status', 'completed')->count();
+                                    $progressPercent = $totalStages > 0 ? round(($completedStages / $totalStages) * 100, 1) : 0;
+                                    
+                                    $reviewerStages = $stages->whereNotIn('stage_type', ['user', 'executing', 'archiving']);
+                                    $reviewerCount = $reviewerStages->count();
+                                    $completedReviewerCount = $reviewerStages->where('status', 'completed')->count();
+                                    
+                                    $activeStage = $stages->first(function($stage) {
+                                        return in_array($stage->status, ['assigned', 'in_progress', 'pending_feedback', 'revision_requested']);
+                                    });
+                                }
+                            @endphp
+                            
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-[0.6rem] font-medium text-gray-400">Review Progress</span>
+                                <div class="flex items-center gap-2">
+                                    @if($reviewerCount > 0)
+                                    <div class="flex items-center gap-1" title="Reviewers: {{ $completedReviewerCount }}/{{ $reviewerCount }} completed">
+                                        <svg class="w-2.5 h-2.5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                                         </svg>
-                                        <span>Contact</span>
-                                        <span class="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full"></span>
-                                    </a>
-                                @endif
-                                
-                                <!-- Quick Actions Dropdown -->
-                                <div class="relative group/dropdown">
-                                    <button class="p-2 rounded-lg bg-gray-800/50 hover:bg-gray-700/50 text-gray-400 hover:text-white transition-colors">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                                        </svg>
-                                    </button>
-                                    <div class="absolute right-0 mt-2 w-48 bg-gray-800 rounded-lg shadow-xl border border-gray-700 hidden group-hover/dropdown:block z-10">
-                                        <a href="#" class="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">Add Comment</a>
-                                        <a href="#" class="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">Reassign Staff</a>
-                                        <a href="#" class="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">Set Reminder</a>
-                                        <hr class="border-gray-700">
-                                        <a href="#" class="block px-4 py-2 text-sm text-red-400 hover:bg-gray-700">Mark as Urgent</a>
+                                        <span class="text-[0.6rem] text-purple-300">
+                                            @if($completedReviewerCount > 0)
+                                                {{ $completedReviewerCount }}/{{ $reviewerCount }}
+                                            @else
+                                                {{ $reviewerCount }}
+                                            @endif
+                                        </span>
                                     </div>
+                                    @endif
+                                    <span class="text-[0.6rem] font-medium {{ $currentColor['text'] }}">{{ $progressPercent }}%</span>
+                                </div>
+                            </div>
+                            <div class="w-full bg-gray-700 rounded-full h-1.5 overflow-hidden">
+                                <div class="bg-gradient-to-r {{ $currentColor['gradient'] }} h-1.5 rounded-full transition-all duration-700" 
+                                     style="width: {{ $progressPercent }}%"></div>
+                            </div>
+                            
+                            @if($activeStage)
+                            <div class="mt-1 flex items-center gap-1 text-[0.6rem] text-gray-500">
+                                <svg class="w-2.5 h-2.5 text-blue-400 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                </svg>
+                                <span>{{ Str::limit($activeStage->stage_name, 20) }}</span>
+                                @if($activeStage->assignedUser)
+                                <span class="text-gray-600">•</span>
+                                <span>{{ Str::limit($activeStage->assignedUser->nama_user, 12) }}</span>
+                                @endif
+                            </div>
+                            @endif
+                        </div>
+                        
+                        <!-- Comments Preview - compact -->
+                        @if($review->comments && $review->comments->count() > 0)
+                        <div class="mt-2">
+                            <div class="flex items-start gap-1.5 p-1.5 bg-gray-800/30 rounded-lg border border-gray-700/50">
+                                <svg class="w-3 h-3 text-gray-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                                </svg>
+                                <div class="flex-1 min-w-0">
+                                    <span class="text-[0.6rem] text-gray-400">{{ $review->comments->last()->user->name }}:</span>
+                                    <span class="text-[0.6rem] text-gray-300">{{ Str::limit($review->comments->last()->content, 60) }}</span>
                                 </div>
                             </div>
                         </div>
-                    </div>
+                        @endif
+                    @else
+                        <div class="text-red-400 italic text-xs mb-2">
+                            Contract data not available. This contract may have been deleted.
+                        </div>
+                    @endif
+                </div>
+            </div>
+        </div>
+        
+        <!-- Action Buttons - compact -->
+        <div class="flex items-center gap-2 mt-3 lg:mt-0 lg:ml-4">
+            @if ($review->contract)
+                <a href="{{ route('contracts.show', $review->contract) }}" 
+                   class="px-3 py-1.5 text-xs bg-gray-800/50 hover:bg-gray-700/50 text-gray-300 rounded-lg transition-colors flex items-center gap-1.5 border border-gray-700/50">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                    <span>View</span>
+                </a>
+            @endif
+            
+            @if($review->assignedStaff)
+                <a href="mailto:{{ $review->assignedStaff->email }}" 
+                   class="p-1.5 rounded-lg bg-gray-800/50 hover:bg-gray-700/50 text-gray-400 hover:text-white transition-colors border border-gray-700/50"
+                   title="Contact {{ $review->assignedStaff->name }}">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                </a>
+            @endif
+            
+            <!-- Quick Actions Dropdown -->
+            <div class="relative group/dropdown">
+                <button class="p-1.5 rounded-lg bg-gray-800/50 hover:bg-gray-700/50 text-gray-400 hover:text-white transition-colors">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                    </svg>
+                </button>
+                <div class="absolute right-0 mt-2 w-36 bg-gray-800 rounded-lg shadow-xl border border-gray-700 hidden group-hover/dropdown:block z-10">
+                    <a href="#" class="block px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700">Add Comment</a>
+                    <a href="#" class="block px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700">Reassign</a>
+                    <a href="#" class="block px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700">Set Reminder</a>
+                    <hr class="border-gray-700">
+                    <a href="#" class="block px-3 py-1.5 text-xs text-red-400 hover:bg-gray-700">Mark Urgent</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
                     @empty
                     <div class="text-center py-12 border-2 border-dashed border-gray-700/50 rounded-xl bg-gray-800/20">
                         <div class="inline-flex items-center justify-center w-16 h-16 rounded-full {{ $currentColor['bg'] }} mb-6 animate-bounce-subtle">

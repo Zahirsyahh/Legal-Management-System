@@ -6,6 +6,7 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
+use Illuminate\Notifications\Messages\BroadcastMessage;
 
 class SuratApprovedNotification extends Notification implements ShouldQueue
 {
@@ -22,7 +23,7 @@ class SuratApprovedNotification extends Notification implements ShouldQueue
 
     public function via(object $notifiable): array
     {
-        return ['mail', 'database'];
+        return ['mail', 'database', 'broadcast'];
     }
 
     protected function resolveUrl(): string
@@ -126,5 +127,24 @@ class SuratApprovedNotification extends Notification implements ShouldQueue
             'icon'           => 'fa-check-circle',
             'color'          => 'green'
         ];
+    }
+
+    public function toBroadcast($notifiable)
+    {
+        return new BroadcastMessage([
+            'id' => $this->id,
+            'type' => 'surat_approved',
+            'title' => 'Letter Approved',
+            'message' => 'Your letter has been approved by ' . $this->approvedBy->nama_user,
+            'contract_id' => $this->contract->id,
+            'contract_title' => $this->contract->title,
+            'contract_type' => $this->contract->contract_type,
+            'approved_by' => $this->approvedBy->nama_user,
+            'approved_at' => now()->toDateTimeString(),
+            'action_url' => $this->resolveUrl(),
+            'icon' => 'fa-check-circle',
+            'color' => 'green',
+            'timestamp' => now()->toDateTimeString(),
+        ]);
     }
 }

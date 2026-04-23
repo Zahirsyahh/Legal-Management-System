@@ -9,1426 +9,1753 @@ use App\Models\ContractDepartment;
 use App\Models\ContractReviewStage;
 use App\Models\ContractReviewJump;
 use App\Models\ContractReviewLog;
+use App\Models\ContractRevisionTask;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
-use App\Events\ReviewWorkflowStarted;
 use App\Notifications\StageAssignedNotification;
 use App\Notifications\ContractReviewStartedNotification;
-use App\Notifications\RevisionRequestedNotification;
 use App\Notifications\StageJumpedNotification;
-use App\Notifications\ContractRejectedNotification;
 use App\Services\ContractNumberService;
 use Illuminate\Validation\Rule;
-
+use App\Notifications\ContractNumberGeneratedNotification;
+use App\Notifications\ContractRejectedNotification;
+use App\Notifications\FinishedReviewNotification;
 
 class ReviewStageController extends Controller
 {
-    // ============================================
-    // 1. DYNAMIC REVIEW WORKFLOW INITIATION (NEW)
-    // ============================================
+    // ============================================================
+    // 1. DYNAMIC REVIEW WORKFLOW INITIATION
+    // ============================================================
 
-    /**
-     * Show dynamic form untuk start review dengan tombol "Add Stage"
-     */
-    public function showStartReviewDynamic(Contract $contract){
-        // Authorization
+    public function showStartReviewDynamic(Contract $contract)
+    {
         if (!Auth::user()->hasAnyRole(['legal', 'admin'])) {
             abort(403, 'Only Legal or Admin can start review process.');
         }
-        
         if (!$contract->canStartReview()) {
             return redirect()->route('contracts.show', $contract)
                 ->with('error', 'Contract cannot start review at this time. Status must be "submitted".');
         }
-        
-        // Get Legal department
-        $legalDept = Department::where('code', 'LEGAL')->first();
-        
-        // Get active legal officers - PERBAIKAN: pilih field yang benar
+
         $legalOfficers = TblUser::role('legal')
             ->where('status_karyawan', 'AKTIF')
             ->orderBy('nama_user')
-            ->get(['id_user', 'nama_user', 'email']); // ✅ HAPUS 'username', GANTI 'nama_user'
-        
-        // Get other active departments untuk checklist
+            ->get(['id_user', 'nama_user', 'email']);
+
         $otherDepartments = Department::where('code', '!=', 'LEGAL')
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
-        
+
         return view('contracts.start-review-dynamic', compact(
-            'contract',
-            'legalDept',
-            'legalOfficers',
-            'otherDepartments'
+            'contract', 'legalOfficers', 'otherDepartments'
         ));
     }
 
-    /**
-     * Process dynamic form dengan multiple stages
-     */
-        public function processStartReviewDynamic(Request $request, Contract $contract)
-        {
-            // ✅ LOG RAW REQUEST - TAMBAHKAN DI SINI
-            \Log::info('=== RAW REQUEST RECEIVED ===', [
-                'contract_id' => $contract->id,
-                'user_id' => Auth::id(),
-                'method' => $request->method(),
-                'url' => $request->fullUrl(),
-                'all_input' => $request->all(),
-                'has_reviewers' => $request->has('reviewers'),
-                'reviewers_count' => count($request->input('reviewers', [])),
-                'reviewers_raw' => $request->input('reviewers'),
-                'selected_departments' => $request->input('selected_departments'),
-                'synology_link' => $request->input('synology_folder_path'),
-                'notes' => $request->input('notes'),
-            ]);
-
-            // Authorization
-            if (!Auth::user()->hasRole(['legal', 'admin'])) {
-                abort(403, 'Only Legal or Admin can start review process.');
-            }
-            
-            if (!$contract->canStartReview()) {
-                return redirect()->back()
-                    ->with('error', 'Contract cannot start review at this time.');
-            }
-            
-            // ✅ LOG BEFORE VALIDATION
-            \Log::info('Starting validation...');
-            
-            // ✅ FIXED: Validation rules
-            $validated = $request->validate([
-                'reviewers' => 'required|array|min:1',
-                'reviewers.*.stage_name' => 'required|string|max:255',
-                'reviewers.*.user_id' => [
-                    'required',
-                    'integer',
-                    Rule::exists('tbl_user', 'id_user')
-                        ->where('status_karyawan', 'AKTIF')
-                ],
-                'synology_folder_path' => 'nullable|string|max:500',
-                'selected_departments' => 'nullable|array',
-                'selected_departments.*' => 'in:FIN,ACC,TAX',
-                'notes' => 'nullable|string|max:1000',
-            ]);
-            
-            \Log::info('✅ Validation passed', [
-                'validated_data' => $validated,
-            ]);
-            
-            // ✅ FIXED: Check duplicate users
-            $legalUserIds = collect($validated['reviewers'])->pluck('user_id');
-            if ($legalUserIds->count() !== $legalUserIds->unique()->count()) {
-                return redirect()->back()
-                    ->with('error', 'One user cannot be assigned to multiple stages!')
-                    ->withInput();
-            }
-            
-            try {
-                \Log::info('Starting database transaction...');
-                DB::beginTransaction();
-                
-                $legalDept = Department::where('code', 'LEGAL')->first();
-                
-                // ============================================
-                // 1. CREATE USER STAGE (auto)
-                // ============================================
-                \Log::info('Creating user stage...');
-                ContractReviewLog::create([
-                    'contract_id' => $contract->id,
-                    'stage_id' => null,
-                    'user_id' => Auth::id(),
-                    'action' => 'workflow_started',
-                    'description' => 'Dynamic review workflow initiated',
-                    'metadata' => [
-                        'legal_stages_count' => count($validated['reviewers']),
-                        'departments_count' => count($validated['selected_departments'] ?? []),
-                    ]
-                ]);
-                
-                ContractReviewStage::create([
-                    'contract_id' => $contract->id,
-                    'department_id' => $legalDept->id,
-                    'stage_name' => 'User Submission',
-                    'stage_type' => 'user',
-                    'assigned_user_id' => $contract->user_id,
-                    'is_user_stage' => true,
-                    'sequence' => 1,
-                    'status' => 'completed',
-                    'notes' => 'Contract submitted by user',
-                    'assigned_at' => now(),
-                    'completed_at' => now(),
-                ]);
-                
-                \Log::info('✅ User stage created');
-                
-                // ============================================
-                // 2. CREATE LEGAL STAGES (dynamic dari form)
-                // ============================================
-                \Log::info('Creating legal stages...', [
-                    'stages_count' => count($validated['reviewers']),
-                ]);
-                
-                $sequence = 2;
-                $createdStages = [];
-                
-                foreach ($validated['reviewers'] as $index => $stageData) {
-                    $isManual = $index >= 2;
-                    
-                    $stage = ContractReviewStage::create([
-                        'contract_id' => $contract->id,
-                        'department_id' => $legalDept->id,
-                        'stage_name' => $stageData['stage_name'],
-                        'stage_type' => 'legal',
-                        'assigned_user_id' => $stageData['user_id'],
-                        'sequence' => $sequence,
-                        'status' => $sequence === 2 ? 'assigned' : 'pending',
-                        'notes' => $isManual ? 'Manually added during review setup' : null,
-                        'assigned_at' => $sequence === 2 ? now() : null,
-                        'created_by' => Auth::id(),
-                        'is_manual_added' => $isManual,
-                        'add_reason' => $isManual ? 'Additional review stage needed' : null,
-                    ]);
-                    
-                    $createdStages[] = $stage;
-                    $sequence++;
-                    
-                    \Log::info("✅ Stage {$index} created", [
-                        'stage_name' => $stageData['stage_name'],
-                        'assigned_to' => $stageData['user_id'],
-                    ]);
-                }
-                
-                \Log::info('✅ All legal stages created', [
-                    'total_stages' => count($createdStages),
-                ]);
-                
-                // ============================================
-                // 3. CREATE ENTRIES FOR OTHER DEPARTMENTS
-                // ============================================
-                // ✅ DEFINISIKAN VARIABLE $selectedDepartments DI SINI
-                $selectedDepartments = $validated['selected_departments'] ?? [];
-                
-                \Log::info('Processing departments...', [
-                    'selected_departments' => $selectedDepartments,
-                    'count' => count($selectedDepartments),
-                ]);
-                
-                if (!empty($selectedDepartments)) {
-                    foreach ($selectedDepartments as $deptCode) {
-                        $department = Department::where('code', $deptCode)->first();
-                        
-                        if ($department) {
-                            // Find admin for this department
-                            $adminRole = 'admin_' . strtolower($deptCode);
-                            $adminUser = TblUser::role($adminRole)->first();
-                            
-                            ContractDepartment::create([
-                                'contract_id' => $contract->id,
-                                'department_id' => $department->id,
-                                'status' => 'pending_assignment',
-                                'assigned_admin_id' => $adminUser->id_user ?? null,
-                                'assigned_at' => $adminUser ? now() : null,
-                            ]);
-                            
-                            \Log::info("✅ Department {$deptCode} assigned", [
-                                'department_id' => $department->id,
-                                'admin_user' => $adminUser ? $adminUser->email : 'No admin found',
-                            ]);
-                        } else {
-                            \Log::warning("Department {$deptCode} not found in database");
-                        }
-                    }
-                    
-                    // Update contract dengan selected departments
-                    $contract->update([
-                        'selected_departments' => json_encode($selectedDepartments),
-                    ]);
-                    
-                    \Log::info('✅ Contract departments updated', [
-                        'selected_departments' => $selectedDepartments,
-                    ]);
-                } else {
-                    \Log::info('No additional departments selected');
-                }
-                
-                // ============================================
-                // 4. UPDATE CONTRACT STATUS
-                // ============================================
-                \Log::info('Updating contract status...');
-                
-                $contract->update([
-                    'status' => Contract::STATUS_UNDER_REVIEW,
-                    'review_flow_status' => Contract::REVIEW_FLOW_IN_REVIEW,
-                    'current_stage' => 2,
-                    'legal_assigned_id' => $validated['reviewers'][0]['user_id'],
-                    'legal_review_started_at' => now(),
-                    'allow_stage_addition' => true,
-                    'legal_notes' => $validated['notes'] ?? null,
-                    'workflow_type' => 'dynamic',
-                ]);
-                
-                \Log::info('✅ Contract status updated', [
-                    'new_status' => Contract::STATUS_UNDER_REVIEW,
-                    'legal_assigned_id' => $validated['reviewers'][0]['user_id'],
-                ]);
-                
-                // ============================================
-                // 5. SAVE SYNOLOGY FOLDER PATH
-                // ============================================
-                if ($request->filled('synology_folder_path')) {
-                    $contract->update([
-                        'synology_folder_path' => $request->synology_folder_path
-                    ]);
-                    \Log::info('✅ Synology path saved', [
-                        'path' => $request->synology_folder_path,
-                    ]);
-                }
-                
-                DB::commit();
-                
-                \Log::info('✅ Database transaction committed');
-                
-                // ============================================
-                // 6. SEND NOTIFICATIONS
-                // ============================================
-                \Log::info('Sending notifications...');
-                $this->sendStartReviewNotifications($contract, $validated['reviewers'], $selectedDepartments);
-                
-                // ============================================
-                // 7. LOG ACTION
-                // ============================================
-                ContractReviewLog::create([
-                    'contract_id' => $contract->id,
-                    'stage_id' => $createdStages[0]->id ?? null,
-                    'user_id' => Auth::id(),
-                    'action' => 'stage_created',
-                    'description' => 'Review workflow started with ' . count($validated['reviewers']) . 
-                                ' legal stage(s)' . 
-                                (empty($selectedDepartments) ? '' : ' and ' . count($selectedDepartments) . 
-                                ' other department(s)'),
-                    'metadata' => [
-                        'stages' => collect($createdStages)->pluck('stage_name'),
-                        'users' => collect($createdStages)->pluck('assigned_user_id'),
-                    ]
-                ]);
-                
-                // ✅ LOG SUCCESS - SEKARANG $selectedDepartments SUDAH TERDEFINISI
-                \Log::info('🎉 Dynamic review workflow started successfully!', [
-                    'contract_id' => $contract->id,
-                    'contract_title' => $contract->title,
-                    'legal_stages_count' => count($validated['reviewers']),
-                    'departments_count' => count($selectedDepartments), // ✅ VARIABLE SUDAH ADA
-                    'first_reviewer' => $validated['reviewers'][0]['user_id'],
-                    'total_stages' => $sequence - 1,
-                    'execution_time' => microtime(true) - LARAVEL_START,
-                ]);
-                
-                return redirect()->route('contracts.show', $contract)
-                    ->with('success', 'Review workflow started successfully! ' . 
-                        count($validated['reviewers']) . ' legal stage(s) created.' . 
-                        (empty($selectedDepartments) ? '' : ' ' . count($selectedDepartments) . 
-                        ' other department(s) notified.'));
-                        
-            } catch (\Exception $e) {
-                DB::rollBack();
-                \Log::error('❌ Failed to start dynamic review: ' . $e->getMessage());
-                \Log::error('Error trace: ', $e->getTrace());
-                
-                return redirect()->back()
-                    ->with('error', 'Failed to start review: ' . $e->getMessage())
-                    ->withInput();
-            }
+    public function processStartReviewDynamic(Request $request, Contract $contract)
+    {
+        if (!Auth::user()->hasAnyRole(['legal', 'admin'])) {
+            abort(403, 'Only Legal or Admin can start review process.');
+        }
+        if (!$contract->canStartReview()) {
+            return redirect()->back()->with('error', 'Contract cannot start review at this time.');
         }
 
-    /**
-     * Send notifications to assigned reviewers and department admins
-     */
+        if ($request->filled('workflow_items')) {
+            return $this->processStartReviewFromJson($request, $contract);
+        }
+        return $this->processStartReviewLegacy($request, $contract);
+    }
+
+    private function processStartReviewFromJson(Request $request, Contract $contract)
+    {
+        $request->validate([
+            'workflow_items'       => 'required|string',
+            'synology_folder_path' => 'nullable|string|max:500',
+            'notes'                => 'nullable|string|max:1000',
+        ]);
+
+        $items = json_decode($request->input('workflow_items'), true);
+        if (!$items || !is_array($items) || count($items) === 0) {
+            return redirect()->back()->with('error', 'Workflow items tidak valid.')->withInput();
+        }
+
+        $legalItems    = array_filter($items, fn($i) => ($i['type'] ?? '') === 'legal');
+        $parallelItems = array_filter($items, fn($i) => ($i['type'] ?? '') === 'parallel');
+
+        if (count($legalItems) < 1) {
+            return redirect()->back()->with('error', 'Minimal 1 Legal Review Stage diperlukan.')->withInput();
+        }
+        if (count($parallelItems) > 1) {
+            return redirect()->back()->with('error', 'Hanya boleh ada satu blok Substantial Review.')->withInput();
+        }
+
+        $parallelData  = !empty($parallelItems) ? array_values($parallelItems)[0] : null;
+        $selectedDepts = $parallelData['depts'] ?? [];
+        $deptCount     = count($selectedDepts);
+        $parallelGroup = $deptCount >= 2 ? 1 : null;
+
+        $stageTypeMap = ['FIN' => 'finance', 'ACC' => 'accounting', 'TAX' => 'tax', 'LEGAL' => 'legal'];
+
+        try {
+            DB::beginTransaction();
+
+            $legalDept     = Department::where('code', 'LEGAL')->first();
+            $createdStages = [];
+            $seqCounter    = 1;
+
+            // ── Stage 1: User Submission (always) ─────────────────────────
+            ContractReviewStage::create([
+                'contract_id'      => $contract->id,
+                'department_id'    => $legalDept?->id,
+                'stage_name'       => 'User Submission',
+                'stage_type'       => 'user',
+                'assigned_user_id' => $contract->user_id,
+                'is_user_stage'    => true,
+                'sequence'         => $seqCounter++,
+                'parallel_group'   => null,
+                'status'           => 'completed',
+                'notes'            => 'Contract submitted by user',
+                'assigned_at'      => now(),
+                'completed_at'     => now(),
+            ]);
+
+            $firstLegalStageId = null;
+            $firstLegalSeq     = null;
+            $legalIndex        = 0;
+
+            // ── Process workflow items in order ────────────────────────────
+            foreach ($items as $item) {
+                $type = $item['type'] ?? '';
+
+                if ($type === 'legal') {
+                    $userId    = (int) ($item['user_id'] ?? 0);
+                    $stageName = $item['stage_name'] ?? 'Legal Review';
+                    $isFirst   = ($legalIndex === 0);
+
+                    $stage = ContractReviewStage::create([
+                        'contract_id'      => $contract->id,
+                        'department_id'    => $legalDept?->id,
+                        'stage_name'       => $stageName,
+                        'stage_type'       => 'legal',
+                        'assigned_user_id' => $userId,
+                        'sequence'         => $seqCounter,
+                        'parallel_group'   => null,
+                        'status'           => $isFirst ? 'assigned' : 'pending',
+                        'assigned_at'      => $isFirst ? now() : null,
+                        'created_by'       => Auth::id(),
+                        'is_manual_added'  => $legalIndex >= 2,
+                    ]);
+
+                    if ($isFirst) {
+                        $firstLegalStageId = $stage->id;
+                        $firstLegalSeq     = $seqCounter;
+                    }
+
+                    $createdStages[] = $stage;
+                    $legalIndex++;
+                    $seqCounter++;
+
+                } elseif ($type === 'parallel' && !empty($selectedDepts)) {
+                    $legalReviewerId = !empty($item['legal_reviewer_id']) ? (int) $item['legal_reviewer_id'] : null;
+
+                    foreach ($selectedDepts as $deptCode) {
+                        $department = Department::where('code', $deptCode)->first();
+                        if (!$department) continue;
+
+                        $assignedUserId = $deptCode === 'LEGAL' ? $legalReviewerId : null;
+                        $stageName      = $deptCode === 'LEGAL' ? 'Legal Review' : $department->name . ' Review';
+
+                        ContractReviewStage::create([
+                            'contract_id'      => $contract->id,
+                            'department_id'    => $department->id,
+                            'stage_name'       => $stageName,
+                            'stage_type'       => $stageTypeMap[$deptCode] ?? strtolower($deptCode),
+                            'assigned_user_id' => $assignedUserId,
+                            'sequence'         => $seqCounter,
+                            'parallel_group'   => $parallelGroup,
+                            'status'           => 'pending',
+                            'notes'            => $deptCode === 'LEGAL'
+                                ? 'Legal reviewer included in parallel review.'
+                                : 'Awaiting staff assignment from department admin.',
+                            'created_by'       => Auth::id(),
+                        ]);
+                    }
+
+                    foreach ($selectedDepts as $deptCode) {
+                        $department = Department::where('code', $deptCode)->first();
+                        if (!$department) continue;
+
+                        $adminRoleMap = ['FIN' => 'admin_fin', 'ACC' => 'admin_acc', 'TAX' => 'admin_tax', 'LEGAL' => 'legal'];
+                        $adminRole    = $adminRoleMap[$deptCode] ?? null;
+                        $adminUser    = $adminRole ? TblUser::role($adminRole)->first() : null;
+
+                        ContractDepartment::updateOrCreate(
+                            ['contract_id' => $contract->id, 'department_id' => $department->id],
+                            [
+                                'status'            => ($deptCode === 'LEGAL' && $legalReviewerId) ? 'assigned' : 'pending_assignment',
+                                'assigned_admin_id' => $adminUser?->id_user,
+                                'assigned_at'       => $adminUser ? now() : null,
+                            ]
+                        );
+                    }
+
+                    $seqCounter++;
+                }
+            }
+
+            // ── Update contract ────────────────────────────────────────────
+            $contract->update([
+                'status'                  => Contract::STATUS_UNDER_REVIEW,
+                'review_flow_status'      => Contract::REVIEW_FLOW_IN_REVIEW,
+                'current_stage'           => $firstLegalSeq ?? 2,
+                'legal_assigned_id'       => $legalUserIds[0] ?? null,
+                'legal_review_started_at' => now(),
+                'allow_stage_addition'    => true,
+                'legal_notes'             => $request->input('notes'),
+                'workflow_type'           => 'dynamic',
+                'selected_departments'    => !empty($selectedDepts) ? json_encode($selectedDepts) : null,
+                'multi_department_status' => match(true) {
+                    $deptCount >= 2  => 'multi_department',
+                    default          => 'single_department',
+                },
+            ]);
+
+            if ($request->filled('synology_folder_path')) {
+                $contract->update(['synology_folder_path' => $request->synology_folder_path]);
+            }
+
+            ContractReviewLog::create([
+                'contract_id' => $contract->id,
+                'stage_id'    => $firstLegalStageId,
+                'user_id'     => Auth::id(),
+                'action'      => 'workflow_started',
+                'description' => 'Dynamic review workflow dimulai',
+                'metadata'    => [
+                    'legal_stages_count' => count($legalItems),
+                    'departments'        => $selectedDepts,
+                    'is_parallel'        => $parallelGroup !== null,
+                    'workflow_order'     => array_map(fn($i) => $i['type'], $items),
+                ],
+            ]);
+
+            DB::commit();
+
+            $this->sendStartReviewNotifications(
+                $contract,
+                array_values(array_map(fn($s) => [
+                    'user_id'    => $s->assigned_user_id,
+                    'stage_name' => $s->stage_name,
+                ], array_filter($createdStages, fn($s) => $s->stage_type === 'legal'))),
+                $selectedDepts
+            );
+
+            return redirect()->route('contracts.show', $contract)
+                ->with('success', 'Document Review Workflow has Started!');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Failed to start review: ' . $e->getMessage(), [
+                'contract_id' => $contract->id, 'trace' => $e->getTraceAsString(),
+            ]);
+            return redirect()->back()->with('error', 'Gagal memulai review: ' . $e->getMessage())->withInput();
+        }
+    }
+
+    private function processStartReviewLegacy(Request $request, Contract $contract)
+    {
+        $validated = $request->validate([
+            'reviewers'              => 'required|array|min:1',
+            'reviewers.*.stage_name' => 'required|string|max:255',
+            'reviewers.*.user_id'    => ['required', 'integer', Rule::exists('tbl_user', 'id_user')->where('status_karyawan', 'AKTIF')],
+            'synology_folder_path'   => 'nullable|string|max:500',
+            'selected_departments'   => 'nullable|array',
+            'selected_departments.*' => 'in:FIN,ACC,TAX,LEGAL',
+            'notes'                  => 'nullable|string|max:1000',
+        ]);
+
+        $selectedDepartments = $validated['selected_departments'] ?? [];
+        $jsonItems = [];
+        foreach ($validated['reviewers'] as $r) {
+            $jsonItems[] = ['type' => 'legal', 'user_id' => (int) $r['user_id'], 'stage_name' => $r['stage_name']];
+        }
+        if (!empty($selectedDepartments)) {
+            $jsonItems[] = ['type' => 'parallel', 'depts' => $selectedDepartments, 'legal_reviewer_id' => $validated['reviewers'][0]['user_id'] ?? null];
+        }
+
+        $request->merge(['workflow_items' => json_encode($jsonItems)]);
+        return $this->processStartReviewFromJson($request, $contract);
+    }
+
     protected function sendStartReviewNotifications($contract, $legalReviewers, $selectedDepartments)
     {
-        // ✅ FIXED: Use TblUser::find() for compatibility
         $currentUser = TblUser::find(Auth::id());
-        
-        if (!$currentUser) {
-            \Log::error('Current user not found in tbl_user', ['auth_id' => Auth::id()]);
-            return;
-        }
-
-        /**
-         * 1️⃣ Notify FIRST LEGAL REVIEWER (sequence = 2)
-         */
-        if (!empty($legalReviewers) && !empty($legalReviewers[0]['user_id'])) {
+        if (!$currentUser) return;
+    
+        // ── 1. StageAssigned → first reviewer (yang langsung aktif) ──────────
+        if (!empty($legalReviewers[0]['user_id'])) {
             $firstReviewer = TblUser::find($legalReviewers[0]['user_id']);
-
             if ($firstReviewer) {
                 $firstStage = $contract->reviewStages()
                     ->where('assigned_user_id', $firstReviewer->id_user)
                     ->where('sequence', 2)
                     ->first();
-
                 if ($firstStage) {
                     try {
                         $firstReviewer->notify(
-                            new StageAssignedNotification(
-                                $contract,
-                                $firstStage,
-                                $currentUser
-                            )
+                            new StageAssignedNotification($contract, $firstStage, $currentUser)
                         );
-                        
-                        \Log::info('Stage assignment notification sent', [
-                            'reviewer' => $firstReviewer->email,
-                            'stage' => $firstStage->stage_name,
-                            'contract' => $contract->title
-                        ]);
                     } catch (\Exception $e) {
-                        \Log::error('Failed to send stage notification: ' . $e->getMessage());
+                        Log::error('StageAssigned notify failed: ' . $e->getMessage());
                     }
                 }
             }
         }
-
-        /**
-         * 2️⃣ Notify ALL LEGAL REVIEWERS dengan ContractReviewStartedNotification
-         */
-        $reviewTeam = collect($legalReviewers)->map(function ($reviewer) {
-            $user = TblUser::find($reviewer['user_id']);
-            return $user ? [
-                'id' => $user->id_user,
-                'name' => $user->nama_user,
-                'email' => $user->email,
-                'stage' => $reviewer['stage_name']
-            ] : null;
-        })->filter()->toArray();
-
-        // Notify all legal reviewers
-        foreach ($legalReviewers as $reviewerData) {
-            $reviewer = TblUser::find($reviewerData['user_id']);
+    
+        // ── 2. ContractReviewStarted → SEMUA reviewer + owner ────────────────
+        $reviewTeam = collect($legalReviewers)->map(function ($r) {
+            $u = TblUser::find($r['user_id']);
+            return $u
+                ? ['id' => $u->id_user, 'name' => $u->nama_user,
+                'email' => $u->email, 'stage' => $r['stage_name']]
+                : null;
+        })->filter()->values()->toArray();
+    
+        // Notify SEMUA reviewer (bukan hanya pertama)
+        foreach ($legalReviewers as $r) {
+            $reviewer = TblUser::find($r['user_id']);
             if ($reviewer) {
                 try {
-                    $reviewer->notify(new ContractReviewStartedNotification(
-                        $contract,
-                        $currentUser,
-                        $reviewTeam
-                    ));
+                    $reviewer->notify(
+                        new ContractReviewStartedNotification($contract, $currentUser, $reviewTeam)
+                    );
                 } catch (\Exception $e) {
-                    \Log::error('Failed to send review start notification: ' . $e->getMessage());
+                    Log::error('ReviewStarted notify failed: ' . $e->getMessage());
                 }
             }
         }
-
-        /**
-         * 3️⃣ Notify CONTRACT OWNER
-         */
-        if ($contract->user && $contract->user->id_user !== $currentUser->id_user) {
+    
+        // Notify owner (jika bukan yang memulai review)
+        if ($contract->user && (int) $contract->user->id_user !== (int) $currentUser->id_user) {
             try {
-                $contract->user->notify(new ContractReviewStartedNotification(
-                    $contract,
-                    $currentUser,
-                    $reviewTeam
-                ));
+                $contract->user->notify(
+                    new ContractReviewStartedNotification($contract, $currentUser, $reviewTeam)
+                );
             } catch (\Exception $e) {
-                \Log::error('Failed to notify contract owner: ' . $e->getMessage());
+                Log::error('ReviewStarted owner notify failed: ' . $e->getMessage());
             }
         }
-
-        /**
-         * 4️⃣ Notify DEPARTMENT ADMINS
-         */
-        if (!empty($selectedDepartments)) {
-            foreach ($selectedDepartments as $deptCode) {
-                $department = Department::where('code', $deptCode)->first();
-                
-                if ($department) {
-                    $adminRole = 'admin_' . strtolower($deptCode);
-                    $adminUsers = TblUser::role($adminRole)->get();
-                    
-                    foreach ($adminUsers as $admin) {
-                        try {
-                            $admin->notify(new \App\Notifications\DepartmentAssignmentNotification(
-                                $contract,
-                                $department,
-                                $currentUser
-                            ));
-                            
-                            \Log::info('Department assignment notification sent', [
-                                'department' => $deptCode,
-                                'admin' => $admin->email,
-                                'contract' => $contract->title,
-                            ]);
-                        } catch (\Exception $e) {
-                            \Log::error('Failed to send department notification: ' . $e->getMessage());
-                        }
-                    }
+    
+        // ── 3. DepartmentAssignment → ADMIN department (bukan staff) ─────────
+        $adminRoleMap = [
+            'FIN' => 'admin_fin',
+            'ACC' => 'admin_acc',
+            'TAX' => 'admin_tax',
+            // LEGAL sengaja tidak dimasukkan:
+            // Legal yang inisiasi review, tidak perlu dapat notif department assignment.
+        ];
+ 
+        foreach ($selectedDepartments as $deptCode) {
+            // Skip LEGAL — mereka yang memulai proses, bukan penerima assignment
+            if ($deptCode === 'LEGAL') continue;
+ 
+            $department = Department::where('code', $deptCode)->first();
+            if (!$department) continue;
+ 
+            $adminRole = $adminRoleMap[$deptCode] ?? null;
+            if (!$adminRole) continue;
+ 
+            $admins = TblUser::role($adminRole)
+                ->where('status_karyawan', 'AKTIF')
+                ->get();
+ 
+            foreach ($admins as $admin) {
+                try {
+                    $admin->notify(
+                        new \App\Notifications\DepartmentAssignmentNotification(
+                            $contract, $department, $currentUser
+                        )
+                    );
+                } catch (\Exception $e) {
+                    Log::error('DeptAssignment notify failed: ' . $e->getMessage());
                 }
             }
         }
-
-        /**
-         * 5️⃣ Log semua notifikasi yang dikirim
-         */
-        \Log::info('Notifications sent for contract review start', [
-            'contract_id' => $contract->id,
-            'legal_reviewers_count' => count($legalReviewers),
-            'departments_count' => count($selectedDepartments),
-            'reviewers' => collect($legalReviewers)->pluck('user_id')->toArray(),
-            'departments' => $selectedDepartments,
-            'sent_by' => $currentUser->email
-        ]);
     }
 
-    // ============================================
-    // 2. MID-REVIEW STAGE MANAGEMENT (NEW)
-    // ============================================
+    // ============================================================
+    // 2. GENERATE NUMBER
+    //    - Bisa dipanggil dari legal stage mana saja yang in_progress/assigned
+    //    - Stage legal TETAP in_progress setelah generate
+    //    - Membuat stage executing (pending) + archiving (pending)
+    // ============================================================
 
-    /**
-     * Show form to add stage mid-review
-     */
-    public function showAddStageForm(Contract $contract)
+        public function generateNumber(Contract $contract, ContractNumberService $service)
     {
-        if (!Auth::user()->hasAnyRole(['legal', 'admin'])) {
-            abort(403);
+        $user = TblUser::find(Auth::id());
+    
+        if (!$user->hasAnyRole(['admin', 'legal'])) {
+            if (request()->expectsJson()) {
+                return response()->json(['success' => false, 'message' => 'Unauthorized.'], 403);
+            }
+            abort(403, 'Only admin or legal can generate contract numbers.');
         }
-        
-        if (!$contract->allow_stage_addition) {
-            abort(403, 'Stage addition not allowed for this contract.');
+    
+        if ($contract->contract_number) {
+            if (request()->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Nomor kontrak sudah ada: ' . $contract->contract_number,
+                ], 422);
+            }
+            return redirect()->route('contracts.show', $contract)
+                ->with('error', 'Nomor kontrak sudah ada: ' . $contract->contract_number);
         }
-        
-        $legalOfficers = TblUser::role('legal')
-            ->where('status_karyawan', 'AKTIF')
-            ->orderBy('nama_user')
-            ->get(['id_user', 'nama_user', 'email']);
-            
-        $currentStage = $contract->reviewStages()
-            ->where('sequence', $contract->current_stage)
+    
+        // Cari stage legal aktif milik user ini
+        $myActiveStage = $contract->reviewStages()
+            ->where('stage_type', 'legal')
+            ->where('assigned_user_id', $user->id_user)
+            ->whereIn('status', ['in_progress', 'assigned'])
+            ->orderBy('sequence')
             ->first();
-            
-        return view('reviews.add-stage-form', compact(
-            'contract', 
-            'legalOfficers',
-            'currentStage'
-        ));
-    }
-
-    /**
-     * Add stage mid-review (untuk Admin/Legal)
-     */
-    public function addStageMidReview(Request $request, Contract $contract)
-    {
-        if (!Auth::user()->hasAnyRole(['legal', 'admin'])) {
-            abort(403);
+    
+        if (!$myActiveStage && !$user->hasRole('admin')) {
+            if (request()->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Kamu tidak memiliki stage legal aktif di kontrak ini.',
+                ], 422);
+            }
+            return redirect()->route('contracts.show', $contract)
+                ->with('error', 'Kamu tidak memiliki stage legal aktif di kontrak ini.');
         }
-        
-        $request->validate([
-            'stage_name' => 'required|string|max:255',
-            'user_id' => 'required|exists:tbl_user,id_user',
-            'reason' => 'required|string|max:500',
-            'position' => 'required|in:before_current,after_current,end',
-        ]);
-        
+    
+        // Resolve department_code jika belum ada
+        if (empty($contract->department_code)) {
+            $resolved = $service->resolveDepartmentCode($contract);
+            if ($resolved && $resolved !== 'GEN') {
+                $contract->update(['department_code' => $resolved]);
+                $contract->refresh();
+            } else {
+                if (request()->expectsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Contract missing department code. Hubungi admin.',
+                    ], 422);
+                }
+                return redirect()->route('contracts.show', $contract)
+                    ->with('error', 'Contract missing department code. Hubungi admin.');
+            }
+        }
+    
+        // Guard: semua stage lain harus completed
+        $incompleteOthers = $contract->reviewStages()
+            ->whereNotIn('status', ['completed', 'skipped'])
+            ->whereNotIn('stage_type', ['executing', 'archiving'])
+            ->when($myActiveStage, fn($q) => $q->where('id', '!=', $myActiveStage->id))
+            ->count();
+    
+        if ($incompleteOthers > 0) {
+            $msg = "There are still {$incompleteOthers} other stages that are not completed.";
+            if (request()->expectsJson()) {
+                return response()->json(['success' => false, 'message' => $msg], 422);
+            }
+            return redirect()->route('contracts.show', $contract)->with('error', $msg);
+        }
+    
+        // Cek apakah executing/archiving stage sudah pernah dibuat
+        $existingExecuting = $contract->reviewStages()
+            ->where('stage_type', 'executing')
+            ->exists();
+    
         try {
             DB::beginTransaction();
-            
-            // Get current stage
-            $currentStage = $contract->reviewStages()
-                ->where('sequence', $contract->current_stage)
-                ->first();
-                
-            if (!$currentStage) {
-                throw new \Exception('Current stage not found');
+    
+            $contractNumber = $service->generateForContract($contract);
+            $legalDept      = Department::where('code', 'LEGAL')->first();
+    
+            // Update contract: NUMBER_ISSUED
+            $contract->update([
+                'contract_number'   => $contractNumber,
+                'status'            => Contract::STATUS_NUMBER_ISSUED,
+                'number_issued_at'  => now(),
+                'final_approved_at' => now(),
+                'final_approved_by' => $user->id_user,
+            ]);
+    
+            // Buat executing + archiving stage (hanya jika belum ada)
+            if (!$existingExecuting) {
+                $maxSeq = $contract->reviewStages()->max('sequence') ?? 0;
+    
+                $executingStage = ContractReviewStage::create([
+                    'contract_id'      => $contract->id,
+                    'department_id'    => $legalDept?->id,
+                    'stage_name'       => 'Executing — Document Signing',
+                    'stage_type'       => 'executing',
+                    'assigned_user_id' => $contract->user_id,
+                    'sequence'         => $maxSeq + 1,
+                    'parallel_group'   => null,
+                    'status'           => 'pending',
+                    'notes'            => 'Waiting for the active legal stage to be completed.',
+                    'created_by'       => $user->id_user,
+                ]);
+    
+                $archivingStage = ContractReviewStage::create([
+                    'contract_id'      => $contract->id,
+                    'department_id'    => $legalDept?->id,
+                    'stage_name'       => 'Archiving — Final Document Storage',
+                    'stage_type'       => 'archiving',
+                    'assigned_user_id' => $user->id_user,
+                    'sequence'         => $maxSeq + 2,
+                    'parallel_group'   => null,
+                    'status'           => 'pending',
+                    'notes'            => 'Waiting for the executing process to be completed.',
+                    'created_by'       => $user->id_user,
+                ]);
+    
+                $contract->update([
+                    'executing_stage_id' => $executingStage->id,
+                    'archiving_stage_id' => $archivingStage->id,
+                ]);
+            }
+    
+            ContractReviewLog::create([
+                'contract_id' => $contract->id,
+                'stage_id'    => $myActiveStage?->id,
+                'user_id'     => $user->id_user,
+                'action'      => 'number_generated',
+                'description' => 'Nomor kontrak digenerate: ' . $contractNumber,
+                'notes'       => 'Status kontrak diubah menjadi Number Issued.',
+                'metadata'    => [
+                    'contract_number'    => $contractNumber,
+                    'generated_by'       => $user->nama_user,
+                    'legal_stage_status' => 'still_active',
+                ],
+            ]);
+    
+            DB::commit();
+    
+            // Kirim notifikasi (non-blocking)
+            try {
+                $recipients = collect();
+    
+                if ($contract->user && (int) $contract->user->id_user !== (int) $user->id_user) {
+                    $recipients->push($contract->user);
+                }
+    
+                $legalReviewerIds = $contract->reviewStages()
+                    ->where('stage_type', 'legal')
+                    ->whereNotNull('assigned_user_id')
+                    ->pluck('assigned_user_id')
+                    ->unique();
+    
+                foreach ($legalReviewerIds as $reviewerId) {
+                    if ((int) $reviewerId !== (int) $user->id_user) {
+                        $reviewer = TblUser::find($reviewerId);
+                        if ($reviewer) $recipients->push($reviewer);
+                    }
+                }
+    
+                $contract->refresh();
+                $executingUser = $contract->executingStage?->assignedUser ?? TblUser::find($contract->user_id);
+                $archivingUser = $contract->archivingStage?->assignedUser ?? $user;
+    
+                foreach ($recipients->unique('id_user') as $recipient) {
+                    $recipient->notify(
+                        new ContractNumberGeneratedNotification(
+                            $contract, $contractNumber, $user, $executingUser, $archivingUser
+                        )
+                    );
+                }
+            } catch (\Exception $e) {
+                Log::error('ContractNumberGeneratedNotification failed: ' . $e->getMessage());
+            }
+    
+            // ── RETURN: JSON untuk AJAX, redirect untuk form biasa ──────────
+            if (request()->expectsJson()) {
+                return response()->json([
+                    'success'         => true,
+                    'contract_number' => $contractNumber,
+                    'message'         => 'Nomor kontrak berhasil digenerate: ' . $contractNumber,
+                ]);
+            }
+    
+            return redirect()->route('contracts.show', $contract)
+                ->with('success',
+                    '✅ Nomor kontrak digenerate: <strong>' . $contractNumber . '</strong>. ' .
+                    'Approve stage kamu untuk mengaktifkan proses Executing.'
+                );
+    
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('generateNumber failed: ' . $e->getMessage(), ['contract_id' => $contract->id]);
+    
+            if (request()->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Gagal generate nomor: ' . $e->getMessage(),
+                ], 500);
+            }
+    
+            return redirect()->route('contracts.show', $contract)
+                ->with('error', 'Gagal generate nomor: ' . $e->getMessage());
+        }
+    }
+
+    // ============================================================
+    // 3. EXECUTE CONTRACT
+    //    Dipanggil oleh contract owner dari executing stage.
+    // ============================================================
+
+    public function executeContract(Request $request, Contract $contract, ContractReviewStage $stage)
+    {
+        $user = TblUser::find(Auth::id());
+    
+        if ($stage->stage_type !== 'executing') {
+            return back()->with('error', 'Aksi ini hanya bisa dilakukan di stage Executing.');
+        }
+    
+        if ((int) $contract->user_id !== (int) $user->id_user && !$user->hasRole('admin')) {
+            return back()->with('error', 'Hanya pemilik dokumen yang bisa menandai sebagai Executed.');
+        }
+    
+        if (!in_array($stage->status, ['assigned', 'in_progress'])) {
+            return back()->with('error', 'Stage executing sudah tidak bisa diproses (status: ' . $stage->status . ').');
+        }
+    
+        $request->validate([
+            'execution_notes' => 'required|string|min:5|max:2000',
+            'execution_date'  => 'nullable|date|before_or_equal:today',
+        ]);
+    
+        try {
+            DB::beginTransaction();
+    
+            // Selesaikan executing stage
+            $stage->update([
+                'status'       => 'completed',
+                'completed_at' => now(),
+                'notes'        => $request->execution_notes,
+            ]);
+    
+            // Update contract status ke EXECUTED
+            $contract->update([
+                'status'             => Contract::STATUS_EXECUTED,   // 'executed'
+                'review_flow_status' => Contract::REVIEW_FLOW_IN_REVIEW,  // tetap 'in_review' (enum valid)
+                'executed_at'        => $request->execution_date ?? now(),
+                'executed_by'        => $user->id_user,
+            ]);
+    
+            // Cari dan aktifkan archiving stage
+            $archivingStage = null;
+    
+            // Coba via FK dulu
+            if ($contract->archiving_stage_id) {
+                $archivingStage = ContractReviewStage::find($contract->archiving_stage_id);
+                if ($archivingStage && $archivingStage->status !== 'pending') {
+                    $archivingStage = null; // sudah aktif / completed, skip
+                }
+            }
+    
+            // Fallback: cari berdasarkan stage_type
+            if (!$archivingStage) {
+                $archivingStage = $contract->reviewStages()
+                    ->where('stage_type', 'archiving')
+                    ->where('status', 'pending')
+                    ->orderBy('sequence')
+                    ->first();
+            }
+    
+            if ($archivingStage) {
+                $archivingStage->update([
+                    'status'      => 'assigned',    // ← FIX: pending → assigned
+                    'assigned_at' => now(),
+                    'notes'       => 'Dokumen sudah di-execute. Silakan lakukan archiving.',
+                ]);
+    
+                $contract->update([
+                    'current_stage' => $archivingStage->sequence,
+                ]);
+    
+                // Notify legal yang bertanggung jawab archiving
+                try {
+                    if ($archivingStage->assignedUser) {
+                        $archivingStage->assignedUser->notify(
+                            new StageAssignedNotification($contract, $archivingStage, $user)
+                        );
+                    }
+                } catch (\Exception $e) {
+                    Log::error('Notify archiver failed: ' . $e->getMessage());
+                }
+            } else {
+                Log::warning('Archiving stage not found after execute', [
+                    'contract_id'        => $contract->id,
+                    'archiving_stage_id' => $contract->archiving_stage_id,
+                ]);
+            }
+    
+            ContractReviewLog::create([
+                'contract_id' => $contract->id,
+                'stage_id'    => $stage->id,
+                'user_id'     => $user->id_user,
+                'action'      => 'contract_executed',
+                'description' => 'Document marked as Executed by ' . $user->nama_user,
+                'notes'       => $request->execution_notes,
+                'metadata'    => [
+                    'executed_by'    => $user->nama_user,
+                    'execution_date' => $request->execution_date ?? now()->toDateString(),
+                    'archiving_activated' => $archivingStage ? true : false,
+                ],
+            ]);
+    
+            DB::commit();
+
+            // ── Notify owner: archiving aktif ─────────────────────────────
+            try {
+                if ($archivingStage && $contract->user) {
+                    $contract->user->notify(
+                        new StageJumpedNotification(
+                            $contract,
+                            $stage,         // dari executing stage
+                            $archivingStage,
+                            $user,
+                            'archiving_activated',
+                            'Document signing is complete. The Legal team will now handle final archiving.'
+                        )
+                    );
+                }
+            } catch (\Exception $e) {
+                Log::error('StageJumped archiving_activated notify failed: ' . $e->getMessage());
+            }
+
+            return redirect()->route('contracts.show', $contract)
+                ->with('success', '✅ The document has been successfully executed! The legal team will archive it immediately..');
+    
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('executeContract failed: ' . $e->getMessage(), ['contract_id' => $contract->id]);
+            return back()->with('error', 'Gagal execute dokumen: ' . $e->getMessage());
+        }
+    }
+
+    // ============================================================
+    // 4. ARCHIVE CONTRACT
+    //    Dipanggil legal dari archiving stage. Tahap TERAKHIR.
+    // ============================================================
+
+    public function archiveContract(Request $request, Contract $contract, ContractReviewStage $stage)
+    {
+        $user = TblUser::find(Auth::id());
+    
+        if (!$user->hasAnyRole(['legal', 'admin'])) {
+            abort(403, 'Hanya Legal atau Admin yang bisa melakukan archiving.');
+        }
+    
+        if ($stage->stage_type !== 'archiving') {
+            return back()->with('error', 'Aksi ini hanya bisa dilakukan di stage Archiving.');
+        }
+    
+        if ((int) $stage->assigned_user_id !== (int) $user->id_user && !$user->hasRole('admin')) {
+            abort(403, 'Kamu tidak di-assign untuk stage archiving ini.');
+        }
+    
+        if (!in_array($stage->status, ['assigned', 'in_progress'])) {
+            return back()->with('error', 'Stage ini sudah tidak bisa diproses (status: ' . $stage->status . ').');
+        }
+    
+        $request->validate([
+            'archive_notes' => 'required|string|min:5|max:2000',
+        ]);
+    
+        try {
+            DB::beginTransaction();
+    
+            // Selesaikan archiving stage
+            $stage->update([
+                'status'       => 'completed',
+                'completed_at' => now(),
+                'notes'        => $request->archive_notes,
+            ]);
+    
+            // Update contract ke ARCHIVED — status final
+            $contract->update([
+                'status'             => Contract::STATUS_ARCHIVED,      // 'archived'
+                'review_flow_status' => Contract::REVIEW_FLOW_COMPLETED, // 'completed' (enum valid)
+                'archived_at'        => now(),
+                'archived_by'        => $user->id_user,
+            ]);
+    
+            ContractReviewLog::create([
+                'contract_id' => $contract->id,
+                'stage_id'    => $stage->id,
+                'user_id'     => $user->id_user,
+                'action'      => 'contract_archived',
+                'description' => 'Document archived by ' . $user->nama_user . '. All workflow completed.',
+                'notes'       => $request->archive_notes,
+                'metadata'    => ['archived_by' => $user->nama_user],
+            ]);
+    
+            DB::commit();
+            // ── Notify contract owner ─────────────────────────────────────
+            try {
+                if ($contract->user) {
+                    $contract->user->notify(
+                        new FinishedReviewNotification($contract, $user, 'owner')
+                    );
+                }
+            } catch (\Exception $e) {
+                Log::error('FinishedReviewNotification (owner) failed: ' . $e->getMessage());
+            }
+ 
+            // ── Notify semua reviewer yang pernah terlibat ───────────────
+            try {
+                $involvedUserIds = $contract->reviewStages()
+                    ->whereNotNull('assigned_user_id')
+                    ->whereNotIn('stage_type', ['user', 'executing'])
+                    ->pluck('assigned_user_id')
+                    ->unique();
+ 
+                foreach ($involvedUserIds as $reviewerId) {
+                    // Skip owner (sudah dapat notif di atas) dan archiver itu sendiri
+                    if ((int) $reviewerId === (int) $contract->user_id) continue;
+                    if ((int) $reviewerId === (int) $user->id_user) continue;
+ 
+                    $reviewer = TblUser::find($reviewerId);
+                    if ($reviewer) {
+                        $reviewer->notify(
+                            new FinishedReviewNotification($contract, $user, 'reviewer')
+                        );
+                    }
+                }
+            } catch (\Exception $e) {
+                Log::error('FinishedReviewNotification (reviewers) failed: ' . $e->getMessage());
             }
             
-            $legalDept = Department::where('code', 'LEGAL')->first();
+            return redirect()->route('contracts.show', $contract)
+                ->with('success', '🎉 Document successfully archived! All review processes have been completed.');
+    
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('archiveContract failed: ' . $e->getMessage(), ['contract_id' => $contract->id]);
+            return back()->with('error', 'failed to archive document: ' . $e->getMessage());
+        }
+    }
+
+    // ============================================================
+    // 5. MID-REVIEW STAGE MANAGEMENT
+    // ============================================================
+
+    public function showAddStageForm(Contract $contract)
+    {
+        if (!Auth::user()->hasAnyRole(['legal', 'admin'])) abort(403);
+        if (!$contract->allow_stage_addition) abort(403, 'Stage addition not allowed for this contract.');
+
+        $legalOfficers = TblUser::role('legal')->where('status_karyawan', 'AKTIF')->orderBy('nama_user')->get(['id_user', 'nama_user', 'email']);
+        $currentStage  = $contract->reviewStages()->where('sequence', $contract->current_stage)->first();
+
+        return view('reviews.add-stage-form', compact('contract', 'legalOfficers', 'currentStage'));
+    }
+
+    public function addStageMidReview(Request $request, Contract $contract)
+    {
+        if (!Auth::user()->hasAnyRole(['legal', 'admin'])) abort(403);
+
+        $request->validate([
+            'stage_name' => 'required|string|max:255',
+            'user_id'    => 'required|exists:tbl_user,id_user',
+            'reason'     => 'required|string|max:500',
+            'position'   => 'required|in:before_current,after_current,end',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            $currentStage = $contract->reviewStages()->where('sequence', $contract->current_stage)->first();
+            if (!$currentStage) throw new \Exception('Current stage not found');
+
+            $legalDept   = Department::where('code', 'LEGAL')->first();
             $newSequence = null;
-            
-            // Tentukan sequence berdasarkan position
+
             switch ($request->position) {
                 case 'before_current':
                     $newSequence = $currentStage->sequence;
-                    // Geser semua stage setelahnya
+                    // Geser semua stage (kecuali executing & archiving) ke atas
                     $contract->reviewStages()
                         ->where('sequence', '>=', $currentStage->sequence)
+                        ->whereNotIn('stage_type', ['executing', 'archiving'])
                         ->increment('sequence');
                     break;
-                    
                 case 'after_current':
                     $newSequence = $currentStage->sequence + 1;
                     $contract->reviewStages()
                         ->where('sequence', '>', $currentStage->sequence)
+                        ->whereNotIn('stage_type', ['executing', 'archiving'])
                         ->increment('sequence');
                     break;
-                    
                 case 'end':
-                    $maxSequence = $contract->reviewStages()->max('sequence');
-                    $newSequence = $maxSequence + 1;
+                    // Insert before executing/archiving if they exist
+                    $executingStage = $contract->reviewStages()
+                        ->whereIn('stage_type', ['executing', 'archiving'])
+                        ->orderBy('sequence')
+                        ->first();
+                    if ($executingStage) {
+                        $newSequence = $executingStage->sequence;
+                        $contract->reviewStages()
+                            ->where('sequence', '>=', $executingStage->sequence)
+                            ->increment('sequence');
+                    } else {
+                        $newSequence = $contract->reviewStages()->max('sequence') + 1;
+                    }
                     break;
             }
-            
-            // Create new stage
+
             $newStage = ContractReviewStage::create([
-                'contract_id' => $contract->id,
-                'department_id' => $legalDept->id,
-                'stage_name' => $request->stage_name,
-                'stage_type' => 'legal',
+                'contract_id'      => $contract->id,
+                'department_id'    => $legalDept?->id,
+                'stage_name'       => $request->stage_name,
+                'stage_type'       => 'legal',
                 'assigned_user_id' => $request->user_id,
-                'sequence' => $newSequence,
-                'status' => 'pending',
-                'notes' => $request->reason,
-                'created_by' => Auth::id(),
-                'is_manual_added' => true,
-                'add_reason' => $request->reason,
-                'created_at' => now(),
+                'sequence'         => $newSequence,
+                'status'           => 'pending',
+                'notes'            => $request->reason,
+                'created_by'       => Auth::id(),
+                'is_manual_added'  => true,
+                'add_reason'       => $request->reason,
             ]);
-            
-            // Update contract jika perlu
+
             if ($request->position === 'before_current') {
-                $contract->update([
-                    'current_stage' => $newSequence,
-                ]);
+                $contract->update(['current_stage' => $newSequence]);
             }
-            
-            // Log action
+
             ContractReviewLog::create([
-                'contract_id' => $contract->id,
-                'stage_id' => $newStage->id,
-                'user_id' => Auth::id(),
-                'action' => 'stage_added_mid_review',
-                'description' => 'New stage added: ' . $request->stage_name,
-                'metadata' => [
-                    'position' => $request->position,
-                    'reason' => $request->reason,
-                    'assigned_to' => $request->user_id,
-                ]
+                'contract_id' => $contract->id, 'stage_id' => $newStage->id, 'user_id' => Auth::id(),
+                'action' => 'stage_added_mid_review', 'description' => 'New stage added: ' . $request->stage_name,
+                'metadata' => ['position' => $request->position, 'reason' => $request->reason, 'assigned_to' => $request->user_id],
             ]);
-            
+
             DB::commit();
-            
-            // Notify assigned user
-            $assignedUser = TblUser::find($request->user_id);
-            if ($assignedUser) {
-                // $assignedUser->notify(new StageAddedNotification($contract, $newStage, Auth::user()));
-            }
-            
-            return redirect()->route('contracts.show', $contract)
-                ->with('success', 'Stage added successfully: ' . $request->stage_name);
-                
+            return redirect()->route('contracts.show', $contract)->with('success', 'Stage added: ' . $request->stage_name);
+
         } catch (\Exception $e) {
             DB::rollBack();
-            \Log::error('Failed to add stage: ' . $e->getMessage());
-            return redirect()->back()
-                ->with('error', 'Failed to add stage: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Failed to add stage: ' . $e->getMessage());
         }
     }
 
-    /**
-     * Remove stage from workflow (AJAX)
-     */
     public function removeStage(Request $request, ContractReviewStage $reviewStage)
     {
-        $user = TblUser::find(Auth::id());
+        $user     = TblUser::find(Auth::id());
         $contract = $reviewStage->contract;
-        
-        // Authorization check
-        if ($user->hasRole('user') || 
-            !($user->hasAnyRole(['legal', 'accounting', 'tax', 'admin_legal', 'admin']) || 
-              $user->hasRole('finance'))) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized to remove stages'
-            ], 403);
+
+        if (!$user->hasAnyRole(['legal', 'accounting', 'tax', 'admin', 'finance'])) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
-        
-        // Validasi: kontrak harus dalam status review
-        if (!$contract->isInReviewStageSystem()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Contract is not in review stage system'
-            ], 400);
+
+        // Tidak boleh hapus stage yang sudah berjalan atau sudah selesai
+        $lockedStatuses = ['assigned', 'in_progress', 'completed', 'revision_requested'];
+        if (in_array($reviewStage->status, $lockedStatuses)) {
+            return response()->json(['success' => false, 'message' => 'Cannot remove a stage that has already started or been assigned'], 400);
         }
-        
-        // Validasi: hanya boleh remove stage yang belum started
-        if (in_array($reviewStage->status, ['in_progress', 'completed', 'revision_requested'])) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Cannot remove a stage that has already started'
-            ], 400);
-        }
-        
-        // Validasi: hanya untuk manually added stages
+
         if (!$reviewStage->is_manual_added) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Only manually added stages can be removed'
-            ], 400);
+            return response()->json(['success' => false, 'message' => 'Only manually added stages can be removed'], 400);
         }
-        
-        // Validasi: jangan hapus user stage
+
         if ($reviewStage->is_user_stage || $reviewStage->stage_type === 'user') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Cannot remove user stage'
-            ], 400);
+            return response()->json(['success' => false, 'message' => 'Cannot remove user stage'], 400);
         }
-        
-        // Validasi: minimal harus ada 1 reviewer stage tersisa
-        $remainingReviewerStages = $contract->reviewStages()
-            ->where('id', '!=', $reviewStage->id)
-            ->where(function($query) {
-                $query->where('is_user_stage', false)
-                      ->where('stage_type', '!=', 'user');
-            })
-            ->count();
-            
-        if ($remainingReviewerStages < 1) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Cannot remove all reviewer stages. Minimum 1 reviewer required'
-            ], 400);
+
+        if (in_array($reviewStage->stage_type, ['executing', 'archiving'])) {
+            return response()->json(['success' => false, 'message' => 'Cannot remove executing or archiving stages'], 400);
         }
-        
+
         try {
             DB::beginTransaction();
-            
-            $stageName = $reviewStage->stage_name;
+            $stageName     = $reviewStage->stage_name;
             $stageSequence = $reviewStage->sequence;
-            
-            // Delete the stage
             $reviewStage->delete();
-            
-            // Reorder remaining stages
-            $remainingStages = $contract->reviewStages()
-                ->orderBy('sequence')
-                ->get();
-                
+
+            // Re-sequence remaining stages
+            $remainingStages = $contract->reviewStages()->orderBy('sequence')->get();
             $sequence = 1;
-            foreach ($remainingStages as $stage) {
-                $stage->update(['sequence' => $sequence]);
-                $sequence++;
+            foreach ($remainingStages as $s) {
+                $s->update(['sequence' => $sequence++]);
             }
-            
-            // Update contract current_stage jika stage yang dihapus adalah current stage
+
             if ($contract->current_stage == $stageSequence) {
-                // Cari stage berikutnya
-                $nextStage = $contract->reviewStages()
-                    ->where('sequence', '>=', $stageSequence)
-                    ->orderBy('sequence')
-                    ->first();
-                    
-                if ($nextStage) {
-                    $contract->update(['current_stage' => $nextStage->sequence]);
-                } else {
-                    // Kembali ke stage sebelumnya
-                    $prevStage = $contract->reviewStages()
-                        ->where('sequence', '<', $stageSequence)
-                        ->orderBy('sequence', 'desc')
-                        ->first();
-                        
-                    if ($prevStage) {
-                        $contract->update(['current_stage' => $prevStage->sequence]);
-                    }
-                }
+                $next = $contract->reviewStages()->where('sequence', '>=', $stageSequence)->orderBy('sequence')->first();
+                if ($next) $contract->update(['current_stage' => $next->sequence]);
             }
-            
-            // Log the removal
+
             ContractReviewLog::create([
-                'contract_id' => $contract->id,
-                'stage_id' => $reviewStage->id,
-                'user_id' => $user->id_user,
-                'action' => 'stage_removed',
-                'description' => 'Stage removed: ' . $stageName,
-                'metadata' => [
-                    'stage_name' => $stageName,
-                    'stage_type' => $reviewStage->stage_type,
-                    'assigned_user_id' => $reviewStage->assigned_user_id,
-                    'sequence' => $stageSequence,
-                    'removed_by' => $user->nama_user,
-                    'removed_by_role' => $user->roles->first()->name ?? 'unknown'
-                ]
+                'contract_id' => $contract->id, 'stage_id' => $reviewStage->id, 'user_id' => $user->id_user,
+                'action' => 'stage_removed', 'description' => 'Stage removed: ' . $stageName,
+                'metadata' => ['stage_name' => $stageName, 'removed_by' => $user->nama_user],
             ]);
-            
+
             DB::commit();
-            
-            return response()->json([
-                'success' => true,
-                'message' => 'Stage removed successfully',
-                'remaining_count' => $remainingStages->count(),
-                'new_current_stage' => $contract->current_stage
-            ]);
-            
+            return response()->json(['success' => true, 'message' => 'Stage removed successfully']);
         } catch (\Exception $e) {
             DB::rollBack();
-            \Log::error('Failed to remove stage: ' . $e->getMessage());
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to remove stage: ' . $e->getMessage()
-            ], 500);
+            return response()->json(['success' => false, 'message' => 'Failed: ' . $e->getMessage()], 500);
         }
     }
 
-    /**
-     * Reorder stages (AJAX)
-     */
-    public function reorderStages(Request $request, Contract $contract)
-    {
-        $user = TblUser::find(Auth::id());
-        
-        // Authorization check
-        if ($user->hasRole('user') || 
-            !($user->hasAnyRole(['legal', 'accounting', 'tax', 'admin_legal', 'admin']) || 
-              $user->hasRole('finance'))) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized to edit workflow'
-            ], 403);
-        }
-        
-        // Validasi: kontrak harus dalam status review
-        if (!$contract->isInReviewStageSystem()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Contract is not in review stage system'
-            ], 400);
-        }
-        
-        // Validasi: tidak boleh edit jika sudah ada stage yang started/completed
-        $hasStartedStages = $contract->reviewStages()
-            ->whereIn('status', ['in_progress', 'completed', 'revision_requested'])
-            ->exists();
-            
-        if ($hasStartedStages) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Cannot reorder workflow after stages have started'
-            ], 400);
-        }
-        
-        $request->validate([
-            'stage_order' => 'required|array',
-            'stage_order.*' => 'exists:contract_review_stages,id',
-        ]);
-        
-        try {
-            DB::beginTransaction();
-            
-            // Simpan order lama untuk log
-            $oldOrder = $contract->reviewStages()
-                ->orderBy('sequence')
-                ->pluck('id')
-                ->toArray();
-            
-            // Update sequence for each stage (exclude user stage yang tetap di sequence 1)
-            $userStage = $contract->reviewStages()
-                ->where('is_user_stage', true)
-                ->first();
-            
-            // Update sequence mulai dari 2 (karena sequence 1 adalah user stage)
-            $sequence = 2;
-            foreach ($request->stage_order as $stageId) {
-                // Skip user stage jika ada di array
-                if ($userStage && $stageId == $userStage->id) continue;
-                
-                ContractReviewStage::where('id', $stageId)
-                    ->update(['sequence' => $sequence]);
-                $sequence++;
-            }
-            
-            // Log the change
-            ContractReviewLog::create([
-                'contract_id' => $contract->id,
-                'user_id' => $user->id_user,
-                'action' => 'workflow_reordered',
-                'description' => 'Workflow stages reordered',
-                'metadata' => [
-                    'old_order' => $oldOrder,
-                    'new_order' => $request->stage_order,
-                    'reordered_by' => $user->nama_user,
-                    'reordered_by_role' => $user->roles->first()->name ?? 'unknown'
-                ]
-            ]);
-            
-            DB::commit();
-            
-            // Ambil data stages terbaru
-            $updatedStages = $contract->reviewStages()
-                ->orderBy('sequence')
-                ->with('assignedUser:id_user,nama_user')
-                ->get();
-            
-            return response()->json([
-                'success' => true,
-                'message' => 'Workflow order updated successfully',
-                'stages' => $updatedStages,
-                'new_order' => $updatedStages->pluck('id')->toArray()
-            ]);
-            
-        } catch (\Exception $e) {
-            DB::rollBack();
-            \Log::error('Failed to reorder stages: ' . $e->getMessage());
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to reorder stages: ' . $e->getMessage()
-            ], 500);
-        }
-    }
+    // ============================================================
+    // 6. MY REVIEWS
+    // ============================================================
 
-    // ============================================
-    // 3. REVIEW DASHBOARD & MY REVIEWS (UPDATED)
-    // ============================================
-
-    /**
-     * My Reviews - Menampilkan semua review yang ditugaskan ke user
-     */
     public function myReviews()
     {
         $user = Auth::user();
-        
-        Log::info('Accessing My Reviews', [
-            'user_id' => $user->id_user,
-            'roles' => $user->getRoleNames()
+
+        $departmentCode = null;
+        if ($user->hasRole('staff_acc'))     $departmentCode = 'ACC';
+        elseif ($user->hasRole('staff_fin')) $departmentCode = 'FIN';
+        elseif ($user->hasRole('staff_tax')) $departmentCode = 'TAX';
+        elseif ($user->hasRole('legal'))     $departmentCode = 'LEG';
+
+        $emptyView = fn() => view('reviews.my-reviews', [
+            'assignedStages' => collect([]), 'underReviewStages' => collect([]), 'completedStages' => collect([]),
+            'totalAssignedCount' => 0, 'activeReviewCount' => 0, 'pendingReviewCount' => 0, 'completedReviewCount' => 0,
         ]);
 
-        // Tentukan department code berdasarkan role
-        $departmentCode = null;
-        if ($user->hasRole('staff_acc')) {
-            $departmentCode = 'ACC';
-        } elseif ($user->hasRole('staff_fin')) {
-            $departmentCode = 'FIN';
-        } elseif ($user->hasRole('staff_tax')) {
-            $departmentCode = 'TAX';
-        } elseif ($user->hasRole('legal')) {
-            $departmentCode = 'LEG';
-        }
+        if (!$departmentCode) return $emptyView();
 
-        // Jika tidak ada department yang cocok, kembalikan data kosong
-        if (!$departmentCode) {
-            Log::warning('User without department access my-reviews', [
-                'user_id' => $user->id_user,
-                'roles' => $user->getRoleNames()
-            ]);
-            
-            return view('reviews.my-reviews', [
-                'assignedStages' => collect([]),
-                'underReviewStages' => collect([]),
-                'completedStages' => collect([]),
-                'totalAssignedCount' => 0,
-                'activeReviewCount' => 0,
-                'pendingReviewCount' => 0,
-                'completedReviewCount' => 0,
-            ]);
-        }
-
-        // Ambil department
         $department = Department::where('code', $departmentCode)->first();
-        
-        if (!$department) {
-            Log::error("Department not found for code: {$departmentCode}");
-            
-            return view('reviews.my-reviews', [
-                'assignedStages' => collect([]),
-                'underReviewStages' => collect([]),
-                'completedStages' => collect([]),
-                'totalAssignedCount' => 0,
-                'activeReviewCount' => 0,
-                'pendingReviewCount' => 0,
-                'completedReviewCount' => 0,
-            ]);
-        }
+        if (!$department) return $emptyView();
 
         try {
-            // Ambil semua stages yang ditugaskan ke user
             $assignedStages = ContractReviewStage::query()
-                ->whereHas('contract', function($query) {
-                    $query->whereNull('deleted_at');
-                })
-                ->with([
-                    'contract' => function($query) {
-                        $query->with(['user', 'legalAssigned', 'financeAssigned', 'accountingAssigned', 'taxAssigned']);
-                    },
-                    'department',
-                    'assignedUser'
-                ])
+                ->whereHas('contract', fn($q) => $q->whereNull('deleted_at'))
+                ->with(['contract.user', 'department', 'assignedUser'])
                 ->where('assigned_user_id', $user->id_user)
                 ->where('department_id', $department->id)
                 ->orderBy('created_at', 'desc')
                 ->get();
 
-            Log::info("Found {$assignedStages->count()} assigned stages for user {$user->id_user}");
+            $underReviewStages = $assignedStages->filter(fn($s) =>
+                $s->contract && $s->contract->status === 'under_review'
+                && in_array($s->status, ['pending', 'assigned', 'in_progress', 'revision_requested'])
+            );
 
-            // Filter stages untuk under_review (contract status = under_review)
-            $underReviewStages = $assignedStages->filter(function($stage) {
-                return $stage->contract && 
-                       $stage->contract->status === 'under_review' && 
-                       in_array($stage->status, [
-                           'pending',
-                           'assigned',
-                           'in_progress',
-                           'revision_requested'
-                       ]);
-            });
-
-            // Filter completed stages
-            $completedStages = $assignedStages->where('status', 'completed');
-
-            // Hitung statistik
-            $totalAssignedCount = $assignedStages->count();
-            $activeReviewCount = $underReviewStages->count();
-            $pendingReviewCount = $assignedStages->filter(function($stage) {
-                return in_array($stage->status, ['pending', 'assigned']);
-            })->count();
-            $completedReviewCount = $completedStages->count();
-
-            // Hitung urgent dan overdue
-            $urgentCount = 0;
-            $overdueCount = 0;
-            $highValueCount = 0;
-
-            foreach ($underReviewStages as $stage) {
-                if (!$stage->contract) {
-                    continue;
-                }
-
-                if ($stage->contract->drafting_deadline) {
-                    try {
-                        $deadline = \Carbon\Carbon::parse($stage->contract->drafting_deadline);
-
-                        if ($deadline->isPast()) {
-                            $overdueCount++;
-                        } elseif (now()->diffInDays($deadline, false) <= 3) {
-                            $urgentCount++;
-                        }
-                    } catch (\Exception $e) {
-                        Log::warning("Invalid deadline format for contract {$stage->contract->id}");
-                    }
-                }
-
-                if ($stage->contract->contract_value > 100000) {
-                    $highValueCount++;
-                }
-            }
-
-            // Hitung rata-rata waktu penyelesaian
-            $avgCompletionTime = 0;
-            $completedWithDates = $completedStages->filter(function($stage) {
-                return $stage->assigned_at && $stage->completed_at;
-            });
-            
-            if ($completedWithDates->isNotEmpty()) {
-                $totalHours = 0;
-                foreach ($completedWithDates as $stage) {
-                    $hours = $stage->assigned_at->diffInHours($stage->completed_at);
-                    $totalHours += $hours;
-                }
-                $avgCompletionTime = round($totalHours / $completedWithDates->count(), 1);
-            }
+            $receivedRevisionTasks = ContractRevisionTask::with(['contract', 'fromStage.assignedUser', 'requester'])
+                ->where('assigned_to', $user->id_user)
+                ->whereIn('status', ['pending', 'in_progress', 're_requested'])
+                ->get();
 
             return view('reviews.my-reviews', [
-                'assignedStages' => $assignedStages,
-                'underReviewStages' => $underReviewStages,
-                'completedStages' => $completedStages,
-                'totalAssignedCount' => $totalAssignedCount,
-                'activeReviewCount' => $activeReviewCount,
-                'pendingReviewCount' => $pendingReviewCount,
-                'completedReviewCount' => $completedReviewCount,
-                'urgentCount' => $urgentCount,
-                'overdueCount' => $overdueCount,
-                'highValueCount' => $highValueCount,
-                'avgCompletionTime' => $avgCompletionTime,
-                'unreadNotifications' => $user->unreadNotifications()->count(),
-                'department' => $department,
-                'departmentName' => $department->name,
-                'departmentCode' => $department->code,
+                'assignedStages'        => $assignedStages,
+                'underReviewStages'     => $underReviewStages,
+                'completedStages'       => $assignedStages->where('status', 'completed'),
+                'totalAssignedCount'    => $assignedStages->count(),
+                'activeReviewCount'     => $underReviewStages->count(),
+                'pendingReviewCount'    => $assignedStages->filter(fn($s) => in_array($s->status, ['pending', 'assigned']))->count(),
+                'completedReviewCount'  => $assignedStages->where('status', 'completed')->count(),
+                'receivedRevisionTasks' => $receivedRevisionTasks,
+                'department'            => $department,
+                'departmentName'        => $department->name,
+                'departmentCode'        => $department->code,
+                'unreadNotifications'   => $user->unreadNotifications()->count(),
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Error in myReviews: ' . $e->getMessage(), [
-                'user_id' => $user->id_user,
-                'trace' => $e->getTraceAsString()
-            ]);
-
-            return view('reviews.my-reviews', [
-                'assignedStages' => collect([]),
-                'underReviewStages' => collect([]),
-                'completedStages' => collect([]),
-                'totalAssignedCount' => 0,
-                'activeReviewCount' => 0,
-                'pendingReviewCount' => 0,
-                'completedReviewCount' => 0,
-                'urgentCount' => 0,
-                'overdueCount' => 0,
-                'highValueCount' => 0,
-                'avgCompletionTime' => 0,
-                'unreadNotifications' => $user->unreadNotifications()->count(),
-            ]);
+            Log::error('Error in myReviews: ' . $e->getMessage());
+            return $emptyView();
         }
     }
 
+    // ============================================================
+    // 7. STAGE REVIEW INTERFACE
+    // ============================================================
 
-    // ============================================
-    // 4. STAGE REVIEW INTERFACE (UPDATED FOR DYNAMIC)
-    // ============================================
-
-    /**
-     * Show stage review interface
-     */
     public function show(Contract $contract, ContractReviewStage $stage)
     {
         $user = TblUser::find(Auth::id());
-        
-        if (!$stage->canBeAccessedBy($user)) {
-            abort(403);
-        }
 
-        if ($stage->contract_id !== $contract->id) {
-            abort(404);
-        }
+        if (!$stage->canBeAccessedBy($user)) abort(403);
+        if ($stage->contract_id !== $contract->id) abort(404);
 
         $stage->markVisited();
 
-        // Get review logs
         $reviewLogs = $contract->reviewLogs()
-            ->with([
-                'user:id_user,nama_user,email',
-                'stage:id,stage_name,stage_type,is_user_stage'
-            ])
+            ->with(['user:id_user,nama_user,email', 'stage:id,stage_name,stage_type,is_user_stage'])
             ->orderBy('created_at', 'desc')
-            ->get()
-            ->map(function ($log) use ($contract) {
-                if (empty($log->notes) && env('APP_DEBUG')) {
-                    $notes = $this->quickGenerateNotes($log);
-                    $log->notes = $notes;
-                    $log->metadata = $log->metadata ?? [
-                        'auto_generated' => true,
-                        'notes' => $notes,
-                        'action' => $log->action
-                    ];
-                }
-                return $log;
-            });
+            ->get();
 
-        \Log::info('Stage page accessed', [
-            'contract' => $contract->title,
-            'stage' => $stage->stage_name,
-            'user' => $user->nama_user,
-            'logs_count' => $reviewLogs->count(),
-            'logs_with_notes' => $reviewLogs->whereNotNull('notes')->count()
-        ]);
-
-        // Get available stages for jump
         $availableStages = $contract->getAvailableJumpStages($stage)
-            ->filter(fn ($s) => !$s['is_user_stage'])
+            ->filter(fn($s) => !$s['is_user_stage'])
             ->map(function ($s) {
                 $stageModel = ContractReviewStage::with('assignedUser')->find($s['id']);
                 return $stageModel ? [
-                    'id' => $stageModel->id,
-                    'stage_name' => $stageModel->stage_name,
-                    'stage_type' => $stageModel->stage_type,
-                    'is_user_stage' => $stageModel->is_user_stage,
+                    'id'                 => $stageModel->id,
+                    'stage_name'         => $stageModel->stage_name,
+                    'stage_type'         => $stageModel->stage_type,
+                    'is_user_stage'      => $stageModel->is_user_stage,
                     'assigned_user_name' => $stageModel->assignedUser->nama_user ?? 'Unassigned',
-                    'sequence' => $stageModel->sequence,
+                    'sequence'           => $stageModel->sequence,
                 ] : null;
             })
             ->filter()
             ->values();
 
-        return view('reviews.stage', compact('contract', 'stage', 'availableStages', 'reviewLogs'));
+        $sentRevisionTasks = ContractRevisionTask::with(['toStage.assignedUser', 'assignee'])
+            ->where('from_stage_id', $stage->id)
+            ->whereIn('status', ['pending', 'in_progress', 'submitted', 're_requested', 'approved'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $receivedRevisionTasks = ContractRevisionTask::with(['fromStage.assignedUser', 'requester'])
+            ->where('to_stage_id', $stage->id)
+            ->whereIn('status', ['pending', 'in_progress', 're_requested'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $revisionTargetStages = $contract->reviewStages()
+            ->with('assignedUser:id_user,nama_user')
+            ->where('id', '!=', $stage->id)
+            ->whereNotNull('assigned_user_id')
+            ->orderBy('sequence')
+            ->get();
+
+            $jumpOptions = collect();
+
+            $seenParallelGroups = [];
+            foreach ($contract->reviewStages->sortBy('sequence') as $s) {
+                // Skip diri sendiri, user stage, executing/archiving
+                if ($s->id === $stage->id) continue;
+                if ($s->is_user_stage || $s->stage_type === 'user') continue;
+                if (in_array($s->stage_type, ['executing', 'archiving'])) continue;
+                // Hanya stage yang lebih jauh ke depan
+                if ($s->sequence <= $stage->sequence) continue;
+
+                if (!is_null($s->parallel_group)) {
+                    // Parallel group — tampilkan sekali saja sebagai satu opsi
+                    if (in_array($s->parallel_group, $seenParallelGroups)) continue;
+                    $seenParallelGroups[] = $s->parallel_group;
+
+                    $groupStages = $contract->reviewStages
+                        ->where('parallel_group', $s->parallel_group)
+                        ->whereNotNull('assigned_user_id');
+
+                    $label = 'Substantial Review (' 
+                        . $groupStages->pluck('stage_name')->unique()->join(', ') . ')';
+
+                    $jumpOptions->push([
+                        'id'          => $s->id,
+                        'label'       => $label,
+                        'is_parallel' => true,
+                    ]);
+                } else {
+                    // Sequential stage biasa
+                    $assigneeName = $s->assignedUser->nama_user ?? 'Unassigned';
+                    $jumpOptions->push([
+                        'id'          => $s->id,
+                        'label'       => 'Stage ' . $s->sequence . ' — ' . $assigneeName . ' — ' . $s->stage_name,
+                        'is_parallel' => false,
+                    ]);
+                }
+            }
+
+            return view('reviews.stage', compact(
+                'contract', 'stage', 'availableStages', 'reviewLogs',
+                'sentRevisionTasks', 'receivedRevisionTasks', 'revisionTargetStages',
+                'jumpOptions'
+            ));
     }
 
-    private function quickGenerateNotes($log): string
-    {
-        $actions = [
-            'workflow_started' => 'Workflow started for contract review',
-            'stage_created' => 'New review stage created',
-            'stage_started' => 'Review stage started',
-            'approve_jump' => 'Stage approved, moving to next',
-            'request_revision' => 'Revision requested',
-            'revision_requested' => 'Contract revision needed',
-            'user_response' => 'User responded to feedback',
-            'final_approve' => 'Final approval granted',
-            'stage_completed' => 'Stage completed successfully',
-        ];
-        
-        return $actions[$log->action] ?? "Action: {$log->action}";
-    }
+    // ============================================================
+    // 8. START REVIEW
+    // ============================================================
 
-    /**
-     * Start reviewing a stage
-     */
     public function startReview(Contract $contract, ContractReviewStage $stage)
     {
         $user = TblUser::find(Auth::id());
-        
-        if ($stage->assigned_user_id !== $user->id_user && !$user->hasRole('admin')) {
-            abort(403, 'Unauthorized action.');
-        }
-        
+
+        if ($stage->assigned_user_id !== $user->id_user && !$user->hasRole('admin')) abort(403);
         if (!in_array($stage->status, ['assigned', 'revision_requested'])) {
-            return redirect()->back()
-                ->with('error', 'Stage cannot be started at this time.');
+            return redirect()->back()->with('error', 'Stage cannot be started at this time.');
         }
-        
-        $stage->update([
-            'status' => 'in_progress',
-            'started_at' => now(),
-        ]);
-        
-        // ✅ FIX: Kalau contract masih revision_needed dan ini bukan user stage,
-        // artinya reviewer sudah mulai handle revisi → kembalikan ke under_review
+
+        $stage->update(['status' => 'in_progress', 'started_at' => now()]);
+
         if ($contract->status === Contract::STATUS_REVISION_NEEDED && !$stage->is_user_stage) {
-            $contract->update([
-                'status' => Contract::STATUS_UNDER_REVIEW,
-                'review_flow_status' => Contract::REVIEW_FLOW_IN_REVIEW,
-            ]);
+            $contract->update(['status' => Contract::STATUS_UNDER_REVIEW, 'review_flow_status' => Contract::REVIEW_FLOW_IN_REVIEW]);
         }
-        
+
         ContractReviewLog::create([
-            'contract_id' => $contract->id,
-            'stage_id' => $stage->id,
-            'user_id' => $user->id_user,
-            'action' => 'stage_started',
-            'description' => 'Started reviewing stage: ' . $stage->stage_name,
+            'contract_id' => $contract->id, 'stage_id' => $stage->id, 'user_id' => $user->id_user,
+            'action' => 'stage_started', 'description' => 'Started reviewing stage: ' . $stage->stage_name,
         ]);
-        
-        return redirect()->route('review-stages.show', [$contract, $stage])
-            ->with('success', 'Review started successfully.');
+
+        return redirect()->route('review-stages.show', [$contract, $stage])->with('success', 'Review started successfully.');
     }
 
-    // ============================================
-    // 5. STAGE ACTIONS (UPDATED FOR DYNAMIC WORKFLOW)
-    // ============================================
+    // ============================================================
+    // 9. START EXECUTING STAGE
+    //    Dipanggil ketika owner mulai proses executing.
+    // ============================================================
 
-    /**
-     * Approve and jump to another stage
-     */
+    public function startExecuting(Contract $contract, ContractReviewStage $stage)
+    {
+        $user = TblUser::find(Auth::id());
+
+        if ($stage->stage_type !== 'executing') {
+            return redirect()->back()->with('error', 'This is not an executing stage.');
+        }
+        if ($stage->assigned_user_id !== $user->id_user && !$user->hasRole('admin')) {
+            abort(403);
+        }
+        if ($stage->status !== 'assigned') {
+            return redirect()->back()->with('error', 'Executing stage belum bisa dimulai.');
+        }
+
+        $stage->update(['status' => 'in_progress', 'started_at' => now()]);
+
+        ContractReviewLog::create([
+            'contract_id' => $contract->id, 'stage_id' => $stage->id, 'user_id' => $user->id_user,
+            'action' => 'executing_started', 'description' => 'Proses executing dimulai oleh pemilik dokumen.',
+        ]);
+
+        return redirect()->route('review-stages.show', [$contract, $stage])
+            ->with('success', 'Proses executing dimulai.');
+    }
+
+    // ============================================================
+    // 10. START ARCHIVING STAGE
+    //     Dipanggil ketika legal mulai proses archiving.
+    // ============================================================
+
+    public function startArchiving(Contract $contract, ContractReviewStage $stage)
+    {
+        $user = TblUser::find(Auth::id());
+
+        if ($stage->stage_type !== 'archiving') {
+            return redirect()->back()->with('error', 'This is not an archiving stage.');
+        }
+        if (!$user->hasAnyRole(['legal', 'admin'])) {
+            abort(403);
+        }
+        if ($stage->status !== 'assigned') {
+            return redirect()->back()->with('error', 'Archiving stage belum bisa dimulai.');
+        }
+
+        $stage->update(['status' => 'in_progress', 'started_at' => now()]);
+
+        ContractReviewLog::create([
+            'contract_id' => $contract->id, 'stage_id' => $stage->id, 'user_id' => $user->id_user,
+            'action' => 'archiving_started', 'description' => 'Proses archiving dimulai.',
+        ]);
+
+        return redirect()->route('review-stages.show', [$contract, $stage])
+            ->with('success', 'Proses archiving dimulai.');
+    }
+
+    // ============================================================
+    // 11. APPROVE WITH JUMP
+    //     Perubahan utama: last stage TIDAK lagi panggil finishReview().
+    //     Jika nomor sudah ada → aktifkan executing stage.
+    // ============================================================
+
     public function approveWithJump(Request $request, Contract $contract, ContractReviewStage $stage)
     {
         $user = TblUser::find(Auth::id());
-        
-        // ✅ CEK DULU: Jika stage terakhir, handle khusus
-        if ($stage->isLastStage()) {
-            // ✅ FINAL STAGE: Validation berbeda (jump_to_stage_id TIDAK required)
-            $request->validate([
-                'notes' => 'nullable|string|max:1000',
-            ]);
 
-            // Authorization
-            if ($stage->assigned_user_id !== $user->id_user && !$user->hasRole('admin')) {
-                abort(403, 'Unauthorized action.');
+        if ($stage->assigned_user_id !== $user->id_user && !$user->hasRole('admin')) abort(403);
+
+        // ── Guard: revision tasks terbuka ───────────────────────────────
+        if ($stage->has_open_revision && !$request->boolean('force_approve') && !$user->hasRole('admin')) {
+            $openCount      = $stage->openRevisionCount();
+            $submittedCount = $stage->pendingDecisionCount();
+
+            if ($openCount > 0) {
+                return back()->with('error',
+                    "Tidak bisa approve stage: masih ada {$openCount} penerima revisi yang belum mengumpulkan hasil."
+                );
             }
-            
-            try {
-                DB::beginTransaction();
-                
-                // Complete current stage
-                $stage->update([
-                    'status' => 'completed',
-                    'notes' => $request->notes,
-                    'completed_at' => now(),
-                ]);
+            if ($submittedCount > 0) {
+                return back()->with('warning',
+                    "Ada {$submittedCount} hasil revisi yang sudah dikumpulkan dan belum kamu putuskan."
+                );
+            }
+        }
 
-                // ✅ LOG ACTION - TANPA $jumpToStage karena ini final
+        // ── Auto-cancel revision tasks terbuka ──────────────────────────
+        if ($stage->has_open_revision) {
+            ContractRevisionTask::where('from_stage_id', $stage->id)
+                ->whereIn('status', ['pending', 'in_progress', 're_requested', 'submitted'])
+                ->update(['status' => 'cancelled', 'cancelled_at' => now()]);
+            $stage->update(['has_open_revision' => false]);
+        }
+
+        // ── Parallel stage ───────────────────────────────────────────────
+        if (!is_null($stage->parallel_group)) {
+            return $this->approveParallelStage($request, $contract, $stage, $user);
+        }
+
+        // ── Cek apakah ada parallel stages berikutnya yang perlu diaktifkan
+        $nextParallelStages = ContractReviewStage::where('contract_id', $contract->id)
+            ->whereNotNull('parallel_group')
+            ->whereIn('status', ['pending', 'assigned'])
+            ->orderBy('sequence')
+            ->get();
+
+        if ($nextParallelStages->isNotEmpty()) {
+            return $this->activateParallelStages($request, $contract, $stage, $nextParallelStages, $user);
+        }
+
+        // ── Sequential dept stage (non-legal) ───────────────────────────
+        $nextSequentialDeptStage = ContractReviewStage::where('contract_id', $contract->id)
+            ->whereNull('parallel_group')
+            ->where('sequence', '>', $stage->sequence)
+            ->whereIn('stage_type', ['finance', 'accounting', 'tax'])
+            ->whereNotIn('status', ['completed', 'rejected'])
+            ->orderBy('sequence')
+            ->first();
+
+        if ($nextSequentialDeptStage) {
+            $request->validate(['notes' => 'nullable|string|max:1000']);
+            DB::beginTransaction();
+            try {
+                $stage->update(['status' => 'completed', 'notes' => $request->notes, 'completed_at' => now()]);
+                $nextSequentialDeptStage->update(['status' => 'in_progress', 'assigned_at' => now(), 'started_at' => now()]);
+                $contract->update(['current_stage' => $nextSequentialDeptStage->sequence, 'status' => Contract::STATUS_UNDER_REVIEW, 'review_flow_status' => Contract::REVIEW_FLOW_IN_REVIEW]);
                 ContractReviewLog::create([
-                    'contract_id' => $contract->id,
-                    'stage_id' => $stage->id,
-                    'user_id' => $user->id_user,
-                    'action' => 'final_approve',
-                    'description' => 'Final stage approved - Contract review completed',
-                    'notes' => $request->notes,
-                    'metadata' => [
-                        'is_final_stage' => true,
-                        'stage_name' => $stage->stage_name,
-                        'notes' => $request->notes,
-                        'approved_by' => $user->nama_user,
-                        'approved_by_email' => $user->email,
-                    ]
+                    'contract_id' => $contract->id, 'stage_id' => $stage->id, 'user_id' => $user->id_user,
+                    'action' => 'approve_jump', 'description' => 'Approved, moved to: ' . $nextSequentialDeptStage->stage_name, 'notes' => $request->notes,
                 ]);
-                
-                // ✅ FINISH CONTRACT REVIEW
-                $contract->finishReview();
-                
                 DB::commit();
-                
-                \Log::info('Final stage approved and contract finished', [
-                    'stage' => $stage->stage_name,
-                    'contract_id' => $contract->id,
-                    'user_id' => $user->id_user,
-                    'status' => $contract->status,
-                    'notes_saved' => !empty($request->notes)
-                ]);
-                
+                if ($nextSequentialDeptStage->assignedUser) {
+                    try { $nextSequentialDeptStage->assignedUser->notify(new StageAssignedNotification($contract, $nextSequentialDeptStage, $user)); }
+                    catch (\Exception $e) { Log::error('Notify failed: ' . $e->getMessage()); }
+                }
             } catch (\Exception $e) {
                 DB::rollBack();
-                \Log::error('Failed to approve final stage: ' . $e->getMessage(), [
-                    'contract_id' => $contract->id,
-                    'stage_id' => $stage->id,
-                    'trace' => $e->getTraceAsString()
-                ]);
-                
-                return redirect()->back()
-                    ->with('error', 'Failed to finish contract: ' . $e->getMessage());
+                return back()->with('error', 'Failed to approve: ' . $e->getMessage());
             }
-            
-            return redirect()->route('contracts.show', $contract)
-                ->with('success', '✅ Contract review completed and approved successfully! ' .
-                       'Contract number can now be generated manually.');
+            return redirect()->route('contracts.show', $contract)->with('success', 'Approved! Moved to ' . $nextSequentialDeptStage->stage_name . '.');
         }
-        
-        // ====================================================================
-        // ✅ NON-FINAL STAGE: Normal approve & jump logic
-        // ====================================================================
-        
+
+        // ── LAST LEGAL/REVIEW STAGE ──────────────────────────────────────
+        // Cek apakah ini benar-benar stage terakhir review (sebelum executing)
+        $isLastReviewStage = !ContractReviewStage::where('contract_id', $contract->id)
+            ->whereNull('parallel_group')
+            ->where('sequence', '>', $stage->sequence)
+            ->whereNotIn('stage_type', ['executing', 'archiving'])
+            ->whereNotIn('status', ['completed', 'rejected', 'skipped'])
+            ->exists();
+ 
+        if ($isLastReviewStage) {
+            $request->validate(['notes' => 'nullable|string|max:1000']);
+ 
+            // ── BLOCK: Jika nomor belum ada, tolak approve ────────────────
+            // Legal HARUS generate number dulu sebelum approve last stage.
+            // Ini mencegah stage jadi 'completed' tanpa executing stage aktif.
+            if (!$contract->contract_number) {
+                return redirect()->back()->with('error',
+                    '⚠️ You must generate the contract number first before approving this final stage. ' .
+                    'Please use the "Generate Document Number" button above.'
+                );
+            }
+ 
+            try {
+                DB::beginTransaction();
+ 
+                // Selesaikan stage ini
+                $stage->update([
+                    'status'       => 'completed',
+                    'notes'        => $request->notes,
+                    'completed_at' => now(),
+                ]);
+ 
+                // ── Refresh contract dari DB agar executing_stage_id up-to-date ──
+                $contract->refresh();
+ 
+                // Nomor sudah ada → aktifkan executing stage
+                $executingStage = null;
+ 
+                // Coba via FK dulu (sudah di-refresh)
+                if ($contract->executing_stage_id) {
+                    $executingStage = ContractReviewStage::find($contract->executing_stage_id);
+                    // Hanya null-kan jika status BUKAN pending
+                    if ($executingStage && $executingStage->status !== 'pending') {
+                        $executingStage = null;
+                    }
+                }
+ 
+                // Fallback via stage_type jika FK tidak ditemukan
+                if (!$executingStage) {
+                    $executingStage = $contract->reviewStages()
+                        ->where('stage_type', 'executing')
+                        ->where('status', 'pending')
+                        ->orderBy('sequence')
+                        ->first();
+                }
+ 
+                if ($executingStage) {
+                    $executingStage->update([
+                        'status'      => 'assigned',
+                        'assigned_at' => now(),
+                        'notes'       => 'All reviews complete. Please proceed with document signing.',
+                    ]);
+ 
+                    $contract->update([
+                        'current_stage'      => $executingStage->sequence,
+                        'review_flow_status' => Contract::REVIEW_FLOW_IN_REVIEW,
+                    ]);
+ 
+                    ContractReviewLog::create([
+                        'contract_id' => $contract->id,
+                        'stage_id'    => $stage->id,
+                        'user_id'     => $user->id_user,
+                        'action'      => 'stage_approved',
+                        'description' => 'Stage completed. Activating executing process.',
+                        'notes'       => $request->notes,
+                    ]);
+ 
+                    try {
+                        if ($executingStage->assignedUser) {
+                            $executingStage->assignedUser->notify(
+                                new StageAssignedNotification($contract, $executingStage, $user)
+                            );
+                        }
+                    } catch (\Exception $e) {
+                        Log::error('Notify owner for executing failed: ' . $e->getMessage());
+                    }
+ 
+                    DB::commit();
+ 
+                    // Notify owner bahwa executing sudah aktif
+                    try {
+                        if ($contract->user) {
+                            $contract->user->notify(
+                                new StageJumpedNotification(
+                                    $contract,
+                                    $stage,
+                                    $executingStage,
+                                    $user,
+                                    'executing_activated',
+                                    'All reviews are complete. Please proceed with document signing.'
+                                )
+                            );
+                        }
+                    } catch (\Exception $e) {
+                        Log::error('StageJumped executing_activated notify failed: ' . $e->getMessage());
+                    }
+ 
+                    return redirect()->route('contracts.show', $contract)
+                        ->with('success', '✅ Review complete! The document owner is notified for the execution process.');
+                }
+ 
+                // Executing stage tidak ditemukan — ini kondisi abnormal,
+                // seharusnya tidak terjadi karena nomor sudah ada berarti
+                // executing stage sudah dibuat via generateNumber()
+                ContractReviewLog::create([
+                    'contract_id' => $contract->id,
+                    'stage_id'    => $stage->id,
+                    'user_id'     => $user->id_user,
+                    'action'      => 'stage_approved',
+                    'description' => 'Stage completed. Executing stage not found — needs to be checked.',
+                    'notes'       => $request->notes,
+                ]);
+ 
+                DB::commit();
+                return redirect()->route('contracts.show', $contract)
+                    ->with('warning', '⚠️ Stage finished, but the executing stage was not found. Please contact admin.');
+ 
+            } catch (\Exception $e) {
+                DB::rollBack();
+                return redirect()->back()->with('error', 'Failed to complete stage: ' . $e->getMessage());
+            }
+        }
+    
+
+        // ── Sequential jump ke stage legal/review berikutnya ─────────────
         $request->validate([
             'jump_to_stage_id' => 'required|exists:contract_review_stages,id',
-            'notes' => 'nullable|string|max:1000',
+            'notes'            => 'nullable|string|max:1000',
         ]);
-        
+
         $jumpToStage = ContractReviewStage::findOrFail($request->jump_to_stage_id);
-        
-        // Authorization
-        if ($stage->assigned_user_id !== $user->id_user && !$user->hasRole('admin')) {
-            abort(403, 'Unauthorized action.');
-        }
-        
-        // Validation: can't jump to same stage
         if ($stage->id === $jumpToStage->id) {
-            return redirect()->back()
-                ->with('error', 'Cannot jump to the same stage.');
+            return redirect()->back()->with('error', 'Cannot jump to the same stage.');
         }
-        
+
         try {
             DB::beginTransaction();
-            
-            // Complete current stage
-            $stage->update([
-                'status' => 'completed',
-                'notes' => $request->notes,
-                'jump_to_stage_id' => $jumpToStage->id,
-                'completed_at' => now(),
-            ]);
-            
-            // Record the jump
+
+            $stage->update(['status' => 'completed', 'notes' => $request->notes, 'jump_to_stage_id' => $jumpToStage->id, 'completed_at' => now()]);
+
             ContractReviewJump::create([
-                'contract_id' => $contract->id,
-                'from_stage_id' => $stage->id,
-                'to_stage_id' => $jumpToStage->id,
-                'jumped_by' => $user->id_user,
-                'reason' => $request->notes ? "Approved with notes: {$request->notes}" : "Approved",
+                'contract_id' => $contract->id, 'from_stage_id' => $stage->id, 'to_stage_id' => $jumpToStage->id,
+                'jumped_by' => $user->id_user, 'reason' => $request->notes ? "Approved with notes: {$request->notes}" : 'Approved',
             ]);
-            
-            // ✅ LOG APPROVAL ACTION
+
             ContractReviewLog::create([
-                'contract_id' => $contract->id,
-                'stage_id' => $stage->id,
-                'user_id' => $user->id_user,
-                'action' => 'approve_jump',
-                'description' => 'Approved and jumped to ' . $jumpToStage->stage_name,
-                'notes' => $request->notes,
-                'metadata' => [
-                    'from_stage_id' => $stage->id,
-                    'from_stage_name' => $stage->stage_name,
-                    'to_stage_id' => $jumpToStage->id,
-                    'to_stage_name' => $jumpToStage->stage_name,
-                    'to_reviewer_name' => $jumpToStage->assignedUser->nama_user ?? 'Unassigned',
-                    'to_reviewer_email' => $jumpToStage->assignedUser->email ?? null,
-                    'notes' => $request->notes,
-                    'jump_reason' => $request->notes ? "Approved with notes" : "Approved"
-                ]
+                'contract_id' => $contract->id, 'stage_id' => $stage->id, 'user_id' => $user->id_user,
+                'action' => 'approve_jump', 'description' => 'Approved and jumped to ' . $jumpToStage->stage_name, 'notes' => $request->notes,
+                'metadata' => ['from_stage_id' => $stage->id, 'to_stage_id' => $jumpToStage->id],
             ]);
-            
-            // Activate target stage
-            $jumpToStage->update([
-                'status' => 'in_progress',
-                'assigned_at' => now(),
-                'started_at' => now(),
-            ]);
-            
-            // Update contract current stage
-            $contract->update([
-                'current_stage' => $jumpToStage->sequence,
-                'status' => Contract::STATUS_UNDER_REVIEW,    
-                'review_flow_status' => Contract::REVIEW_FLOW_IN_REVIEW, 
-            ]);
-            
+
+            $jumpToStage->update(['status' => 'in_progress', 'assigned_at' => now(), 'started_at' => now()]);
+            $contract->update(['current_stage' => $jumpToStage->sequence, 'status' => Contract::STATUS_UNDER_REVIEW, 'review_flow_status' => Contract::REVIEW_FLOW_IN_REVIEW]);
+
             DB::commit();
-            
-            // Notify next reviewer
             $this->notifyNextReviewer($contract, $stage, $jumpToStage);
-            
-            \Log::info('Approved and jumped', [
-                'from_stage' => $stage->stage_name,
-                'to_stage' => $jumpToStage->stage_name,
-                'notes_saved' => !empty($request->notes),
-                'contract_id' => $contract->id
-            ]);
-            
+
         } catch (\Exception $e) {
             DB::rollBack();
-            \Log::error('Failed to approve and jump: ' . $e->getMessage(), [
-                'contract_id' => $contract->id,
-                'stage_id' => $stage->id,
-                'jump_to_stage_id' => $request->jump_to_stage_id,
-                'trace' => $e->getTraceAsString()
-            ]);
-            
-            return redirect()->back()
-                ->with('error', 'Failed to process approval. Please try again.');
+            return redirect()->back()->with('error', 'Failed to process approval. Please try again.');
         }
-        
-        return redirect()->route('contracts.show', $contract)
-            ->with('success', 'Approved and moved to ' . $jumpToStage->stage_name . ' successfully! 👍');
+
+        return redirect()->route('contracts.show', $contract)->with('success', 'Approved and moved to ' . $jumpToStage->stage_name . '!');
     }
 
-/**
- * Notify next reviewer about assignment
- */
-private function notifyNextReviewer($contract, $fromStage, $toStage)
-{
-    try {
-        $actor = auth()->user();
+    /**
+     * Helper: temukan executing stage yang masih pending
+     */
+    private function findPendingExecutingStage(Contract $contract): ?ContractReviewStage
+    {
+        $stage = $contract->reviewStages()
+            ->where('stage_type', 'executing')
+            ->where('status', 'pending')
+            ->orderBy('sequence')
+            ->first();
 
-        // =========================
-        // 1️⃣ Notify Assigned Reviewer
-        // =========================
-        if ($toStage && $toStage->assignedUser) {
+        if (!$stage && $contract->executing_stage_id) {
+            $stage = ContractReviewStage::find($contract->executing_stage_id);
+            if ($stage?->status !== 'pending') $stage = null;
+        }
 
-            $reviewer = $toStage->assignedUser;
+        return $stage;
+    }
 
-            // Hindari kirim ke diri sendiri
-            if ((int) $reviewer->id_user !== (int) $actor->id_user) {
+    // ============================================================
+    // 12. PARALLEL STAGE HELPERS
+    // ============================================================
 
-                $reviewer->notify(
+    private function approveParallelStage(Request $request, Contract $contract, ContractReviewStage $stage, $user)
+    {
+        $request->validate(['notes' => 'nullable|string|max:1000']);
+
+        DB::beginTransaction();
+        try {
+            $stage->update([
+                'status' => 'completed', 'notes' => $request->notes, 'completed_at' => now(),
+                'needs_revision' => false, 'revision_feedback' => null,
+                'revision_requested_at' => null, 'revision_requested_by' => null,
+            ]);
+
+            ContractReviewLog::create([
+                'contract_id' => $contract->id, 'stage_id' => $stage->id, 'user_id' => $user->id_user,
+                'action' => 'parallel_stage_approved', 'description' => $stage->stage_name . ' approved (parallel)', 'notes' => $request->notes,
+            ]);
+
+            $grp = ContractReviewStage::where('contract_id', $contract->id)->where('parallel_group', $stage->parallel_group)->get();
+
+            foreach ($grp->groupBy(fn($s) => $s->stage_type . '_' . $s->department_id) as $typeStages) {
+                $assignedInType = $typeStages->whereNotNull('assigned_user_id');
+                if ($assignedInType->isEmpty()) continue;
+                if (!$assignedInType->every(fn($s) => $s->status === 'completed')) {
+                    DB::commit();
+                    $remaining = $assignedInType->where('status', '!=', 'completed')->count();
+                    return redirect()->route('contracts.show', $contract)
+                        ->with('success', "✓ {$stage->stage_name} approved. Waiting for {$remaining} other reviewers.");
+                }
+            }
+
+            $unassignedCount = $grp->whereNull('assigned_user_id')->count();
+            $pendingCount    = $grp->whereNotNull('assigned_user_id')->where('id', '!=', $stage->id)->where('status', '!=', 'completed')->count();
+
+            DB::commit();
+
+            if ($pendingCount === 0 && $unassignedCount === 0) {
+                $this->activateNextAfterParallel($contract, $stage->parallel_group);
+                return redirect()->route('contracts.show', $contract)->with('success', '🎉 All parallel reviews are complete!');
+            }
+
+            $waitMsg = '';
+            if ($pendingCount > 0)    $waitMsg .= "{$pendingCount} other reviewers haven't approved yet. ";
+            if ($unassignedCount > 0) $waitMsg .= "{$unassignedCount} departments haven't assigned staff.";
+
+            return redirect()->route('contracts.show', $contract)->with('success', "✓ {$stage->stage_name} approved. Waiting: {$waitMsg}");
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Failed to approve: ' . $e->getMessage());
+        }
+    }
+
+    private function activateParallelStages(Request $request, Contract $contract, ContractReviewStage $stage, $parallelStages, $user)
+    {
+        $request->validate(['notes' => 'nullable|string|max:1000']);
+
+        DB::beginTransaction();
+        try {
+            $stage->update(['status' => 'completed', 'notes' => $request->notes, 'completed_at' => now()]);
+
+            foreach ($parallelStages as $ps) {
+                if ($ps->assigned_user_id !== null) {
+                    $ps->update(['status' => 'in_progress', 'assigned_at' => now(), 'started_at' => now()]);
+                }
+            }
+
+            $contract->update([
+                'current_stage'           => $parallelStages->first()->sequence,
+                'status'                  => Contract::STATUS_UNDER_REVIEW,
+                'review_flow_status'      => Contract::REVIEW_FLOW_IN_REVIEW,
+                'multi_department_status' => 'multi_department',
+            ]);
+
+            ContractReviewLog::create([
+                'contract_id' => $contract->id, 'stage_id' => $stage->id, 'user_id' => $user->id_user,
+                'action' => 'parallel_stages_activated', 'description' => $parallelStages->count() . ' parallel stages enabled', 'notes' => $request->notes,
+                'metadata' => ['activated_stages' => $parallelStages->pluck('stage_name')->toArray()],
+            ]);
+
+            DB::commit();
+
+            foreach ($parallelStages->whereNotNull('assigned_user_id') as $ps) {
+                if ($ps->assignedUser) {
+                    try { $ps->assignedUser->notify(new StageAssignedNotification($contract, $ps, $user)); }
+                    catch (\Exception $e) { Log::error('Notify parallel failed: ' . $e->getMessage()); }
+                }
+            }
+
+            $stageNames = $parallelStages->pluck('stage_name')->unique()->join(', ');
+            // ── Notify owner: substantial review dimulai ──────────────────
+            try {
+                if ($contract->user) {
+                    $firstParStage = $parallelStages->first();
+                    $contract->user->notify(
+                        new StageJumpedNotification(
+                            $contract,
+                            $stage,
+                            $firstParStage,
+                            $user,
+                            'parallel_started',
+                            count($parallelStages) . ' departments are now reviewing simultaneously: '
+                                . $parallelStages->pluck('stage_name')->unique()->join(', ') . '.'
+                        )
+                    );
+                }
+            } catch (\Exception $e) {
+                Log::error('StageJumped parallel_started notify failed: ' . $e->getMessage());
+            }
+
+            return redirect()->route('contracts.show', $contract)
+                ->with('success', "✅ {$parallelStages->count()} substantial reviews have started: {$stageNames}.");
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Failed to activate parallel reviews: ' . $e->getMessage());
+        }
+    }
+
+    private function activateNextAfterParallel(Contract $contract, int $parallelGroup): void
+    {
+        $parIds = ContractReviewStage::where('contract_id', $contract->id)
+            ->where('parallel_group', $parallelGroup)
+            ->pluck('id')
+            ->toArray();
+
+        $nextStage = ContractReviewStage::where('contract_id', $contract->id)
+            ->whereNull('parallel_group')
+            ->where('status', 'pending')
+            ->where('is_user_stage', false)
+            ->whereNotIn('stage_type', ['executing', 'archiving'])
+            ->whereNotIn('id', $parIds)
+            ->orderBy('sequence')
+            ->first();
+
+        if (!$nextStage) {
+            // Parallel selesai, tidak ada stage berikutnya
+            // Legal perlu generate nomor terlebih dahulu
+            ContractReviewLog::create([
+                'contract_id' => $contract->id,
+                'stage_id'    => null,
+                'user_id'     => auth()->id(),
+                'action'      => 'parallel_completed_all_done',
+                'description' => 'All parallel reviews are complete. Legal needs to generate a number to proceed.',
+            ]);
+            return;
+        }
+
+        $nextStage->update(['status' => 'assigned', 'assigned_at' => now()]);
+        $contract->update([
+            'current_stage'      => $nextStage->sequence,
+            'status'             => Contract::STATUS_UNDER_REVIEW,
+            'review_flow_status' => Contract::REVIEW_FLOW_IN_REVIEW,
+        ]);
+
+        ContractReviewLog::create([
+            'contract_id' => $contract->id,
+            'stage_id'    => $nextStage->id,
+            'user_id'     => auth()->id(),
+            'action'      => 'parallel_completed_next_activated',
+            'description' => 'Next stage activated: ' . $nextStage->stage_name,
+        ]);
+
+        // Notify reviewer stage berikutnya
+        if ($nextStage->assignedUser) {
+            try {
+                $nextStage->assignedUser->notify(
+                new StageAssignedNotification(
+                    $contract,
+                    $nextStage,
+                    auth()->user(),
+                    null   // tidak ada single fromStage setelah parallel; notes paralel
+                           // bisa ditambahkan via $allPrevNotes jika diperlukan
+                )
+            );
+            } catch (\Exception $e) {
+                Log::error('Notify next after parallel failed: ' . $e->getMessage());
+            }
+        }
+
+        // Notify owner: substantial review selesai, stage berikutnya aktif
+        try {
+            if ($contract->user) {
+                $contract->user->notify(
+                    new StageJumpedNotification(
+                        $contract,
+                        null,
+                        $nextStage,
+                        auth()->user(),
+                        'parallel_completed',
+                        'All parallel (substantial) reviews are complete. '
+                            . 'The workflow is now moving to the next stage: ' . $nextStage->stage_name . '.'
+                    )
+                );
+            }
+        } catch (\Exception $e) {
+            Log::error('StageJumped parallel_completed notify failed: ' . $e->getMessage());
+        }
+    }
+
+    private function notifyNextReviewer($contract, $fromStage, $toStage)
+    {
+        try {
+            $actor = auth()->user();
+
+            // 🔥 NOTIFY NEXT REVIEWER
+            if ($toStage && $toStage->assignedUser) {
+                $toStage->assignedUser->notify(
                     new StageAssignedNotification(
                         $contract,
                         $toStage,
-                        $actor
+                        $actor,
+                        $fromStage // untuk ambil notes sebelumnya
                     )
                 );
-
-                \Log::info('Stage assignment notification sent', [
-                    'contract_id' => $contract->id,
-                    'from_stage' => $fromStage?->stage_name,
-                    'to_stage' => $toStage->stage_name,
-                    'assigned_to' => $reviewer->email,
-                    'actor' => $actor->email,
-                ]);
             }
-        }
 
-        // =========================
-        // 2️⃣ Notify Contract Owner (Stage Jump Info)
-        // =========================
-        if ($contract->user) {
-
-            $owner = $contract->user;
-
-            if ((int) $owner->id_user !== (int) $actor->id_user) {
-
-                $owner->notify(
+            // 🔥 NOTIFY DOCUMENT OWNER (JIKA BUKAN ACTOR)
+            if ($contract->user && (int) $contract->user->id_user !== (int) $actor->id_user) {
+                $contract->user->notify(
                     new StageJumpedNotification(
                         $contract,
                         $fromStage,
@@ -1436,778 +1763,329 @@ private function notifyNextReviewer($contract, $fromStage, $toStage)
                         $actor
                     )
                 );
+            }
 
-                \Log::info('Owner notified about stage jump', [
-                    'contract_id' => $contract->id,
-                    'owner' => $owner->email,
-                    'actor' => $actor->email,
-                ]);
-            }
-        }
-
-    } catch (\Throwable $e) {
-
-        \Log::error('Failed to send notification after jump', [
-            'contract_id' => $contract->id ?? null,
-            'error' => $e->getMessage(),
-        ]);
-    }
-}
-
-    /**
-     * Request revision and jump back to selected stage
-     */
-    public function requestRevisionJump(Request $request, Contract $contract, ContractReviewStage $stage)
-    {
-        $request->validate([
-            'revision_notes' => 'required|string|min:10|max:2000',
-            'jump_to_stage_id' => 'nullable|exists:contract_review_stages,id',
-        ]);
-        
-        // Authorization
-        $currentUser = TblUser::find(Auth::id());
-        if ($stage->assigned_user_id !== $currentUser->id_user && !$currentUser->hasRole('admin')) {
-            abort(403, 'Unauthorized action.');
-        }
-        
-        try {
-            DB::beginTransaction();
-            
-            /**
-             * 1️⃣ TENTUKAN TARGET STAGE
-             */
-            if ($request->filled('jump_to_stage_id')) {
-                $jumpToStage = ContractReviewStage::find($request->jump_to_stage_id);
-            } else {
-                // Default: USER stage
-                $jumpToStage = $contract->reviewStages()
-                    ->where('is_user_stage', true)
-                    ->first();
-            }
-            
-            if (!$jumpToStage) {
-                throw new \Exception('Target stage not found.');
-            }
-            
-            if ($jumpToStage->id === $stage->id) {
-                throw new \Exception('Cannot jump to the same stage.');
-            }
-            
-            /**
-             * 2️⃣ UPDATE CURRENT STAGE (REQUEST REVISION)
-             */
-            $stage->update([
-                'status' => 'revision_requested',
-                'notes' => $request->revision_notes,
-                'revision_requested_by' => $currentUser->nama_user,
-                'jump_to_stage_id' => $jumpToStage->id,
-                'completed_at' => now(),
+        } catch (\Throwable $e) {
+            Log::error('Notify after jump failed', [
+                'error' => $e->getMessage(),
+                'contract_id' => $contract->id ?? null,
+                'to_stage' => $toStage->id ?? null,
             ]);
-            
-            /**
-             * 3️⃣ RESET TARGET STAGE
-             */
-            $jumpToStage->update([
-                'status' => 'assigned',
-                'assigned_at' => now(),
-                'revision_requested_by' => $currentUser->nama_user,
-                'started_at' => null,
-                'completed_at' => null,
-                'notes' => null,
-            ]);
-            
-            /**
-             * 4️⃣ NONAKTIFKAN SEMUA STAGE LAIN (KECUALI TARGET)
-             */
-            ContractReviewStage::where('contract_id', $contract->id)
-                ->where('id', '!=', $jumpToStage->id)
-                ->whereIn('status', ['assigned', 'in_progress'])
-                ->update([
-                    'status' => 'pending',
-                ]);
-            
-            /**
-             * 5️⃣ UPDATE CONTRACT STATUS
-             */
-            $contract->update([
-                'current_stage' => $jumpToStage->sequence,
-                'review_flow_status' => Contract::REVIEW_FLOW_REVISION_REQUESTED, 
-                'status' => Contract::STATUS_REVISION_NEEDED,                     
-            ]);
-            
-            /**
-             * 6️⃣ LOG ACTION & JUMP RECORD
-             */
-            $log = ContractReviewLog::create([
-                'contract_id' => $contract->id,
-                'stage_id' => $stage->id,
-                'user_id' => $currentUser->id_user,
-                'action' => 'revision_requested',
-                'description' => 'Revision requested to ' . $jumpToStage->stage_name,
-                'notes' => $request->revision_notes,
-                'metadata' => [
-                    'from_stage_id' => $stage->id,
-                    'from_stage_name' => $stage->stage_name,
-                    'to_stage_id' => $jumpToStage->id,
-                    'to_stage_name' => $jumpToStage->stage_name,
-                    'to_reviewer_name' => $jumpToStage->assignedUser->nama_user ?? 'Unassigned',
-                    'revision_notes' => $request->revision_notes,
-                    'requested_by' => $currentUser->nama_user,
-                    'requested_by_email' => $currentUser->email,
-                ]
-            ]);
-            
-            ContractReviewJump::create([
-                'contract_id' => $contract->id,
-                'from_stage_id' => $stage->id,
-                'to_stage_id' => $jumpToStage->id,
-                'jumped_by' => $currentUser->id_user,
-                'reason' => 'Revision requested: ' . $request->revision_notes,
-                'metadata' => [
-                    'revision_notes' => $request->revision_notes,
-                    'log_id' => $log->id,
-                ]
-            ]);
-            
-            DB::commit();
-            
-            \Log::info('Revision requested successfully', [
-                'contract_id' => $contract->id,
-                'contract_title' => $contract->title,
-                'from_stage' => $stage->stage_name,
-                'to_stage' => $jumpToStage->stage_name,
-                'to_stage_is_user' => $jumpToStage->is_user_stage,
-                'revision_notes_length' => strlen($request->revision_notes),
-                'requested_by' => $currentUser->email,
-                'target_user' => $jumpToStage->assignedUser->email ?? null,
-            ]);
-            
-            /**
-             * 7️⃣ SEND NOTIFICATIONS
-             */
-            try {
-                // Notify target user
-                if ($jumpToStage->assignedUser) {
-                    $notification = new \App\Notifications\RevisionRequestedNotification(
-                        $contract,
-                        $stage,
-                        $jumpToStage,
-                        $request->revision_notes,
-                        $currentUser
-                    );
-                    
-                    $jumpToStage->assignedUser->notify($notification);
-                    
-                    \Log::info('Revision notification sent', [
-                        'to_user' => $jumpToStage->assignedUser->email,
-                        'notification_type' => 'RevisionRequestedNotification',
-                    ]);
-                }
-                
-                // Notify contract owner jika berbeda dengan target
-                if ($contract->user && $contract->user->id_user !== $jumpToStage->assigned_user_id) {
-                    $contract->user->notify(new \App\Notifications\RevisionRequestedNotification(
-                        $contract,
-                        $stage,
-                        $jumpToStage,
-                        $request->revision_notes,
-                        $currentUser
-                    ));
-                }
-                
-                // Notify all admins
-                $admins = TblUser::role('admin')->where('status_karyawan', 'AKTIF')->get();
-                foreach ($admins as $admin) {
-                    $admin->notify(new \App\Notifications\RevisionRequestedNotification(
-                        $contract,
-                        $stage,
-                        $jumpToStage,
-                        $request->revision_notes,
-                        $currentUser
-                    ));
-                }
-                
-            } catch (\Exception $e) {
-                \Log::error('Notification failed but revision was processed', [
-                    'error' => $e->getMessage(),
-                    'contract_id' => $contract->id,
-                ]);
-            }
-            
-            /**
-             * 8️⃣ RESPONSE SUCCESS
-             */
-            $stageType = $jumpToStage->is_user_stage ? 'user' : 'reviewer';
-            $message = 'Revision requested. Contract moved to ' . 
-                       $jumpToStage->stage_name . ' (' . $stageType . ')';
-            
-            return redirect()
-                ->route('contracts.show', $contract)
-                ->with('warning', $message);
-            
-        } catch (\Exception $e) {
-            DB::rollBack();
-            
-            \Log::error('Failed to request revision: ' . $e->getMessage(), [
-                'contract_id' => $contract->id,
-                'stage_id' => $stage->id,
-                'user_id' => Auth::id(),
-                'request_data' => $request->except('_token'),
-                'trace' => $e->getTraceAsString()
-            ]);
-            
-            return back()
-                ->withInput()
-                ->with('error', 'Failed to request revision: ' . $e->getMessage());
         }
     }
 
-    /**
-     * User continue review from USER stage back to reviewer
-     */
-    public function userContinueReview(Request $request, Contract $contract, ContractReviewStage $stage)
-    {
-        $request->validate([
-            'jump_to_stage_id' => 'required|exists:contract_review_stages,id',
-            'user_response' => 'required|string|min:10|max:2000',
-        ]);
-        
-        $jumpToStage = ContractReviewStage::findOrFail($request->jump_to_stage_id);
-        
-        $user = TblUser::find(Auth::id());
-        
-        // Authorization: only assigned user (contract owner) or admin
-        if ($stage->assigned_user_id !== $user->id_user && !$user->hasRole('admin')) {
-            abort(403, 'Unauthorized action.');
-        }
-        
-        // Validation: must be user stage
-        if (!$stage->is_user_stage) {
-            return redirect()->back()
-                ->with('error', 'This action can only be performed from USER stage.');
-        }
-        
-        try {
-            DB::beginTransaction();
-            
-            // Complete USER stage
-            $stage->update([
-                'status' => 'completed',
-                'notes' => $request->user_response,
-                'jump_to_stage_id' => $jumpToStage->id,
-                'completed_at' => now(),
-            ]);
-            
-            // Log user response
-            ContractReviewLog::create([
-                'contract_id' => $contract->id,
-                'stage_id' => $stage->id,
-                'user_id' => $user->id_user,
-                'action' => 'user_response',
-                'description' => 'User submitted revision response',
-                'metadata' => ['response' => $request->user_response]
-            ]);
-            
-            // Record the jump
-            ContractReviewJump::create([
-                'contract_id' => $contract->id,
-                'from_stage_id' => $stage->id,
-                'to_stage_id' => $jumpToStage->id,
-                'jumped_by' => $user->id_user,
-                'reason' => "User responded: " . $request->user_response,
-            ]);
-            
-            // Activate target reviewer stage
-            $jumpToStage->update([
-                'status' => 'in_progress',
-                'assigned_at' => now(),
-                'started_at' => now(),
-            ]);
-            
-            // Update contract
-            $contract->update([
-                'current_stage' => $jumpToStage->sequence,
-                'review_flow_status' => Contract::REVIEW_FLOW_IN_REVIEW,
-                'status' => Contract::STATUS_UNDER_REVIEW,
-                'revision_needed' => false,
-            ]);
-            
-            DB::commit();
-            
-            //Notify the reviewer
-            if ($jumpToStage->assignedUser) {
-                $jumpToStage->assignedUser->notify(
-                    new StageAssignedNotification($contract, $jumpToStage, $user)
-                );
-            }
-            
-        } catch (\Exception $e) {
-            DB::rollBack();
-            \Log::error('Failed to continue review: ' . $e->getMessage());
-            
-            return redirect()->back()
-                ->with('error', 'Failed to continue review. Please try again.');
-        }
-        
-        return redirect()->route('contracts.show', $contract)
-            ->with('success', 'Response submitted. Review continued to ' . $jumpToStage->stage_name);
-    }
-    
-    
-    /**
-     * Reject contract entirely
-     */
+
+    // ============================================================
+    // 13. REJECT
+    // ============================================================
+
     public function reject(Request $request, Contract $contract, ContractReviewStage $stage)
     {
-        $request->validate([
-            'rejection_reason' => 'required|string|min:10|max:2000',
-        ]);
-        
+        $request->validate(['rejection_reason' => 'required|string|min:10|max:2000']);
         $user = TblUser::find(Auth::id());
-        
-        // Authorization: only assigned user or admin
-        if ($stage->assigned_user_id !== $user->id_user && !$user->hasRole('admin')) {
-            abort(403, 'Unauthorized action.');
-        }
-        
+
+        if ($stage->assigned_user_id !== $user->id_user && !$user->hasRole('admin')) abort(403);
+
         try {
             DB::beginTransaction();
-            
-            // Update stage
-            $stage->update([
-                'status' => 'rejected',
-                'notes' => $request->rejection_reason,
-                'completed_at' => now(),
-            ]);
-            
-            // Log rejection
+
+            $stage->update(['status' => 'rejected', 'notes' => $request->rejection_reason, 'completed_at' => now()]);
             ContractReviewLog::create([
-                'contract_id' => $contract->id,
-                'stage_id' => $stage->id,
-                'user_id' => $user->id_user,
-                'action' => 'reject',
-                'description' => 'Contract rejected',
-                'notes' => $request->rejection_reason,
-                'metadata' => ['reason' => $request->rejection_reason]
+                'contract_id' => $contract->id, 'stage_id' => $stage->id, 'user_id' => $user->id_user,
+                'action' => 'reject', 'description' => 'Contract rejected', 'notes' => $request->rejection_reason,
             ]);
-            
-            // Update contract
-            $contract->update([
-                'review_flow_status' => Contract::REVIEW_FLOW_REJECTED,
-                'status' => 'declined',
-            ]);
-            
-            // Mark all other stages as cancelled
+
+            // Gunakan 'rejected' (lowercase) sesuai enum di DB
+            $contract->update(['review_flow_status' => 'rejected', 'status' => 'declined']);
+
             ContractReviewStage::where('contract_id', $contract->id)
                 ->whereIn('status', ['assigned', 'in_progress'])
-                ->update([
-                    'status' => 'completed',
-                    'completed_at' => now(),
-                    'notes' => 'Cancelled due to contract rejection'
-                ]);
-            
+                ->update(['status' => 'completed', 'completed_at' => now(), 'notes' => 'Cancelled due to contract rejection']);
+
+            ContractRevisionTask::where('contract_id', $contract->id)
+                ->whereIn('status', ['pending', 'in_progress', 'submitted', 're_requested'])
+                ->update(['status' => 'cancelled', 'cancelled_at' => now()]);
+
             DB::commit();
-            
-            // Notify contract owner
-            // $contract->user->notify(new ContractRejectedNotification($contract, $stage, $request->rejection_reason));
-            
         } catch (\Exception $e) {
             DB::rollBack();
-            \Log::error('Failed to reject contract: ' . $e->getMessage());
-            
-            return redirect()->back()
-                ->with('error', 'Failed to reject contract. Please try again.');
-        }
-        
-        return redirect()->route('contracts.show', $contract)
-            ->with('error', 'Contract has been rejected.');
-    }
-
-    // ============================================
-    // 6. HELPER METHODS
-    // ============================================
-
-    /**
-     * Save notes for a stage
-     */
-    public function saveNotes(Request $request, Contract $contract, ContractReviewStage $stage)
-    {
-        $request->validate([
-            'notes' => 'nullable|string|max:5000',
-        ]);
-        
-        $user = TblUser::find(Auth::id());
-        
-        // Authorization: only assigned user or admin
-        if ($stage->assigned_user_id !== $user->id_user && !$user->hasRole('admin')) {
-            abort(403, 'Unauthorized action.');
-        }
-        
-        $stage->update(['notes' => $request->notes]);
-        
-        // Log notes save
-        ContractReviewLog::create([
-            'contract_id' => $contract->id,
-            'stage_id' => $stage->id,
-            'user_id' => $user->id_user,
-            'action' => 'notes_saved',
-            'description' => 'Notes updated for stage: ' . $stage->stage_name,
-        ]);
-        
-        return redirect()->back()
-            ->with('success', 'Notes saved successfully.');
-    }
-
-    /**
-     * Show user stage interface (special for user stage)
-     */
-    public function showUserStage(Contract $contract, ContractReviewStage $stage)
-    {
-        $user = TblUser::find(Auth::id());
-        
-        // Authorization: only contract owner or admin can access user stage
-        if ($stage->assigned_user_id !== $user->id_user && !$user->hasRole('admin')) {
-            abort(403, 'You do not have access to this user review stage.');
-        }
-        
-        // Mark stage as visited
-        $stage->markVisited();
-        
-        // Get available stages for jump (exclude user stages)
-        $availableStages = $contract->getAvailableJumpStages($stage)
-            ->filter(function ($availableStage) {
-                return !$availableStage['is_user_stage'];
-            })
-            ->values();
-        
-        return view('reviews.stage-user', compact('contract', 'stage', 'availableStages'));
-    }
-
-    // ============================================
-    // 7. API ENDPOINTS
-    // ============================================
-    
-    /**
-     * API: Get available users by role (for AJAX)
-     */
-    public function getUsersByRole($role)
-    {
-        if (!Auth::check()) {
-            return response()->json(['error' => 'Unauthorized'], 401);
-        }
-        
-        $users = TblUser::role($role)
-            ->where('status_karyawan', 'AKTIF')
-            ->select('id_user', 'nama_user', 'email')
-            ->orderBy('nama_user')
-            ->get()
-            ->map(function ($user) {
-                return [
-                    'id' => $user->id_user,
-                    'name' => $user->nama_user,
-                    'email' => $user->email,
-                ];
-            });
-        
-        return response()->json($users);
-    }
-    
-    /**
-     * Generate contract number (manual trigger via button)
-     */
-    public function generateNumber(Contract $contract, ContractNumberService $service)
-    {   
-        Log::debug('=== DEBUG GENERATE NUMBER ===', [
-            'contract_id' => $contract->id,
-            'contract_title' => $contract->title,
-            'department_code_raw' => $contract->department_code,
-            'department_code_type' => gettype($contract->department_code),
-            'department_code_empty' => empty($contract->department_code),
-            'department_code_is_null' => is_null($contract->department_code),
-            'department_code_string' => (string) $contract->department_code,
-            'user_id' => $contract->user_id,
-        ]);
-        
-        // ===============================
-        // 1. AUTHORIZATION CHECK
-        // ===============================
-        $user = TblUser::find(Auth::id());
-        
-        if (!$user->hasRole(['admin', 'legal'])) {
-            abort(403, 'Only admin or legal can generate contract numbers.');
+            return redirect()->back()->with('error', 'Failed to reject contract. Please try again.');
         }
 
-        // ===============================
-        // 1b. ENSURE DEPARTMENT CODE EXISTS (EMAIL-BASED RESOLVE)
-        // ===============================
-        if (empty($contract->department_code)) {
-            $resolvedDepartment = $service->resolveDepartmentCode($contract);
-
-            if (!empty($resolvedDepartment) && $resolvedDepartment !== 'GEN') {
-                // ✅ SET + SAVE
-                $contract->department_code = $resolvedDepartment;
-                $contract->save();
-
-                // 🔥 WAJIB: sync ulang object Eloquent
-                $contract->refresh();
-
-                Log::info('Department code backfilled before number generation', [
-                    'contract_id' => $contract->id,
-                    'department_code' => $contract->department_code,
-                ]);
-
-            } else {
-                return redirect()
-                    ->route('contracts.show', $contract)
-                    ->with('error', 'Contract missing department code. Please ensure user email exists in HRMS (tbl_user).');
-            }
-
-            Log::debug('POST-DEPARTMENT SYNC CHECK', [
-                'contract_id' => $contract->id,
-                'department_code' => $contract->department_code,
-                'is_empty' => empty($contract->department_code),
-            ]);
-        }
-
-        // ===============================
-        // 2. VALIDATION CHECKS
-        // ===============================
-        
-        // Check jika sudah ada nomor
-        if ($contract->contract_number) {
-            return redirect()
-                ->route('contracts.show', $contract)
-                ->with('error', 'Contract number already exists: ' . $contract->contract_number);
-        }
-
-        // Check status harus FINAL_APPROVED
-        if ($contract->status !== Contract::STATUS_FINAL_APPROVED) {
-            return redirect()
-                ->route('contracts.show', $contract)
-                ->with('error', 'Contract must be FINAL APPROVED before generating number. Current status: ' . $contract->status_label);
-        }
-
-        // Check jika ada review stages yang belum selesai
-        $incompleteStages = $contract->reviewStages()
-            ->whereNotIn('status', ['completed', 'skipped'])
-            ->count();
-            
-        if ($incompleteStages > 0) {
-            return redirect()
-                ->route('contracts.show', $contract)
-                ->with('error', "Cannot generate number: {$incompleteStages} review stage(s) still incomplete.");
-        }
-
-        // ===============================
-        // 3. GENERATE NUMBER
-        // ===============================
+        // ✅ NOTIFIKASI: Notify owner dokumen bahwa kontrak ditolak
         try {
-            $contractNumber = $service->generateForContract($contract);
-            $contract->contract_number = $contractNumber;
-            $contract->save();
-            
-            // Log success
-            Log::info('Contract number generated via button', [
-                'contract_id' => $contract->id,
-                'contract_number' => $contractNumber,
-                'user_id' => $user->id_user,
-                'user_email' => $user->email,
-                'generated_at' => now(),
-            ]);
-
-            // ===============================
-            // 4. SEND NOTIFICATIONS (optional)
-            // ===============================
-            // Notify contract owner
-            if ($contract->user_id !== $user->id_user) {
+            if ($contract->user) {
                 $contract->user->notify(
-                    new \App\Notifications\ContractNumberGeneratedNotification(
-                        $contract,
-                        $contractNumber,
-                        $user
+                    new ContractRejectedNotification(
+                        $contract, $stage, $request->rejection_reason, $user, 'owner'
                     )
                 );
             }
-
-            // Notify all reviewers who approved
-            $approvedReviewers = $contract->reviewStages()
-                ->where('status', 'completed')
+        } catch (\Exception $e) {
+            Log::error('ContractRejectedNotification (owner) failed: ' . $e->getMessage());
+        }
+ 
+        // ── Notify semua reviewer yang pernah terlibat ───────────────────
+        try {
+            $involvedUserIds = $contract->reviewStages()
                 ->whereNotNull('assigned_user_id')
-                ->with('assignedUser')
-                ->get()
-                ->pluck('assignedUser')
-                ->unique('id_user')
-                ->filter();
-
-            foreach ($approvedReviewers as $reviewer) {
-                if ($reviewer->id_user !== $user->id_user) {
+                ->whereNotIn('stage_type', ['user'])
+                ->pluck('assigned_user_id')
+                ->unique();
+ 
+            foreach ($involvedUserIds as $reviewerId) {
+                // Skip owner (sudah dapat notif di atas) dan yang melakukan reject
+                if ((int) $reviewerId === (int) $contract->user_id) continue;
+                if ((int) $reviewerId === (int) $user->id_user) continue;
+ 
+                $reviewer = TblUser::find($reviewerId);
+                if ($reviewer) {
                     $reviewer->notify(
-                        new \App\Notifications\ContractNumberGeneratedNotification(
-                            $contract,
-                            $contractNumber,
-                            $user
+                        new ContractRejectedNotification(
+                            $contract, $stage, $request->rejection_reason, $user, 'reviewer'
                         )
                     );
                 }
             }
-
-            // ===============================
-            // 5. SUCCESS RESPONSE
-            // ===============================
-            return redirect()
-                ->route('contracts.show', $contract);
-
         } catch (\Exception $e) {
-            // ===============================
-            // 6. ERROR HANDLING
-            // ===============================
-            Log::error('Failed to generate contract number', [
-                'contract_id' => $contract->id,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'user_id' => $user->id_user,
+            Log::error('ContractRejectedNotification (reviewers) failed: ' . $e->getMessage());
+        }
+
+        return redirect()->route('contracts.show', $contract)->with('error', 'Contract has been rejected.');
+    }
+
+    // ============================================================
+    // 14. LEGACY / DEPRECATED
+    // ============================================================
+
+    public function requestRevisionJump(Request $request, Contract $contract, ContractReviewStage $stage)
+    {
+        if ($stage->is_user_stage) {
+            return $this->handleUserStageRevision($request, $contract, $stage);
+        }
+        return redirect()->route('revision-tasks.send', [$contract, $stage])
+            ->with('info', 'Sistem revisi telah diperbarui. Silakan gunakan form baru.');
+    }
+
+    private function handleUserStageRevision(Request $request, Contract $contract, ContractReviewStage $stage)
+    {
+        $request->validate([
+            'revision_notes'      => 'required|string|min:10|max:2000',
+            'jump_to_stage_ids'   => 'required|array|min:1',
+            'jump_to_stage_ids.*' => 'exists:contract_review_stages,id',
+        ]);
+
+        $currentUser = TblUser::find(Auth::id());
+
+        try {
+            DB::beginTransaction();
+
+            $stage->update([
+                'status' => 'revision_requested', 'notes' => $request->revision_notes,
+                'revision_requested_by' => $currentUser->nama_user, 'completed_at' => now(),
             ]);
 
-            return redirect()
-                ->route('contracts.show', $contract)
-                ->with('error', 'Failed to generate contract number: ' . $e->getMessage());
+            $targetNames  = [];
+            $targetStages = [];
+
+            foreach ($request->jump_to_stage_ids as $targetId) {
+                $targetStage = ContractReviewStage::find($targetId);
+                if (!$targetStage) continue;
+
+                $targetStage->update([
+                    'status'                => 'revision_requested',
+                    'needs_revision'        => true,
+                    'revision_feedback'     => $request->revision_notes,
+                    'revision_requested_by' => $currentUser->nama_user,
+                    'revision_requested_at' => now(),
+                    'started_at'            => null,
+                    'completed_at'          => null,
+                ]);
+
+                $targetNames[]  = $targetStage->assignedUser->nama_user ?? $targetStage->stage_name;
+                $targetStages[] = $targetStage;
+
+                ContractReviewJump::create([
+                    'contract_id' => $contract->id, 'from_stage_id' => $stage->id, 'to_stage_id' => $targetStage->id,
+                    'jumped_by' => $currentUser->id_user, 'reason' => 'Revision requested: ' . $request->revision_notes,
+                ]);
+            }
+
+            $firstTarget = $targetStages[0] ?? null;
+            $contract->update([
+                'current_stage'      => $firstTarget ? $firstTarget->sequence : $contract->current_stage,
+                'review_flow_status' => Contract::REVIEW_FLOW_REVISION_REQUESTED,
+                'status'             => Contract::STATUS_REVISION_NEEDED,
+            ]);
+
+            ContractReviewLog::create([
+                'contract_id' => $contract->id, 'stage_id' => $stage->id, 'user_id' => $currentUser->id_user,
+                'action' => 'revision_requested', 'description' => 'Revision requested ke: ' . implode(', ', $targetNames), 'notes' => $request->revision_notes,
+            ]);
+
+            DB::commit();
+            return redirect()->route('contracts.show', $contract)->with('warning', 'Revision requested ke: ' . implode(', ', $targetNames));
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Failed to request revision: ' . $e->getMessage());
         }
     }
 
-    /**
-     * 🔥 NEW: Preview contract number (for testing/debugging)
-     */
+    public function userContinueReview(Request $request, Contract $contract, ContractReviewStage $stage)
+    {
+        $request->validate([
+            'jump_to_stage_id' => 'required|exists:contract_review_stages,id',
+            'user_response'    => 'required|string|min:10|max:2000',
+        ]);
+
+        $jumpToStage = ContractReviewStage::findOrFail($request->jump_to_stage_id);
+        $user        = TblUser::find(Auth::id());
+
+        if ($stage->assigned_user_id !== $user->id_user && !$user->hasRole('admin')) abort(403);
+        if (!$stage->is_user_stage) return redirect()->back()->with('error', 'Aksi ini hanya bisa dilakukan dari user stage.');
+
+        try {
+            DB::beginTransaction();
+            $stage->update(['status' => 'completed', 'notes' => $request->user_response, 'completed_at' => now()]);
+            ContractReviewJump::create([
+                'contract_id' => $contract->id, 'from_stage_id' => $stage->id, 'to_stage_id' => $jumpToStage->id,
+                'jumped_by' => $user->id_user, 'reason' => 'User responded: ' . $request->user_response,
+            ]);
+            $jumpToStage->update([
+                'status' => 'in_progress', 'assigned_at' => now(), 'started_at' => now(),
+                'needs_revision' => false, 'revision_feedback' => null,
+            ]);
+            $contract->update([
+                'current_stage'      => $jumpToStage->sequence,
+                'review_flow_status' => Contract::REVIEW_FLOW_IN_REVIEW,
+                'status'             => Contract::STATUS_UNDER_REVIEW,
+            ]);
+            DB::commit();
+
+            if ($jumpToStage->assignedUser) {
+                try { $jumpToStage->assignedUser->notify(new StageAssignedNotification($contract, $jumpToStage, $user)); }
+                catch (\Exception $e) { Log::error('Notify failed: ' . $e->getMessage()); }
+            }
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', 'Gagal: ' . $e->getMessage());
+        }
+
+        return redirect()->route('contracts.show', $contract)->with('success', 'Revision sent to ' . $jumpToStage->stage_name . '.');
+    }
+
+    // ============================================================
+    // 15. HELPER METHODS
+    // ============================================================
+
+    public function saveNotes(Request $request, Contract $contract, ContractReviewStage $stage)
+    {
+        $request->validate(['notes' => 'nullable|string|max:5000']);
+        $user = TblUser::find(Auth::id());
+
+        if ($stage->assigned_user_id !== $user->id_user && !$user->hasRole('admin')) abort(403);
+
+        $stage->update(['notes' => $request->notes]);
+        ContractReviewLog::create([
+            'contract_id' => $contract->id, 'stage_id' => $stage->id, 'user_id' => $user->id_user,
+            'action' => 'notes_saved', 'description' => 'Notes updated',
+        ]);
+
+        return redirect()->back()->with('success', 'Notes saved successfully.');
+    }
+
+    public function showUserStage(Contract $contract, ContractReviewStage $stage)
+    {
+        $user = TblUser::find(Auth::id());
+        if ($stage->assigned_user_id !== $user->id_user && !$user->hasRole('admin')) abort(403);
+        $stage->markVisited();
+        $availableStages = $contract->getAvailableJumpStages($stage)->filter(fn($s) => !$s['is_user_stage'])->values();
+        return view('reviews.stage-user', compact('contract', 'stage', 'availableStages'));
+    }
+
+    // ============================================================
+    // 16. API ENDPOINTS
+    // ============================================================
+
+    public function getUsersByRole($role)
+    {
+        if (!Auth::check()) return response()->json(['error' => 'Unauthorized'], 401);
+
+        $users = TblUser::role($role)->where('status_karyawan', 'AKTIF')
+            ->select('id_user', 'nama_user', 'email')->orderBy('nama_user')->get()
+            ->map(fn($u) => ['id' => $u->id_user, 'name' => $u->nama_user, 'email' => $u->email]);
+
+        return response()->json($users);
+    }
+
     public function previewNumber(Contract $contract, ContractNumberService $service)
     {
         $user = TblUser::find(Auth::id());
-        
-        if (!$user->can('view', $contract)) {
-            abort(403);
-        }
+        if (!$user->can('view', $contract)) abort(403);
 
         try {
-            $preview = $service->previewNumber($contract);
-            
             return response()->json([
-                'success' => true,
-                'preview_number' => $preview,
-                'can_generate' => $service->canGenerate($contract),
-                'contract_status' => $contract->status,
-                'has_number' => !empty($contract->contract_number),
+                'success'        => true,
+                'preview_number' => $service->previewNumber($contract),
+                'can_generate'   => $service->canGenerate($contract),
+                'contract_status'=> $contract->status,
+                'has_number'     => !empty($contract->contract_number),
                 'current_number' => $contract->contract_number,
             ]);
-            
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'error' => $e->getMessage(),
-            ], 500);
+            return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
         }
     }
 
-    /**
-     * API: Update stage notes (AJAX)
-     */
     public function updateStageNotes(Request $request, ContractReviewStage $stage)
     {
-        if (!Auth::check()) {
-            return response()->json(['error' => 'Unauthorized'], 401);
-        }
-        
+        if (!Auth::check()) return response()->json(['error' => 'Unauthorized'], 401);
         $user = TblUser::find(Auth::id());
-        
-        // Authorization
-        if ($stage->assigned_user_id !== $user->id_user && !$user->hasRole('admin')) {
-            return response()->json(['error' => 'Forbidden'], 403);
-        }
-        
-        $request->validate([
-            'notes' => 'nullable|string|max:5000',
-        ]);
-        
+        if ($stage->assigned_user_id !== $user->id_user && !$user->hasRole('admin')) return response()->json(['error' => 'Forbidden'], 403);
+
+        $request->validate(['notes' => 'nullable|string|max:5000']);
         $stage->update(['notes' => $request->notes]);
-        
-        return response()->json([
-            'success' => true,
-            'message' => 'Notes updated successfully',
-            'updated_at' => now()->format('Y-m-d H:i:s')
-        ]);
+
+        return response()->json(['success' => true, 'updated_at' => now()->format('Y-m-d H:i:s')]);
     }
 
-    // ============================================
-    // 8. ADMIN MANAGEMENT
-    // ============================================
+    // ============================================================
+    // 17. ADMIN MANAGEMENT
+    // ============================================================
 
-    /**
-     * Admin: View all review workflows
-     */
     public function adminWorkflows(Request $request)
     {
         $user = TblUser::find(Auth::id());
-        
-        if (!$user->hasRole('admin')) {
-            abort(403, 'Unauthorized action.');
-        }
-        
-        $status = $request->get('status', 'all');
+        if (!$user->hasRole('admin')) abort(403);
+
+        $status       = $request->get('status', 'all');
         $workflowType = $request->get('workflow_type', 'all');
-        
-        $query = Contract::whereHas('reviewStages');
-        
-        if ($status !== 'all') {
-            $query->where('review_flow_status', $status);
-        }
-        
-        if ($workflowType !== 'all') {
-            $query->where('workflow_type', $workflowType);
-        }
-        
-        $contracts = $query->with(['reviewStages', 'user'])
-            ->orderBy('created_at', 'desc')
-            ->paginate(20);
-        
+        $query        = Contract::whereHas('reviewStages');
+        if ($status !== 'all')       $query->where('review_flow_status', $status);
+        if ($workflowType !== 'all') $query->where('workflow_type', $workflowType);
+
+        $contracts = $query->with(['reviewStages', 'user'])->orderBy('created_at', 'desc')->paginate(20);
         $stats = [
-            'total' => Contract::whereHas('reviewStages')->count(),
-            'in_review' => Contract::where('review_flow_status', Contract::REVIEW_FLOW_IN_REVIEW)->count(),
-            'completed' => Contract::where('review_flow_status', Contract::REVIEW_FLOW_COMPLETED)->count(),
+            'total'              => Contract::whereHas('reviewStages')->count(),
+            'in_review'          => Contract::where('review_flow_status', Contract::REVIEW_FLOW_IN_REVIEW)->count(),
+            'completed'          => Contract::where('review_flow_status', Contract::REVIEW_FLOW_COMPLETED)->count(),
             'revision_requested' => Contract::where('review_flow_status', Contract::REVIEW_FLOW_REVISION_REQUESTED)->count(),
-            'dynamic_workflows' => Contract::where('workflow_type', 'dynamic')->count(),
+            'dynamic_workflows'  => Contract::where('workflow_type', 'dynamic')->count(),
         ];
-        
+
         return view('admin.review-workflows', compact('contracts', 'stats', 'status', 'workflowType'));
     }
 
-    /**
-     * Admin: View workflow details
-     */
     public function adminWorkflowDetail(Contract $contract)
     {
         $user = TblUser::find(Auth::id());
-        
-        if (!$user->hasRole('admin')) {
-            abort(403);
-        }
-        
-        $stages = $contract->reviewStages()
-            ->with('assignedUser:id_user,nama_user,email')
-            ->orderBy('sequence')
-            ->get();
-            
-        $reviewLogs = $contract->reviewLogs()
-            ->with('user:id_user,nama_user')
-            ->orderBy('created_at', 'desc')
-            ->limit(50)
-            ->get();
-            
-        $departmentReviews = $contract->departmentReviews()
-            ->with('department')
-            ->get();
-        
-        return view('admin.workflow-detail', compact(
-            'contract', 
-            'stages',
-            'reviewLogs',
-            'departmentReviews'
-        ));
+        if (!$user->hasRole('admin')) abort(403);
+
+        $stages            = $contract->reviewStages()->with('assignedUser:id_user,nama_user,email')->orderBy('sequence')->get();
+        $reviewLogs        = $contract->reviewLogs()->with('user:id_user,nama_user')->orderBy('created_at', 'desc')->limit(50)->get();
+        $departmentReviews = $contract->departmentReviews()->with('department')->get();
+
+        return view('admin.workflow-detail', compact('contract', 'stages', 'reviewLogs', 'departmentReviews'));
     }
 }

@@ -224,7 +224,8 @@ class ContractController extends Controller
     | PAGINATION
     |--------------------------------------------------------------------------
     */
-    $contracts = $query->paginate(10)->withQueryString();
+    $perPage = $request->get('per_page', 10);
+    $contracts = $query->paginate($perPage)->withQueryString();
 
     /*
     |--------------------------------------------------------------------------
@@ -232,27 +233,13 @@ class ContractController extends Controller
     |--------------------------------------------------------------------------
     */
     if ($request->ajax()) {
-        return view('contracts.partials.table', compact('contracts'))->render();
+        return response(
+            view('contracts.partials.table', compact('contracts'))->render()
+        )->header('Content-Type', 'text/html');
     }
-
+    
     return view('contracts.index', compact('contracts', 'activeTab'));
 }
-
-
-
-    public function scopeVisibleTo($query, $user)
-    {
-        if ($user->hasAnyRole(['admin', 'legal'])) {
-            return $query;
-        }
-
-        return $query->where(function ($q) use ($user) {
-            $q->where('user_id', $user->id)
-            ->orWhereHas('reviewStages', function ($q2) use ($user) {
-                $q2->where('assigned_user_id', $user->id);
-            });
-        });
-    }
 
     /**
      * Legal INDEX - IMPROVED VERSION
@@ -1086,7 +1073,28 @@ public function returnToDraft(Contract $contract)
             ] : 'No logs',
         ]);
 
-        return view('contracts.show', compact('contract', 'reviewLogs'));
+        $currentUserId = auth()->id();
+ 
+        // Revision tasks yang DITERIMA oleh user yang sedang login
+        // (user ini adalah penerima revisi, perlu mengerjakan)
+        $myReceivedTasks = \App\Models\ContractRevisionTask::with(['requester', 'fromStage', 'toStage'])
+            ->where('contract_id', $contract->id)
+            ->where('assigned_to', $currentUserId)
+            ->whereIn('status', ['pending', 'in_progress', 're_requested'])
+            ->orderBy('sent_at', 'desc')
+            ->get();
+        
+        // Revision tasks yang DIKIRIM oleh user yang sedang login
+        // (user ini adalah pengirim revisi, menunggu hasil atau perlu approve/re-request)
+        $mySentTasks = \App\Models\ContractRevisionTask::with(['assignee', 'toStage', 'fromStage'])
+            ->where('contract_id', $contract->id)
+            ->where('requested_by', $currentUserId)
+            ->whereIn('status', ['pending', 'in_progress', 'submitted', 're_requested'])
+            ->orderByRaw("CASE WHEN status = 'submitted' THEN 0 ELSE 1 END") // submitted muncul duluan
+            ->orderBy('sent_at', 'desc')
+            ->get();
+
+        return view('contracts.show', compact('contract', 'reviewLogs', 'myReceivedTasks', 'mySentTasks'));
     }
 
 

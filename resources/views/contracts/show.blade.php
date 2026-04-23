@@ -6,7 +6,7 @@
     
     $canEditWorkflow = $contract->isInReviewStageSystem() && 
                     !auth()->user()->hasRole('user') && 
-                    (auth()->user()->hasAnyRole(['legal', 'acc', 'staff_fin', 'staff_tax', 'admin_legal', 'admin']));
+                    (auth()->user()->hasAnyRole(['legal', 'acc', 'staff_fin', 'staff_tax', 'admin']));
     
     // Check if contract can have number generated
     $canGenerateNumber = $contract->status === \App\Models\Contract::STATUS_FINAL_APPROVED && 
@@ -22,15 +22,27 @@
         ->orderBy('created_at', 'asc')  // ASC = lama ke baru, terbaru di bawah
         ->get();
     
+    // Executing/archiving stage aktif (untuk tombol aksi)
+    $executingStage = $contract->reviewStages
+        ->where('stage_type', 'executing')
+        ->whereIn('status', ['assigned', 'in_progress'])
+        ->first();
+
+    $archivingStage = $contract->reviewStages
+        ->where('stage_type', 'archiving')
+        ->whereIn('status', ['assigned', 'in_progress'])
+        ->first();
+    
     // Status colors untuk badge
     $statusColors = [
-        'draft' => 'bg-gray-500/10 text-gray-400 border-gray-500/30',
-        'submitted' => 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30',
-        'under_review' => 'bg-blue-500/10 text-blue-400 border-blue-500/30',
+        'draft'           => 'bg-gray-500/10 text-gray-400 border-gray-500/30',
+        'submitted'       => 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30',
+        'under_review'    => 'bg-blue-500/10 text-blue-400 border-blue-500/30',
         'revision_needed' => 'bg-orange-500/10 text-orange-400 border-orange-500/30',
-        'final_approved' => 'bg-green-500/10 text-green-400 border-green-500/30',
-        'executed' => 'bg-purple-500/10 text-purple-400 border-purple-500/30',
-        'archived' => 'bg-gray-500/10 text-gray-400 border-gray-500/30',
+        'final_approved'  => 'bg-green-500/10 text-green-400 border-green-500/30',
+        'number_issued'   => 'bg-purple-500/10 text-purple-400 border-purple-500/30',  // BARU
+        'executed'        => 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30',  // UPDATE
+        'archived'        => 'bg-gray-500/10 text-gray-400 border-gray-500/30',
     ];
     
     $contract->status_color = $statusColors[$contract->status] ?? 'bg-gray-500/10 text-gray-400 border-gray-500/30';
@@ -1229,38 +1241,47 @@
                             </form>
                         @endif
 
-                        {{-- EXECUTED: hanya contract owner, saat status final_approved --}}
-                        @if($contract->canBeExecuted(auth()->user()))
-                            <button onclick="document.getElementById('modal-execute').showModal()"
-                                    class="group relative w-full px-4 py-3 bg-gradient-to-r from-green-600 via-emerald-500 to-teal-600 hover:from-green-700 hover:via-emerald-600 hover:to-teal-700 text-white font-medium rounded-xl transition-all duration-300 transform hover:-translate-y-0.5 active:scale-95 shadow-lg shadow-green-500/30 hover:shadow-green-500/50">
-                                <div class="absolute inset-0 rounded-xl bg-gradient-to-r from-white/0 via-white/10 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                                <span class="relative flex items-center justify-center">
-                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                    Mark as Executed
+                        {{-- EXECUTING: muncul untuk contract owner saat executing stage aktif --}}
+                        @if($executingStage && (int) $contract->user_id === (int) auth()->id())
+                            <a href="{{ route('review-stages.show', [$contract, $executingStage]) }}"
+                               class="group relative w-full flex items-center justify-center px-4 py-3
+                                      bg-gradient-to-r from-indigo-600 via-blue-500 to-indigo-600
+                                      hover:from-indigo-700 hover:via-blue-600 hover:to-indigo-700
+                                      text-white font-medium rounded-xl transition-all duration-300
+                                      transform hover:-translate-y-0.5 active:scale-95
+                                      shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50">
+                                <span class="flex items-center">
+                                    <span class="mr-2">✍️</span>
+                                    @if($executingStage->status === 'assigned') Start Executing Document
+                                    @else Continue Executing Document
+                                    @endif
                                 </span>
-                            </button>
+                            </a>
                         @endif
 
-                        {{-- ARCHIVED: hanya legal, saat status executed --}}
-                        @if($contract->canBeArchived(auth()->user()))
-                            <button onclick="document.getElementById('modal-archive').showModal()"
-                                    class="group relative w-full px-4 py-3 bg-gradient-to-r from-amber-600 via-orange-500 to-red-600 hover:from-amber-700 hover:via-orange-600 hover:to-red-700 text-white font-medium rounded-xl transition-all duration-300 transform hover:-translate-y-0.5 active:scale-95 shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50">
-                                <div class="absolute inset-0 rounded-xl bg-gradient-to-r from-white/0 via-white/10 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                                <span class="relative flex items-center justify-center">
-                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                                    </svg>
-                                    Archive Contract
+                        {{-- ARCHIVING: muncul untuk legal saat archiving stage aktif --}}
+                        @if($archivingStage && auth()->user()->hasAnyRole(['legal', 'admin'])
+                            && (int) $archivingStage->assigned_user_id === (int) auth()->id())
+                            <a href="{{ route('review-stages.show', [$contract, $archivingStage]) }}"
+                               class="group relative w-full flex items-center justify-center px-4 py-3
+                                      bg-gradient-to-r from-amber-600 via-orange-500 to-amber-600
+                                      hover:from-amber-700 hover:via-orange-600 hover:to-amber-700
+                                      text-white font-medium rounded-xl transition-all duration-300
+                                      transform hover:-translate-y-0.5 active:scale-95
+                                      shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50">
+                                <span class="flex items-center">
+                                    <span class="mr-2">📦</span>
+                                    @if($archivingStage->status === 'assigned') Start Archiving Document
+                                    @else Continue Archiving Document
+                                    @endif
                                 </span>
-                            </button>
+                            </a>
                         @endif
 
                         {{-- NEW REVIEW STAGE SYSTEM --}}
                         @if($contract->isInReviewStageSystem())
-                            <!-- Stage-specific actions -->
-                            @if($activeStage && $isAssignedToMe)
+                            <!-- Stage-specific actions - Hanya tampilkan untuk regular stages, bukan executing/archiving -->
+                            @if($activeStage && $isAssignedToMe && !in_array($activeStage->stage_type, ['executing', 'archiving']))
                                 <div class="relative">
                                     @if($isInProgress)
                                     <div class="absolute -inset-1 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl blur opacity-20 animate-pulse"></div>
@@ -1279,7 +1300,7 @@
                                                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                                                 </svg>
-                                                Start Review (Stage {{ $activeStage->sequence  }})
+                                                Start Review (Stage {{ $activeStage->sequence }})
                                             @elseif($activeStage->status === 'in_progress')
                                                 <svg class="w-5 h-5 mr-2 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
@@ -1411,7 +1432,13 @@
                         @endif
                     </div>
                 </div>
-
+                
+                @include('contracts._show_revision_tasks', [
+                    'contract'   => $contract,
+                    'myReceived' => $myReceivedTasks,
+                    'mySent'     => $mySentTasks,
+                ])
+                
                 {{-- ============================= --}}
                 {{-- REVIEW PROGRESS TIMELINE --}}
                 {{-- ============================= --}}
@@ -1534,133 +1561,6 @@
         {{-- ================================ --}}
         {{-- MODALS - di luar glass-card      --}}
         {{-- ================================ --}}
-
-        {{-- Modal Execute --}}
-        @if($contract->canBeExecuted(auth()->user()))
-        <dialog id="modal-execute" class="modal p-0 bg-transparent" style="border: none; padding: 0; background: transparent;">
-            <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: -1;" onclick="document.getElementById('modal-execute').close()"></div>
-            <div class="glass-card rounded-xl p-0 max-w-md w-full mx-4 overflow-hidden border border-green-500/30 shadow-2xl shadow-green-500/20 relative z-50">
-                <div class="bg-gradient-to-r from-green-600/20 via-emerald-500/20 to-teal-600/20 px-6 py-4 border-b border-green-500/30">
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center shadow-lg shadow-green-500/30">
-                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                        </div>
-                        <h3 class="text-xl font-bold text-green-300">Mark Contract as Executed</h3>
-                    </div>
-                </div>
-                
-                <div class="p-6">
-                    <div class="mb-6">
-                        <div class="flex items-start gap-3 p-4 bg-green-500/5 border border-green-500/20 rounded-lg">
-                            <svg class="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <div>
-                                <p class="text-gray-300 text-sm leading-relaxed">
-                                    This confirms that the contract document has been <span class="text-green-400 font-semibold">signed and executed</span>.
-                                </p>
-                                <p class="text-gray-400 text-sm mt-2">
-                                    This action will:
-                                </p>
-                                <ul class="text-gray-400 text-sm mt-1 space-y-1 list-disc list-inside">
-                                    <li>Mark the contract as <span class="text-green-400">Executed</span></li>
-                                    <li>Record the execution date</li>
-                                    <li>Move contract to archival queue</li>
-                                    <li><span class="text-yellow-400">This action cannot be undone</span></li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="flex justify-end gap-3">
-                        <button type="button" 
-                                onclick="document.getElementById('modal-execute').close()"
-                                class="px-4 py-2 bg-gray-800/80 hover:bg-gray-700 text-gray-300 font-medium rounded-lg transition-all duration-200 border border-gray-700 hover:border-gray-600">
-                            Cancel
-                        </button>
-                        
-                        <form method="POST" action="{{ route('contracts.execute', $contract) }}">
-                            @csrf
-                            <button type="submit" 
-                                    class="group relative inline-flex items-center justify-center px-5 py-2 bg-gradient-to-r from-green-600 via-emerald-500 to-teal-600 hover:from-green-700 hover:via-emerald-600 hover:to-teal-700 text-white font-medium rounded-lg transition-all duration-300 transform hover:-translate-y-0.5 active:scale-95 shadow-lg shadow-green-500/30 hover:shadow-green-500/50">
-                                <div class="absolute inset-0 rounded-lg bg-gradient-to-r from-white/0 via-white/10 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                                <svg class="w-4 h-4 mr-2 relative" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                                </svg>
-                                <span class="relative">Yes, Mark as Executed</span>
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </dialog>
-        @endif
-
-        {{-- Modal Archive --}}
-        @if($contract->canBeArchived(auth()->user()))
-        <dialog id="modal-archive" class="modal p-0 bg-transparent" style="border: none; padding: 0; background: transparent;">
-            <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: -1;" onclick="document.getElementById('modal-archive').close()"></div>
-            <div class="glass-card rounded-xl p-0 max-w-md w-full mx-4 overflow-hidden border border-orange-500/30 shadow-2xl shadow-orange-500/20 relative z-50">
-                <div class="bg-gradient-to-r from-amber-600/20 via-orange-500/20 to-red-600/20 px-6 py-4 border-b border-orange-500/30">
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg shadow-orange-500/30">
-                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                            </svg>
-                        </div>
-                        <h3 class="text-xl font-bold text-orange-300">Archive Contract</h3>
-                    </div>
-                </div>
-                
-                <div class="p-6">
-                    <div class="mb-6">
-                        <div class="flex items-start gap-3 p-4 bg-orange-500/5 border border-orange-500/20 rounded-lg">
-                            <svg class="w-5 h-5 text-orange-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.998-.833-2.732 0L4.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                            </svg>
-                            <div>
-                                <p class="text-gray-300 text-sm leading-relaxed">
-                                    This will permanently close the review process and mark the contract as 
-                                    <span class="text-orange-400 font-semibold">Archived</span>.
-                                </p>
-                                <p class="text-gray-400 text-sm mt-2">
-                                    Archiving a contract means:
-                                </p>
-                                <ul class="text-gray-400 text-sm mt-1 space-y-1 list-disc list-inside">
-                                    <li>Contract moves to read-only mode</li>
-                                    <li>No further actions can be taken</li>
-                                    <li>Document is preserved for records</li>
-                                    <li><span class="text-yellow-400">This action is permanent and cannot be undone</span></li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="flex justify-end gap-3">
-                        <button type="button" 
-                                onclick="document.getElementById('modal-archive').close()"
-                                class="px-4 py-2 bg-gray-800/80 hover:bg-gray-700 text-gray-300 font-medium rounded-lg transition-all duration-200 border border-gray-700 hover:border-gray-600">
-                            Cancel
-                        </button>
-                        
-                        <form method="POST" action="{{ route('contracts.archive', $contract) }}">
-                            @csrf
-                            <button type="submit" 
-                                    class="group relative inline-flex items-center justify-center px-5 py-2 bg-gradient-to-r from-amber-600 via-orange-500 to-red-600 hover:from-amber-700 hover:via-orange-600 hover:to-red-700 text-white font-medium rounded-lg transition-all duration-300 transform hover:-translate-y-0.5 active:scale-95 shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50">
-                                <div class="absolute inset-0 rounded-lg bg-gradient-to-r from-white/0 via-white/10 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                                <svg class="w-4 h-4 mr-2 relative" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                                </svg>
-                                <span class="relative">Yes, Archive Contract</span>
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </dialog>
-        @endif
 
         <style>
             /* Scrollbar styling */

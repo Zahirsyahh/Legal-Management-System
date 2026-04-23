@@ -540,239 +540,216 @@
     {{ $styles ?? '' }}
 </head>
 <body class="font-inter text-gray-100">
-    <!-- Sidebar Navigation -->
-    <div id="sidebar" class="sidebar">
-        <!-- Logo -->
-        <div class="flex items-center justify-between h-16 px-4 border-b border-gray-800">
-            <div class="flex items-center">
-                <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg animate-pulse-glow">
-                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                </div>
-                <span id="sidebarLogoText" class="text-s font-bold gradient-text ml-3 opacity-0 transition-opacity">Legal Management System</span>
+    <!-- Sidebar Navigation - iOS26 Premium Glass Design -->
+<div id="sidebar" class="sidebar">
+    <!-- Logo Section -->
+    <div class="flex items-center justify-between h-16 px-4 border-b border-white/10">
+        <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
             </div>
-            <div class="hidden sidebar.expanded:block">
-                <span class="text-xs bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-300 px-2 py-1 rounded-md font-medium">PRO</span>
-            </div>
+            <span id="sidebarLogoText" class="text-sm font-bold text-white/90 opacity-0 transition-all duration-300">Legal Management System</span>
         </div>
-
-        <!-- Navigation Items -->
-        <div class="py-4 overflow-y-auto h-[calc(100vh-9rem)] custom-scrollbar">
-            <!-- MAIN SECTION -->
-            <div class="sidebar-section">
-                <span class="label opacity-0">MAIN</span>
-            </div>
-            
-            <!-- Dashboard (Semua Role) -->
-            <a href="{{ route('dashboard') }}" 
-               class="sidebar-item {{ request()->routeIs('dashboard') ? 'active' : '' }}">
-                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                </svg>
-                <span class="label">Dashboard</span>
-            </a>
-
-            <!-- REPORTS - Untuk SEMUA Role -->
-            <a href="{{ route('reports.contracts') }}" 
-               class="sidebar-item {{ request()->routeIs('reports.*') ? 'active' : '' }}">
-                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <span class="label">Reports</span>
-            </a>
-
-            <!-- Notifications (Semua Role) -->
-            <a href="{{ route('notifications.index') }}" 
-               class="sidebar-item {{ request()->routeIs('notifications.*') ? 'active' : '' }}">
-                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
-                <span class="label">Notifications</span>
-                @php
-                    $unreadCount = auth()->user()->unreadNotifications()->count();
-                @endphp
-                @if($unreadCount > 0)
-                    <span class="notification-badge">{{ $unreadCount > 9 ? '9+' : $unreadCount }}</span>
-                @endif
-            </a>
-
-            <!-- Documents Section - Different behavior based on role -->
-            @php
-                $user = auth()->user();
-            @endphp
-
-            @if($user->hasRole('user'))
-                <!-- USER: Documents with Dropdown (3 options) -->
-                <div class="relative group">
-                    <button onclick="toggleDocumentsDropdown()" 
-                            class="sidebar-item w-full text-left {{ request()->routeIs('contracts.*') || request()->routeIs('surat.*') ? 'active' : '' }}">
-                        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        <span class="label">Documents</span>
-                        <svg class="w-4 h-4 ml-auto text-gray-400 group-hover:text-cyan-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                        </svg>
-                    </button>
-                    
-                    <!-- Documents Dropdown Menu for USER (3 options) -->
-                    <div id="documentsDropdown" class="documents-dropdown left-4 mt-2">
-                        <div class="p-2">
-                            <!-- My Documents -->
-                            <a href="{{ route('contracts.index') }}" class="dropdown-item">
-                                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                                </svg>
-                                My Documents
-                            </a>
-                            
-                            <div class="dropdown-divider"></div>
-                            
-                            <!-- Document Review (Create Contract) -->
-                            <a href="{{ route('contracts.create') }}" class="dropdown-item">
-                                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                                </svg>
-                                Document Review
-                            </a>
-                            
-                            <!-- Request Letter Numbering -->
-                            <a href="{{ route('surat.create') }}" class="dropdown-item">
-                                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                </svg>
-                                Request Letter Numbering
-                            </a>
-                        </div>
-                    </div>
-                </div>
-
-            @elseif($user->hasAnyRole(['admin', 'admin_acc', 'admin_fin', 'admin_tax', 'staff_acc', 'staff_fin', 'staff_tax', 'legal']))
-                <!-- OTHER ROLES (including ADMIN): Direct link to All Documents (NO DROPDOWN) -->
-                <a href="{{ route('contracts.index') }}" 
-                   class="sidebar-item {{ request()->routeIs('contracts.*') ? 'active' : '' }}">
-                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    <span class="label">All Documents</span>
-                </a>
-            @endif
-
-            <!-- ======================= -->
-            <!-- ROLE-SPECIFIC MENUS -->
-            <!-- ======================= -->
-
-            @if(auth()->user()->hasRole('admin'))
-                <!-- ADMIN MENU -->
-                <div class="sidebar-section mt-4">
-                    <span class="label opacity-0">ADMINISTRATION</span>
-                </div>
-                
-                <!-- Master Department -->
-                <a href="{{ route('admin.master-departments.index') }}"
-                   class="sidebar-item {{ request()->routeIs('admin.master-departments.*') ? 'active' : '' }}">
-                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
-                    </svg>
-                    <span class="label">Master Data</span>
-                </a>
-
-            @elseif(auth()->user()->hasAnyRole(['admin_acc', 'admin_fin', 'admin_tax']))
-                <!-- DEPARTMENT ADMIN MENU - HANYA TERSISA DI SINI (TIDAK DI DROPDOWN) -->
-                <div class="sidebar-section mt-4">
-                    <span class="label opacity-0">DEPARTMENT</span>
-                </div>
-                
-                @php
-                    $role = auth()->user()->getRoleNames()->first();
-                    $prefix = '';
-                    $color = '';
-                    
-                    if ($role === 'admin_acc') {
-                        $prefix = 'accounting-admin';
-                        $color = 'text-amber-400';
-                    } elseif ($role === 'admin_fin') {
-                        $prefix = 'finance-admin';
-                        $color = 'text-emerald-400';
-                    } elseif ($role === 'admin_tax') {
-                        $prefix = 'tax-admin';
-                        $color = 'text-purple-400';
-                    }
-                @endphp
-                
-
-
-            @elseif(auth()->user()->hasRole('legal'))
-                <!-- LEGAL MENU -->
-                <div class="sidebar-section mt-4">
-                    <span class="label opacity-0">LEGAL</span>
-                </div>
-                
-                <!-- Legal Archive -->
-                <a href="{{ route('archives.index') }}"
-                   class="sidebar-item {{ request()->routeIs('legal.contracts.*') ? 'active' : '' }}">
-                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
-                    </svg>
-                    <span class="label">Legal Archive</span>
-                </a>
-
-            @elseif(auth()->user()->hasAnyRole(['staff_acc', 'staff_fin', 'staff_tax']))
-                <!-- STAFF MENU - Tidak perlu menu tambahan -->
-            @endif
-
-            <!-- Profile (Semua Role) -->
-            <div class="sidebar-section mt-6">
-                <span class="label opacity-0">ACCOUNT</span>
-            </div>
-            
-            <a href="{{ route('profile.edit.dark') }}" 
-               class="sidebar-item {{ request()->routeIs('profile.edit.dark') ? 'active' : '' }}">
-                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-                <span class="label">Profile Settings</span>
-            </a>
-            
-            <!-- Logout -->
-            <form method="POST" action="{{ route('logout') }}" class="sidebar-item hover:bg-red-500/10 hover:text-red-300 cursor-pointer" onclick="event.preventDefault(); this.closest('form').submit();">
-                @csrf
-                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-                <span class="label">Sign Out</span>
-            </form>
-        </div>
-
-        <!-- Sidebar Toggle Button -->
-        <div class="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-800 bg-gradient-to-t from-dark-800/50 to-transparent">
-            <button id="sidebarToggle" class="w-full flex items-center justify-center p-3 rounded-xl glass-card hover:bg-white/5 transition-all duration-300 group">
-                <svg id="toggleIcon" class="w-5 h-5 text-gray-400 group-hover:text-cyan-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-                </svg>
-                <span id="toggleLabel" class="ml-3 text-sm text-gray-400 group-hover:text-cyan-300 opacity-0 transition-all duration-300">Collapse Sidebar</span>
-            </button>
+        <div class="hidden sidebar.expanded:block">
+            <span class="text-[0.6rem] px-2 py-0.5 rounded-full bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-300 font-medium border border-cyan-500/30">PRO</span>
         </div>
     </div>
 
-    <!-- Top Navbar -->
+    <!-- Navigation Items -->
+    <div class="py-4 overflow-y-auto h-[calc(100vh-9rem)] custom-scrollbar">
+        <!-- MAIN SECTION -->
+        <div class="sidebar-section px-4 py-2">
+            <span class="text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider label opacity-0 transition-opacity duration-300">Main</span>
+        </div>
+        
+        <!-- Dashboard -->
+        <a href="{{ route('dashboard') }}" 
+           class="sidebar-item group {{ request()->routeIs('dashboard') ? 'active' : '' }}">
+            <div class="icon-wrapper">
+                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+            </div>
+            <span class="label">Dashboard</span>
+        </a>
+
+        <!-- Reports -->
+        <a href="{{ route('reports.contracts') }}" 
+           class="sidebar-item group {{ request()->routeIs('reports.*') ? 'active' : '' }}">
+            <div class="icon-wrapper">
+                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+            </div>
+            <span class="label">Reports</span>
+        </a>
+
+        <!-- Notifications -->
+        <a href="{{ route('notifications.index') }}" 
+           class="sidebar-item group {{ request()->routeIs('notifications.*') ? 'active' : '' }}">
+            <div class="icon-wrapper relative">
+                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+                @php $unreadCount = auth()->user()->unreadNotifications()->count(); @endphp
+                @if($unreadCount > 0)
+                    <span class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[9px] flex items-center justify-center text-white font-bold border-2 border-gray-900">{{ $unreadCount > 9 ? '9+' : $unreadCount }}</span>
+                @endif
+            </div>
+            <span class="label">Notifications</span>
+        </a>
+
+        <!-- Documents Section -->
+        @php $user = auth()->user(); @endphp
+
+        @if($user->hasRole('user'))
+            <!-- USER: Documents with Dropdown -->
+            <div class="relative">
+                <button onclick="toggleDocumentsDropdown()" 
+                        class="sidebar-item group w-full text-left {{ request()->routeIs('contracts.*') || request()->routeIs('surat.*') ? 'active' : '' }}">
+                    <div class="icon-wrapper">
+                        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                    </div>
+                    <span class="label flex-1">Documents</span>
+                    <svg class="w-3 h-3 text-gray-500 transition-transform duration-200 group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+                
+                <div id="documentsDropdown" class="documents-dropdown left-4 mt-1">
+                    <div class="p-1">
+                        <a href="{{ route('contracts.index') }}" class="dropdown-item">
+                            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                            </svg>
+                            My Documents
+                        </a>
+                        <div class="dropdown-divider"></div>
+                        <a href="{{ route('contracts.create') }}" class="dropdown-item">
+                            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4v16m8-8H4" />
+                            </svg>
+                            Document Review
+                        </a>
+                        <a href="{{ route('surat.create') }}" class="dropdown-item">
+                            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                            Request Letter Numbering
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+        @elseif($user->hasAnyRole(['admin', 'admin_acc', 'admin_fin', 'admin_tax', 'staff_acc', 'staff_fin', 'staff_tax', 'legal']))
+            <!-- Direct link to All Documents -->
+            <a href="{{ route('contracts.index') }}" 
+               class="sidebar-item group {{ request()->routeIs('contracts.*') ? 'active' : '' }}">
+                <div class="icon-wrapper">
+                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                </div>
+                <span class="label">All Documents</span>
+            </a>
+        @endif
+
+        <!-- ADMIN MENU -->
+        @if(auth()->user()->hasRole('admin'))
+            <div class="sidebar-section px-4 py-2 mt-4">
+                <span class="text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider label opacity-0 transition-opacity duration-300">Administration</span>
+            </div>
+            
+            <a href="{{ route('admin.master-departments.index') }}"
+               class="sidebar-item group {{ request()->routeIs('admin.master-departments.*') ? 'active' : '' }}">
+                <div class="icon-wrapper">
+                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6h16M4 12h16M4 18h16"/>
+                    </svg>
+                </div>
+                <span class="label">Master Data</span>
+            </a>
+        @endif
+
+        <!-- LEGAL MENU -->
+        @if(auth()->user()->hasRole('legal'))
+            <div class="sidebar-section px-4 py-2 mt-4">
+                <span class="text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider label opacity-0 transition-opacity duration-300">Legal</span>
+            </div>
+            
+            <a href="{{ route('archives.index') }}"
+               class="sidebar-item group {{ request()->routeIs('legal.contracts.*') ? 'active' : '' }}">
+                <div class="icon-wrapper">
+                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
+                    </svg>
+                </div>
+                <span class="label">Legal Archive</span>
+            </a>
+        @endif
+
+        <!-- ACCOUNT SECTION -->
+        <div class="sidebar-section px-4 py-2 mt-6">
+            <span class="text-[0.6rem] font-semibold text-gray-500 uppercase tracking-wider label opacity-0 transition-opacity duration-300">Account</span>
+        </div>
+        
+        <a href="{{ route('profile.edit.dark') }}" 
+           class="sidebar-item group {{ request()->routeIs('profile.edit.dark') ? 'active' : '' }}">
+            <div class="icon-wrapper">
+                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+            </div>
+            <span class="label">Profile Settings</span>
+        </a>
+        
+        <form method="POST" action="{{ route('logout') }}" class="sidebar-item group hover:bg-red-500/10 cursor-pointer" onclick="event.preventDefault(); this.closest('form').submit();">
+            @csrf
+            <div class="icon-wrapper">
+                <svg class="icon text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+            </div>
+            <span class="label text-red-400">Sign Out</span>
+        </form>
+    </div>
+
+    <!-- Sidebar Toggle Button -->
+    <div class="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10 bg-gradient-to-t from-gray-900/50 to-transparent">
+        <button id="sidebarToggle" class="w-full flex items-center justify-center gap-2 p-2.5 rounded-xl bg-white/5 hover:bg-white/10 transition-all duration-300 group">
+            <svg id="toggleIcon" class="w-4 h-4 text-gray-500 group-hover:text-cyan-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+            </svg>
+            <span id="toggleLabel" class="text-xs text-gray-500 group-hover:text-cyan-300 opacity-0 transition-all duration-300">Collapse</span>
+        </button>
+    </div>
+</div>
+
+    <!-- Top Navbar - iOS26 Premium Glass Design -->
     <div id="topNavbar" class="top-navbar">
         <!-- Left: Page Title & Breadcrumb -->
         <div class="flex items-center">
-            <button id="mobileSidebarToggle" class="md:hidden mr-4 p-2 rounded-lg glass-card hover:bg-white/5 transition-all duration-200">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <button id="mobileSidebarToggle" class="md:hidden mr-4 p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-all duration-200">
+                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
             </button>
             
             <!-- Breadcrumb -->
-            <div class="flex items-center space-x-2 text-sm">
-                <a href="{{ route('dashboard') }}" class="text-gray-400 hover:text-cyan-400 transition-colors">
-                    <i class="fas fa-home"></i>
+            <div class="flex items-center gap-2 text-sm">
+                <a href="{{ route('dashboard') }}" class="text-gray-400 hover:text-cyan-400 transition-all duration-200">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                    </svg>
                 </a>
-                <span class="text-gray-500">/</span>
-                <span class="text-gray-300 font-medium">
+                <svg class="w-3 h-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+                <span class="text-gray-300 font-medium text-sm">
                     @auth
                         @if(request()->routeIs('dashboard'))
                             Dashboard
@@ -781,7 +758,7 @@
                         @elseif(request()->routeIs('notifications.*'))
                             Notifications
                         @elseif(request()->routeIs('contracts.*'))
-                            Contracts
+                            Documents
                         @elseif(request()->routeIs('admin.*'))
                             Administration
                         @elseif(request()->routeIs('accounting-admin.*'))
@@ -804,105 +781,155 @@
             </div>
         </div>
 
-        <!-- Right: User Dropdown & Actions -->
-        <div class="flex items-center space-x-4">
-            <!-- Quick Actions -->
-            <div class="hidden md:flex items-center space-x-2">
-                <!-- Quick Actions kosong setelah menghapus Reports dan Documents buttons -->
+        <!-- Right: User Actions -->
+        <div class="flex items-center gap-3">
+            <!-- Notifications Button (iOS Style) -->
+            <div class="relative">
+                <button id="notificationsButton" class="p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-all duration-200 relative">
+                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                    @php $unreadCount = auth()->user()->unreadNotifications()->count(); @endphp
+                    @if($unreadCount > 0)
+                        <span class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[9px] flex items-center justify-center text-white font-bold border-2 border-gray-900">{{ $unreadCount > 9 ? '9+' : $unreadCount }}</span>
+                    @endif
+                    <a href="{{ route('notifications.index') }}" class="absolute inset-0"></a>
+                </button>
             </div>
-            
-            <!-- User Dropdown -->
+
+            <!-- User Dropdown (iOS Style) -->
             <div class="relative group">
-                <button class="flex items-center space-x-3 px-4 py-2 rounded-xl glass-card hover:bg-white/5 transition-all duration-200 active:scale-95">
-                    <div class="user-avatar-pulse">
-                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg">
-                            <span class="font-semibold text-white">{{ substr(Auth::user()->name, 0, 1) }}</span>
-                        </div>
+                <button class="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 transition-all duration-200">
+                    <div class="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-md">
+                        <span class="font-semibold text-white text-sm">{{ substr(Auth::user()->name, 0, 1) }}</span>
                     </div>
                     <div class="text-left hidden lg:block">
-                        <p class="text-sm font-medium">{{ Auth::user()->name }}</p>
-                        <div class="flex items-center space-x-1">
+                        <p class="text-sm font-medium text-white">{{ Auth::user()->name }}</p>
+                        <div class="flex items-center gap-1">
                             <span class="text-xs text-gray-400">{{ ucfirst(Auth::user()->getRoleNames()->first() ?? 'User') }}</span>
-                            <span class="text-xs px-1.5 py-0.5 rounded-full bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-300">Online</span>
+                            <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
                         </div>
                     </div>
-                    <svg class="w-4 h-4 text-gray-400 transition-transform group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-4 h-4 text-gray-400 transition-transform duration-200 group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                     </svg>
                 </button>
-                
-                <!-- Dropdown Menu -->
-                <div class="absolute right-0 mt-3 w-64 py-3 glass-card rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 origin-top-right animate-scale-in border border-gray-800">
-                    <div class="px-4 py-3 border-b border-gray-800">
-                        <p class="font-medium">{{ Auth::user()->name }}</p>
-                        <p class="text-sm text-gray-400">{{ Auth::user()->email }}</p>
-                        <div class="mt-2">
-                            <span class="text-xs px-2 py-1 rounded-full bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-300">
+
+                <!-- Dropdown Menu - iOS26 Premium Glass -->
+                <div class="absolute right-0 mt-3 w-80 py-2 rounded-2xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 origin-top-right z-50"
+                    style="background: rgba(15, 23, 42, 0.98); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.4);">
+                    
+                    <!-- Header -->
+                    <div class="px-4 py-3 border-b border-white/10">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex items-center justify-center border border-cyan-500/30">
+                                <span class="text-lg font-bold text-cyan-300">{{ substr(Auth::user()->name, 0, 1) }}</span>
+                            </div>
+                            <div>
+                                <p class="font-semibold text-white">{{ Auth::user()->name }}</p>
+                                <p class="text-xs text-gray-400">{{ Auth::user()->email }}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-3 flex flex-wrap gap-2">
+                            <span class="text-xs px-2.5 py-1 rounded-full bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-300 border border-cyan-500/30">
                                 {{ ucfirst(Auth::user()->getRoleNames()->first() ?? 'User') }}
                             </span>
                             @php
-                                $user = Auth::user();
-                                $departmentName = $user->department->nama_departemen ?? $user->nama_departemen ?? null;
-                                $departmentCode = $user->department->kode_pendek ?? $user->kode_pendek ?? null;
+                                $departmentName = Auth::user()->department->nama_departemen ?? Auth::user()->nama_departemen ?? null;
+                                $departmentCode = Auth::user()->department->kode_pendek ?? Auth::user()->kode_pendek ?? null;
                             @endphp
-                            
-                            @if($departmentName || $departmentCode)
-                                <div class="mt-1 flex flex-col space-y-1">
-                                    @if($departmentName)
-                                        <span class="text-xs text-gray-300 font-medium">
-                                            {{ $departmentName }}
-                                        </span>
-                                    @endif
-                                    @if($departmentCode)
-                                        <span class="text-xs text-gray-400">
-                                            <span class="text-gray-500">Kode:</span> {{ $departmentCode }}
-                                        </span>
-                                    @endif
-                                </div>
+                            @if($departmentName)
+                                <span class="text-xs px-2.5 py-1 rounded-full bg-white/10 text-gray-300 border border-white/15">
+                                    {{ $departmentName }}
+                                </span>
                             @endif
                         </div>
                     </div>
                     
+                    <!-- Menu Items -->
                     <div class="py-2">
-                        <a href="{{ route('profile.edit.dark') }}" class="flex items-center px-4 py-3 text-sm hover:bg-white/5 transition-colors group/item">
-                            <svg class="w-4 h-4 mr-3 text-gray-400 group-hover/item:text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                            </svg>
-                            Profile Settings
+                        <a href="{{ route('profile.edit.dark') }}" class="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-300 hover:text-white hover:bg-white/10 transition-all duration-200 group">
+                            <div class="w-8 h-8 rounded-xl bg-blue-500/10 flex items-center justify-center group-hover:bg-blue-500/20 transition-all">
+                                <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                </svg>
+                            </div>
+                            <div class="flex-1">
+                                <div class="font-medium">Profile Settings</div>
+                                <div class="text-xs text-gray-500">Manage your account</div>
+                            </div>
                         </a>
-                        <a href="{{ route('reports.index') }}" class="flex items-center px-4 py-3 text-sm hover:bg-white/5 transition-colors group/item">
-                            <svg class="w-4 h-4 mr-3 text-gray-400 group-hover/item:text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            Laporan
+                        
+                        <a href="{{ route('reports.index') }}" class="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-300 hover:text-white hover:bg-white/10 transition-all duration-200 group">
+                            <div class="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center group-hover:bg-emerald-500/20 transition-all">
+                                <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                            </div>
+                            <div class="flex-1">
+                                <div class="font-medium">Reports</div>
+                                <div class="text-xs text-gray-500">View analytics & insights</div>
+                            </div>
                         </a>
-                        <a href="{{ route('notifications.index') }}" class="flex items-center px-4 py-3 text-sm hover:bg-white/5 transition-colors group/item">
-                            <svg class="w-4 h-4 mr-3 text-gray-400 group-hover/item:text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                            </svg>
-                            Notifications
+                        
+                        <a href="{{ route('notifications.index') }}" class="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-300 hover:text-white hover:bg-white/10 transition-all duration-200 group">
+                            <div class="w-8 h-8 rounded-xl bg-purple-500/10 flex items-center justify-center group-hover:bg-purple-500/20 transition-all relative">
+                                <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                                </svg>
+                                @if($unreadCount > 0)
+                                    <span class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[9px] flex items-center justify-center text-white font-bold">{{ $unreadCount > 9 ? '9+' : $unreadCount }}</span>
+                                @endif
+                            </div>
+                            <div class="flex-1">
+                                <div class="font-medium">Notifications</div>
+                                <div class="text-xs text-gray-500">Stay updated</div>
+                            </div>
                             @if($unreadCount > 0)
-                                <span class="ml-auto notification-badge">{{ $unreadCount > 9 ? '9+' : $unreadCount }}</span>
+                                <span class="text-xs text-red-400">{{ $unreadCount }} new</span>
                             @endif
                         </a>
-                        <a href="{{ route('dashboard') }}" class="flex items-center px-4 py-3 text-sm hover:bg-white/5 transition-colors group/item">
-                            <svg class="w-4 h-4 mr-3 text-gray-400 group-hover/item:text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                            </svg>
-                            Dashboard
+                        
+                        <a href="{{ route('dashboard') }}" class="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-300 hover:text-white hover:bg-white/10 transition-all duration-200 group">
+                            <div class="w-8 h-8 rounded-xl bg-cyan-500/10 flex items-center justify-center group-hover:bg-cyan-500/20 transition-all">
+                                <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                                </svg>
+                            </div>
+                            <div class="flex-1">
+                                <div class="font-medium">Dashboard</div>
+                                <div class="text-xs text-gray-500">Go to main dashboard</div>
+                            </div>
                         </a>
                     </div>
                     
-                    <div class="border-t border-gray-800 my-1"></div>
-                    <form method="POST" action="{{ route('logout') }}">
-                        @csrf
-                        <button type="submit" class="flex items-center w-full px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 transition-colors group/item">
-                            <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                            </svg>
-                            Sign Out
-                        </button>
-                    </form>
+                    <div class="mx-3 border-t border-white/10"></div>
+                    
+                    <!-- Logout -->
+                    <div class="py-2">
+                        <form method="POST" action="{{ route('logout') }}">
+                            @csrf
+                            <button type="submit" class="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all duration-200 group">
+                                <div class="w-8 h-8 rounded-xl bg-red-500/10 flex items-center justify-center group-hover:bg-red-500/20 transition-all">
+                                    <svg class="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                    </svg>
+                                </div>
+                                <div class="flex-1 text-left">
+                                    <div class="font-medium">Sign Out</div>
+                                    <div class="text-xs text-gray-500">Exit application</div>
+                                </div>
+                            </button>
+                        </form>
+                    </div>
+                    
+                    <!-- Footer -->
+                    <div class="mt-2 pt-2 border-t border-white/10 px-4 py-2">
+                        <div class="text-xs text-gray-500">
+                            Signed in as <span class="text-cyan-400">{{ Auth::user()->email }}</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1209,5 +1236,6 @@
     </script>
 
     {{ $scripts ?? '' }}
+    @stack('scripts')
 </body>
 </html>

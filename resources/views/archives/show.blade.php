@@ -18,6 +18,12 @@
             grid-column: span 2;
         }
 
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
         .main-content {
             min-width: 0;
         }
@@ -547,21 +553,48 @@
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                         </svg>
-                        System Information
+                        Archive Information
                     </div>
                 </div>
                 <div class="cross-ref-body">
-                    <div class="cross-ref-field">
-                        <div class="cross-ref-label">Created At</div>
-                        <div class="cross-ref-value">{{ $archive->created_at ? \Carbon\Carbon::parse($archive->created_at)->format('d M Y, H:i') : '-' }}</div>
-                    </div>
-                    <div class="cross-ref-field">
-                        <div class="cross-ref-label">Last Updated</div>
-                        <div class="cross-ref-value">{{ $archive->updated_at ? \Carbon\Carbon::parse($archive->updated_at)->format('d M Y, H:i') : '-' }}</div>
-                    </div>
-                    <div class="cross-ref-field">
-                        <div class="cross-ref-label">Created By</div>
-                        <div class="cross-ref-value">{{ $archive->createdBy->name ?? 'System' }}</div>
+                    <div class="info-grid">
+                        <div class="cross-ref-field">
+                            <div class="cross-ref-label">Created At</div>
+                            <div class="cross-ref-value">
+                                {{ $archive->created_at
+                                    ? \Carbon\Carbon::parse($archive->created_at)->format('d M Y, H:i')
+                                    : '-' }}
+                            </div>
+                        </div>
+                        <div class="cross-ref-field">
+                            <div class="cross-ref-label">Created By</div>
+                            <div class="cross-ref-value">
+                                {{ $archive->creator?->nama_user ?? 'System' }}
+                            </div>
+                        </div>
+                        <div class="cross-ref-field">
+                            <div class="cross-ref-label">Last Updated At</div>
+                            <div class="cross-ref-value">
+                                @if($archive->updated_at && $archive->updated_at->ne($archive->created_at))
+                                    {{ $archive->updated_at->format('d M Y, H:i') }}
+                                @else
+                                    <span style="color:#6b7280;font-style:italic;">Never updated</span>
+                                @endif
+                            </div>
+                        </div>
+                        <div class="cross-ref-field">
+                            <div class="cross-ref-label">Last Updated By</div>
+                            <div class="cross-ref-value">
+                                @if($archive->updater && $archive->updated_by !== $archive->created_by)
+                                    {{ $archive->updater->nama_user }}
+                                @elseif($archive->updater && $archive->updated_by === $archive->created_by
+                                        && $archive->updated_at->ne($archive->created_at))
+                                    {{ $archive->updater->nama_user }}
+                                @else
+                                    <span style="color:#6b7280;font-style:italic;">—</span>
+                                @endif
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

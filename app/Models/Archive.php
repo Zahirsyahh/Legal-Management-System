@@ -30,6 +30,7 @@ class Archive extends Model
         'doc_location',
         'synology_path',
         'created_by',
+        'updated_by'
     ];
 
     protected $casts = [
@@ -142,5 +143,10 @@ class Archive extends Model
     public function crossReferences()
     {
         return $this->hasMany(ArchiveCrossReference::class, 'archive_id');
+    }
+
+    public function updater()
+    {
+        return $this->belongsTo(TblUser::class, 'updated_by', 'id_user');
     }
 }

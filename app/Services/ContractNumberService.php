@@ -104,9 +104,9 @@ class ContractNumberService
         // ===============================
         // 1. VALIDASI STRICT
         // ===============================
-        if ($contract->status !== Contract::STATUS_FINAL_APPROVED) {
+        if ($contract->status !== Contract::STATUS_UNDER_REVIEW) {
             throw new \Exception(
-                'Contract must be FINAL APPROVED. Current status: ' . $contract->status
+                'The contract must be in UNDER REVIEW status. Current status: ' . $contract->status
             );
         }
         
@@ -131,7 +131,7 @@ class ContractNumberService
         $documentType = $this->getDocumentTypeCode($contract->contract_type);
         
         // Gunakan final_approved_at jika ada, atau sekarang
-        $date = $contract->final_approved_at ?? now();
+        $date = $contract->number_generated_at ?? now();
         if (is_string($date)) {
             $date = Carbon::parse($date);
         }
@@ -216,7 +216,7 @@ class ContractNumberService
      */
     public function canGenerate(Contract $contract): bool
     {
-        return $contract->status === Contract::STATUS_FINAL_APPROVED 
+        return $contract->status === Contract::STATUS_UNDER_REVIEW
             && empty($contract->contract_number)
             && !empty($contract->contract_type);
     }

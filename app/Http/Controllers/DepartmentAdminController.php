@@ -79,40 +79,164 @@ class DepartmentAdminController extends Controller
 
     /**
      * Show pending assignments list
+     *
+     * Mendukung server-side search, filter status, dan sort melalui query params:
+     *   ?search=Mobil Racing   → cari di title & contract_number
+     *   ?status=overdue        → filter: all | pending | due_soon | overdue
+     *   ?sort=title            → urut: due_date | title | contract_number
+     *
+     * Stats cards (Total, Due This Week, Overdue) selalu dihitung dari
+     * $allPendingAssignments (semua data tanpa filter search/status)
+     * agar angkanya tidak berubah saat user mengetik di search box.
      */
-    public function pendingAssignments()
+    public function pendingAssignments(Request $request)
     {
         $department = $this->requireDepartment();
 
-        $pendingAssignments = ContractDepartment::whereHas('contract', function($query) {
-                $query->whereNull('deleted_at');
+        $search = trim($request->input('search', ''));
+        $status = $request->input('status', 'all');
+        $sort   = $request->input('sort', 'due_date');
+
+        // ── Base scope (tanpa filter search/status) — untuk stats global ──
+        $baseScope = ContractDepartment::whereHas('contract', function ($q) {
+                $q->whereNull('deleted_at');
             })
-            ->with(['contract.user', 'contract.legalAssigned', 'assignedAdmin'])
+            ->with([
+                'contract.user',
+                'contract.legalAssigned',
+                'contract.reviewStages.assignedUser',
+                'assignedAdmin',
+            ])
             ->where('department_id', $department->id)
-            ->where('status', 'pending_assignment')
-            ->latest()
-            ->paginate(10);
+            ->where('status', 'pending_assignment');
 
-        $dueThisWeek = $pendingAssignments->filter(function($assignment) {
-            if (!$assignment->due_date) return false;
-            $dueDate = \Carbon\Carbon::parse($assignment->due_date);
-            return $dueDate->isFuture() && $dueDate->diffInDays(now()) <= 7;
+        // ── Koleksi penuh untuk stats (tidak terpaginate, tidak terfilter) ──
+        $allPendingAssignments = $baseScope->get();
+
+        $now = \Carbon\Carbon::now();
+
+        $dueThisWeek = $allPendingAssignments->filter(function ($a) use ($now) {
+            $d = $a->contract?->drafting_deadline ?? ($a->due_date ?? null);
+            if (!$d) return false;
+            $p = \Carbon\Carbon::parse($d);
+            return $p->isFuture() && $p->diffInDays($now) <= 7;
         })->count();
 
-        $overdueAssignments = $pendingAssignments->filter(function($assignment) {
-            if (!$assignment->due_date) return false;
-            return \Carbon\Carbon::parse($assignment->due_date)->isPast();
+        $overdueAssignments = $allPendingAssignments->filter(function ($a) use ($now) {
+            $d = $a->contract?->drafting_deadline ?? ($a->due_date ?? null);
+            return $d && \Carbon\Carbon::parse($d)->isPast();
         })->count();
+
+        // ── Query untuk tabel (dengan filter search/status/sort + paginate) ──
+        $query = ContractDepartment::whereHas('contract', function ($q) use ($search) {
+                $q->whereNull('deleted_at');
+
+                // Filter search: cari di title dan contract_number contract
+                if ($search !== '') {
+                    $q->where(function ($sq) use ($search) {
+                        $sq->where('title', 'like', "%{$search}%")
+                           ->orWhere('contract_number', 'like', "%{$search}%");
+                    });
+                }
+            })
+            ->with([
+                'contract.user',
+                'contract.legalAssigned',
+                'contract.reviewStages.assignedUser',
+                'assignedAdmin',
+            ])
+            ->where('department_id', $department->id)
+            ->where('status', 'pending_assignment');
+
+        // Filter status (overdue / due_soon / pending) — berbasis tanggal
+        // Dilakukan di PHP setelah query karena kolom deadline ada di tabel contracts,
+        // dan join/subquery bisa kompleks. Untuk dataset besar bisa dioptimasi ke whereHas.
+        if (in_array($status, ['overdue', 'due_soon', 'pending'])) {
+            $allFiltered = $query->get();
+
+            $allFiltered = $allFiltered->filter(function ($a) use ($status, $now) {
+                $d = $a->contract?->drafting_deadline ?? ($a->due_date ?? null);
+                $dueDate = $d ? \Carbon\Carbon::parse($d) : null;
+                $isOverdue = $dueDate && $dueDate->isPast();
+                $isDueSoon = $dueDate && !$isOverdue && $dueDate->diffInDays($now) <= 7;
+
+                return match($status) {
+                    'overdue'  => $isOverdue,
+                    'due_soon' => $isDueSoon,
+                    'pending'  => !$isOverdue && !$isDueSoon,
+                    default    => true,
+                };
+            });
+
+            // Sort koleksi
+            $allFiltered = $this->sortCollection($allFiltered, $sort);
+
+            // Manual paginate dari koleksi
+            $pendingAssignments = $this->paginateCollection($allFiltered, 10, $request);
+
+        } else {
+            // Status 'all' — sort & paginate langsung via query builder
+            $query = $this->applySortToQuery($query, $sort);
+            $pendingAssignments = $query->paginate(10)->withQueryString();
+        }
 
         $availableStaff = $department->activeStaff()->count();
 
         return view('departments.pending-reviews', compact(
-            'pendingAssignments',
+            'pendingAssignments',       // paginated — untuk tabel
+            'allPendingAssignments',    // full collection — untuk stats cards
             'department',
             'dueThisWeek',
             'overdueAssignments',
             'availableStaff'
         ));
+    }
+
+    /**
+     * Terapkan urutan pada query builder
+     */
+    private function applySortToQuery($query, string $sort)
+    {
+        return match($sort) {
+            'title'           => $query->join('contracts', 'contract_departments.contract_id', '=', 'contracts.id')
+                                       ->orderBy('contracts.title')
+                                       ->select('contract_departments.*'),
+            'contract_number' => $query->join('contracts', 'contract_departments.contract_id', '=', 'contracts.id')
+                                       ->orderBy('contracts.contract_number')
+                                       ->select('contract_departments.*'),
+            default           => $query->latest('contract_departments.created_at'), // due_date fallback
+        };
+    }
+
+    /**
+     * Terapkan urutan pada Collection
+     */
+    private function sortCollection($collection, string $sort)
+    {
+        return match($sort) {
+            'title'           => $collection->sortBy(fn($a) => $a->contract?->title ?? ''),
+            'contract_number' => $collection->sortBy(fn($a) => $a->contract?->contract_number ?? ''),
+            default           => $collection->sortBy(fn($a) => $a->contract?->drafting_deadline
+                                                                   ?? ($a->due_date ?? '9999-12-31')),
+        };
+    }
+
+    /**
+     * Manual paginate untuk Illuminate\Support\Collection
+     */
+    private function paginateCollection($collection, int $perPage, Request $request)
+    {
+        $page  = $request->input('page', 1);
+        $total = $collection->count();
+        $items = $collection->values()->forPage($page, $perPage);
+
+        return new \Illuminate\Pagination\LengthAwarePaginator(
+            $items,
+            $total,
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
     }
 
     /**
@@ -163,9 +287,6 @@ class DepartmentAdminController extends Controller
 
     /**
      * Show assign staff form
-     *
-     * ✅ PERUBAHAN: Admin department sekarang juga muncul di daftar pilihan,
-     *    sehingga admin bisa menugaskan dirinya sendiri untuk ikut review.
      */
     public function showAssignForm(ContractDepartment $contractDepartment)
     {
@@ -186,9 +307,8 @@ class DepartmentAdminController extends Controller
         }
 
         $staffRole = $this->getStaffRoleName($department);
-        $adminRole = $this->getAdminRoleName($department); // ✅ BARU
+        $adminRole = $this->getAdminRoleName($department);
 
-        // ✅ PERUBAHAN: Sertakan role admin department agar admin bisa pilih dirinya sendiri
         $staffMembers = TblUser::whereHas('roles', function($q) use ($staffRole, $adminRole) {
             $q->whereIn('name', [$staffRole, $adminRole]);
         })
@@ -203,15 +323,9 @@ class DepartmentAdminController extends Controller
         ));
     }
 
-    /**
-     * Process staff assignment
-     *
-     * ✅ PERUBAHAN: Validasi role sekarang menerima admin department,
-     *    bukan hanya staff. Sehingga admin bisa menugaskan dirinya sendiri.
-     */
     public function assignStaff(Request $request, ContractDepartment $contractDepartment)
     {
-        $user = Auth::user();
+        $user       = Auth::user();
         $department = $this->requireDepartment();
 
         if (!$contractDepartment->contract) {
@@ -222,9 +336,13 @@ class DepartmentAdminController extends Controller
             abort(403, 'Unauthorized action.');
         }
 
+        if ($this->getDepartmentSlug($department) === 'legal') {
+            return back()->with('info', 'Legal reviewer sudah di-assign otomatis saat review dimulai.');
+        }
+
         $request->validate([
             'staff_user_id' => 'required|exists:tbl_user,id_user',
-            'notes' => 'nullable|string|max:1000',
+            'notes'         => 'nullable|string|max:1000',
         ]);
 
         $staffUser = TblUser::where('id_user', $request->staff_user_id)->first();
@@ -234,9 +352,8 @@ class DepartmentAdminController extends Controller
         }
 
         $staffRole = $this->getStaffRoleName($department);
-        $adminRole = $this->getAdminRoleName($department); // ✅ BARU
+        $adminRole = $this->getAdminRoleName($department);
 
-        // ✅ PERUBAHAN: Izinkan juga admin department, bukan hanya staff
         if (!$staffUser->hasRole($staffRole) && !$staffUser->hasRole($adminRole)) {
             return back()->with('error', 'Selected user is not a member of this department.');
         }
@@ -244,31 +361,84 @@ class DepartmentAdminController extends Controller
         DB::beginTransaction();
 
         try {
-            // 1. Update contract_department
             $contractDepartment->update([
-                'status' => 'assigned',
+                'status'            => 'assigned',
                 'assigned_admin_id' => $user->id_user,
-                'assigned_at' => now(),
+                'assigned_at'       => now(),
             ]);
 
-            // 2. Create review stage for the assigned user (staff or admin)
-            $sequence = ContractReviewStage::where('contract_id', $contractDepartment->contract_id)
-                ->max('sequence') ?? 0;
+            $existingStage = ContractReviewStage::where('contract_id', $contractDepartment->contract_id)
+                ->where('department_id', $department->id)
+                ->where('stage_type', $this->getDepartmentSlug($department))
+                ->whereNull('assigned_user_id')
+                ->first();
 
-            $stage = ContractReviewStage::create([
-                'contract_id' => $contractDepartment->contract_id,
-                'department_id' => $department->id,
-                'stage_name' => $department->name . ' Review',
-                'stage_type' => $this->getDepartmentSlug($department),
-                'assigned_user_id' => $request->staff_user_id,
-                'sequence' => $sequence + 1,
-                'status' => 'pending',
-                'notes' => $request->notes,
-                'created_by' => $user->id_user,
-            ]);
+            if ($existingStage) {
+                $existingStage->update([
+                    'assigned_user_id' => $request->staff_user_id,
+                    'status'           => 'pending',
+                    'notes'            => $request->notes,
+                    'created_by'       => $user->id_user,
+                ]);
 
-            // 3. Send notification (skip jika user menugaskan dirinya sendiri)
-            if ((int) $staffUser->id_user !== (int) $user->id_user) {
+                if ($existingStage->parallel_group !== null) {
+                    $parallelAlreadyActivated = ContractReviewStage::where('contract_id', $existingStage->contract_id)
+                        ->where('parallel_group', $existingStage->parallel_group)
+                        ->where('id', '!=', $existingStage->id)
+                        ->whereIn('status', ['in_progress', 'completed'])
+                        ->exists();
+
+                    if ($parallelAlreadyActivated) {
+                        $existingStage->update(['status' => 'assigned']);
+                        Log::info('[BUG FIX] Placeholder stage langsung Assigned karena parallel group sudah aktif', [
+                            'stage_id'       => $existingStage->id,
+                            'department'     => $department->code,
+                            'staff_user_id'  => $request->staff_user_id,
+                            'parallel_group' => $existingStage->parallel_group,
+                        ]);
+                    }
+                }
+
+                $stage = $existingStage->fresh();
+
+                Log::info('✅ Placeholder stage updated with staff assignment', [
+                    'stage_id'       => $stage->id,
+                    'department'     => $department->code,
+                    'staff_user_id'  => $request->staff_user_id,
+                    'final_status'   => $stage->status,
+                    'parallel_group' => $stage->parallel_group,
+                ]);
+
+            } else {
+                Log::warning('⚠️ No placeholder found, creating new stage (backward compat)', [
+                    'contract_id' => $contractDepartment->contract_id,
+                    'department'  => $department->code,
+                ]);
+
+                $selectedDepts = json_decode(
+                    $contractDepartment->contract->selected_departments ?? '[]', true
+                );
+                $parallelGroup = count($selectedDepts) >= 2 ? 1 : null;
+
+                $lastSequence = ContractReviewStage::where('contract_id', $contractDepartment->contract_id)
+                    ->max('sequence') ?? 0;
+
+                $stage = ContractReviewStage::create([
+                    'contract_id'      => $contractDepartment->contract_id,
+                    'department_id'    => $department->id,
+                    'stage_name'       => $department->name . ' Review',
+                    'stage_type'       => $this->getDepartmentSlug($department),
+                    'assigned_user_id' => $request->staff_user_id,
+                    'sequence'         => $lastSequence + 1,
+                    'parallel_group'   => $parallelGroup,
+                    'status'           => 'pending',
+                    'notes'            => $request->notes,
+                    'created_by'       => $user->id_user,
+                ]);
+            }
+
+            $isSelfAssign = (int) $staffUser->id_user === (int) $user->id_user;
+            if (!$isSelfAssign) {
                 $this->sendStaffAssignmentNotification(
                     $staffUser,
                     $contractDepartment->contract,
@@ -278,24 +448,23 @@ class DepartmentAdminController extends Controller
                 );
             }
 
-            // 4. Log the assignment
-            $isSelfAssign = (int) $staffUser->id_user === (int) $user->id_user;
-
             ContractReviewLog::create([
                 'contract_id' => $contractDepartment->contract_id,
-                'stage_id' => $stage->id,
-                'user_id' => $user->id_user,
-                'action' => 'staff_assigned',
+                'stage_id'    => $stage->id,
+                'user_id'     => $user->id_user,
+                'action'      => 'staff_assigned',
                 'description' => $isSelfAssign
                     ? "Admin assigned themselves for {$department->name} review"
                     : "Staff assigned for {$department->name} review",
                 'metadata' => [
-                    'staff_user_id' => $request->staff_user_id,
-                    'staff_name' => $staffUser->nama_user,
-                    'is_self_assign' => $isSelfAssign, // ✅ BARU: catat jika self-assign
-                    'department_id' => $department->id,
-                    'notes' => $request->notes,
-                ]
+                    'staff_user_id'  => $request->staff_user_id,
+                    'staff_name'     => $staffUser->nama_user,
+                    'is_self_assign' => $isSelfAssign,
+                    'department_id'  => $department->id,
+                    'parallel_group' => $stage->parallel_group,
+                    'stage_status'   => $stage->status,
+                    'notes'          => $request->notes,
+                ],
             ]);
 
             DB::commit();
@@ -310,9 +479,9 @@ class DepartmentAdminController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('DepartmentAdminController::assignStaff - Error: ' . $e->getMessage(), [
-                'user_id' => $user->id_user,
+                'user_id'                => $user->id_user,
                 'contract_department_id' => $contractDepartment->id,
-                'staff_user_id' => $request->staff_user_id,
+                'staff_user_id'          => $request->staff_user_id,
             ]);
 
             return back()->with('error', 'Failed to assign staff: ' . $e->getMessage());
@@ -363,9 +532,6 @@ class DepartmentAdminController extends Controller
         return $roleMapping[$department->code] ?? 'staff_' . strtolower($department->code);
     }
 
-    /**
-     * ✅ BARU: Helper untuk mendapatkan nama role admin department
-     */
     private function getAdminRoleName(Department $department): string
     {
         $roleMapping = [
@@ -391,9 +557,6 @@ class DepartmentAdminController extends Controller
         return null;
     }
 
-    /**
-     * Send notification to assigned staff
-     */
     private function sendStaffAssignmentNotification($staffUser, $contract, $department, $admin, $notes = null)
     {
         try {

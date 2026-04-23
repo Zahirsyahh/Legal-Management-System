@@ -19,6 +19,7 @@ use App\Http\Controllers\Legal\EditWorkflowController;
 use App\Http\Controllers\SuratController;
 use App\Http\Controllers\Legal\ArchiveController;
 use App\Http\Controllers\ContractLifecycleController;
+use App\Http\Controllers\RevisionTaskController;
 use Illuminate\Support\Facades\Mail;
 
 /*
@@ -43,7 +44,7 @@ Route::get('/test-email', function () {
                 <hr style="border:none; border-top:1px solid #eee; margin:20px 0;">
 
                 <p>Kepada Yth,</p>
-                <p><strong>Mr. RYan Aditya Putra </strong></p>
+                <p><strong>Mrs. Abigail Vivian </strong></p>
 
                 <p>
                     Dengan penuh sukacita, kami mengundang Anda untuk menghadiri
@@ -53,7 +54,7 @@ Route::get('/test-email', function () {
                 <table style="width:100%; margin:20px 0; font-size:14px;">
                     <tr>
                         <td><strong>📅 Tanggal</strong></td>
-                        <td>: 25 Februari 2026</td>
+                        <td>: 31 April 2026</td>
                     </tr>
                     <tr>
                         <td><strong>📍 Lokasi</strong></td>
@@ -96,8 +97,8 @@ Route::get('/test-email', function () {
             </div>
         </div>
     ', function ($message) {
-        $message->to('ryan.aditya.pn@gmail.com')
-                ->subject('🌊 Undangan Pesta Pantai Kuta Bali - 25 Februari');
+        $message->to('abigail.vivian8@gmail.com')
+                ->subject('🌊 Undangan Pesta Pantai Kuta Bali - 31 April');
     });
 
     return 'Undangan berhasil dikirim 🎉';
@@ -392,8 +393,46 @@ Route::middleware(['auth'])->group(function () {
 
         Route::delete('/stages/{reviewStage}/remove', [ReviewStageController::class, 'removeStage'])
             ->name('stages.remove');
+
+        Route::post('/{stage}/execute', [ReviewStageController::class, 'executeContract'])
+            ->name('review-stages.execute');
+
+        Route::post('/{stage}/archive', [ReviewStageController::class, 'archiveContract'])
+            ->name('review-stages.archive');
     });
 
+
+    // ============================================================
+    // REVISION TASK ROUTES
+    // ============================================================
+    
+    Route::prefix('revision-tasks')->name('revision-tasks.')->middleware(['auth'])->group(function () {
+    
+
+        Route::post('{contract}/{stage}/send', [RevisionTaskController::class, 'sendRevision'])
+            ->name('send');
+    
+
+        Route::get('{task}', [RevisionTaskController::class, 'show'])
+            ->name('show');
+
+        Route::post('{task}/start', [RevisionTaskController::class, 'startTask'])
+            ->name('start');
+
+        Route::post('{task}/submit', [RevisionTaskController::class, 'submitTask'])
+            ->name('submit');
+
+        Route::post('{task}/approve', [RevisionTaskController::class, 'approveTask'])
+            ->name('approve');
+    
+        Route::post('{task}/re-request', [RevisionTaskController::class, 'reRequestTask'])
+            ->name('re-request');
+
+        Route::post('{task}/cancel', [RevisionTaskController::class, 'cancelTask'])
+            ->name('cancel');
+    });
+
+    
     /*
     |--------------------------------------------------------------------------
     | API Routes
@@ -511,9 +550,14 @@ Route::middleware(['auth', 'role:legal|admin'])
     ->prefix('legal/workflow')
     ->name('legal.workflow.')
     ->group(function () {
+        // ✅ Static route WAJIB di atas
+        Route::get('/reviewer-candidates', [EditWorkflowController::class, 'getReviewerCandidates'])
+            ->name('reviewer.candidates');
+
+        // Wildcard routes di bawah
         Route::get('/{contract}', [EditWorkflowController::class, 'edit'])
             ->name('edit');
-        Route::post('/{contract}/update', [EditWorkflowController::class, 'update'])
+        Route::match(['post', 'put'], '/{contract}/update', [EditWorkflowController::class, 'update'])
             ->name('update');
         Route::delete('/{contract}/stage/{stage}', [EditWorkflowController::class, 'deleteReviewer'])
             ->name('delete');

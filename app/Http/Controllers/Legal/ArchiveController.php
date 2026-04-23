@@ -202,8 +202,7 @@ public function store(Request $request)
      */
     public function show($id)
     {
-        $archive = Archive::with('crossReferences')->findOrFail($id);
-
+        $archive = Archive::with(['crossReferences', 'creator', 'updater'])->findOrFail($id);
         return view('archives.show', compact('archive'));
     }
 
@@ -255,32 +254,35 @@ public function store(Request $request)
 
             DB::beginTransaction();
 
+            // 🔥 UPDATE DATA UTAMA + UPDATED_BY
             $archive->update([
                 'record_id'      => $request->record_id,
                 'doc_number'     => $request->doc_number,
                 'doc_name'       => $request->doc_name,
                 'company'        => $request->company,
                 'doc_type'       => $request->doc_type,
-                'department_code'     => $request->department,
+                'department_code'=> $request->department,
                 'counterparty'   => $request->counterparty,
                 'description'    => $request->description,
-                'doc_status'     => $request->doc_status, // array, disimpan sebagai JSON
+                'doc_status'     => $request->doc_status,
                 'version_status' => $request->version_status,
                 'start_date'     => $request->start_date,
                 'end_date'       => $request->end_date,
                 'doc_location'   => $request->doc_location,
                 'synology_path'  => $request->synology_path,
+
+                // 🔥 INI YANG DITAMBAHKAN
+                'updated_by'     => Auth::id(),
             ]);
 
             // ======================
-            // RESET DAN SIMPAN ULANG CROSS REFERENCES
+            // RESET & INSERT ULANG CROSS REFERENCES
             // ======================
             ArchiveCrossReference::where('archive_id', $archive->id)->delete();
 
             if ($request->filled('ref_doc_name')) {
                 foreach ($request->ref_doc_name as $index => $docName) {
 
-                    // Skip baris kosong
                     if (empty(trim($docName))) continue;
 
                     ArchiveCrossReference::create([

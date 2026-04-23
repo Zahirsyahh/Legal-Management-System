@@ -1143,51 +1143,118 @@
             <!-- Main Content (70%) -->
             <div class="lg:col-span-2 space-y-8">
                 @if(Auth::user()->hasRole('user'))
-                    <!-- USER: Recent Contracts -->
+                    <!-- USER: Recent Contracts - Modern Premium Design -->
                     <div class="glass-card rounded-2xl p-6">
-                        <div class="flex items-center justify-between mb-6">
-                            <h2 class="text-xl font-semibold text-title">My Recent Contracts</h2>
-                            <a href="{{ route('contracts.index') }}" class="text-sm text-primary hover:opacity-80 transition-all bg-white/5 px-3 py-1.5 rounded-lg">View All →</a>
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                            <div>
+                                <h2 class="text-xl font-bold text-title flex items-center gap-2">
+                                    <svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                    </svg>
+                                    My Recent Contracts
+                                </h2>
+                                <p class="text-xs text-body mt-1">Latest documents and their current status</p>
+                            </div>
+                            <a href="{{ route('contracts.index') }}" 
+                            class="inline-flex items-center gap-2 text-sm text-primary hover:text-primary-dark transition-all bg-primary/10 hover:bg-primary/20 px-4 py-2 rounded-xl">
+                                <span>View All</span>
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                </svg>
+                            </a>
                         </div>
                         
                         @if(isset($recentContracts) && $recentContracts->count() > 0)
-                            <div class="overflow-x-auto">
-                                <table class="min-w-full divide-y divide-gray-800">
+                            <div class="overflow-x-auto rounded-xl">
+                                <table class="w-full">
                                     <thead>
-                                        <tr>
-                                            <th class="px-4 py-3 text-left text-xs font-medium text-body">Document #</th>
-                                            <th class="px-4 py-3 text-left text-xs font-medium text-body">Title</th>
-                                            <th class="px-4 py-3 text-left text-xs font-medium text-body">Status</th>
-                                            <th class="px-4 py-3 text-left text-xs font-medium text-body">Last Updated</th>
-                                            <th class="px-4 py-3 text-left text-xs font-medium text-body">Actions</th>
+                                        <tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/30">
+                                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider rounded-l-xl">
+                                                Document #
+                                            </th>
+                                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                                Title
+                                            </th>
+                                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                                Status
+                                            </th>
+                                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                                Last Updated
+                                            </th>
+                                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider rounded-r-xl">
+                                                Actions
+                                            </th>
                                         </tr>
                                     </thead>
-                                    <tbody class="divide-y divide-gray-800">
+                                    <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                                         @foreach($recentContracts as $contract)
-                                        <tr>
-                                            <td class="px-4 py-3 text-sm text-body">
-                                                {{ $contract->contract_number ?? 'N/A' }}
+                                        <tr class="hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-all duration-200 group">
+                                            <!-- Document # -->
+                                            <td class="px-4 py-4">
+                                                <span class="font-mono text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                    {{ $contract->contract_number ?? 'N/A' }}
+                                                </span>
                                             </td>
-                                            <td class="px-4 py-3">
-                                                <div class="text-sm font-medium text-title">
-                                                    {{ Str::limit($contract->title, 30) }}
+                                            
+                                            <!-- Title with type badge -->
+                                            <td class="px-4 py-4">
+                                                <div class="flex flex-col gap-1">
+                                                    <span class="text-sm font-semibold text-gray-800 dark:text-gray-200 line-clamp-2">
+                                                        {{ $contract->title }}
+                                                    </span>
+                                                    <div class="flex flex-wrap items-center gap-2">
+                                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
+                                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                                            </svg>
+                                                            {{ ucfirst($contract->contract_type ?? 'Contract') }}
+                                                        </span>
+                                                    </div>
                                                 </div>
-                                                <div class="text-xs text-secondary">
-                                                    {{ $contract->contract_type ?? 'N/A' }}
+                                            </td>
+                                            
+                                            <!-- Status with modern badge -->
+                                            <td class="px-4 py-4">
+                                                @php
+                                                    $statusConfig = [
+                                                        'draft' => ['bg' => 'bg-gray-100 dark:bg-gray-700', 'text' => 'text-gray-600 dark:text-gray-400', 'icon' => '<path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>'],
+                                                        'submitted' => ['bg' => 'bg-yellow-100 dark:bg-yellow-900/30', 'text' => 'text-yellow-700 dark:text-yellow-400', 'icon' => '<path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>'],
+                                                        'under_review' => ['bg' => 'bg-blue-100 dark:bg-blue-900/30', 'text' => 'text-blue-700 dark:text-blue-400', 'icon' => '<path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>'],
+                                                        'approved' => ['bg' => 'bg-green-100 dark:bg-green-900/30', 'text' => 'text-green-700 dark:text-green-400', 'icon' => '<path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>'],
+                                                        'archived' => ['bg' => 'bg-gray-100 dark:bg-gray-700', 'text' => 'text-gray-500 dark:text-gray-400', 'icon' => '<path d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>'],
+                                                    ];
+                                                    $status = $contract->status ?? 'draft';
+                                                    $config = $statusConfig[$status] ?? $statusConfig['draft'];
+                                                @endphp
+                                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium {{ $config['bg'] }} {{ $config['text'] }}">
+                                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        {!! $config['icon'] !!}
+                                                    </svg>
+                                                    {{ ucfirst(str_replace('_', ' ', $status)) }}
+                                                </span>
+                                            </td>
+                                            
+                                            <!-- Last Updated with relative time -->
+                                            <td class="px-4 py-4">
+                                                <div class="flex flex-col">
+                                                    <span class="text-sm text-gray-600 dark:text-gray-400">
+                                                        {{ $contract->updated_at->diffForHumans() }}
+                                                    </span>
+                                                    <span class="text-xs text-gray-400 dark:text-gray-500">
+                                                        {{ $contract->updated_at->format('d M Y, H:i') }}
+                                                    </span>
                                                 </div>
                                             </td>
-                                            <td class="px-4 py-3">
-                                            <span class="px-2 py-1 text-xs rounded-full {{ $contract->status_color }}">
-                                                {{ $contract->display_status }}
-                                            </span>
-                                            </td>
-                                            <td class="px-4 py-3 text-sm text-body">
-                                                {{ $contract->updated_at->diffForHumans() }}
-                                            </td>
-                                            <td class="px-4 py-3">
+                                            
+                                            <!-- Actions with modern buttons -->
+                                            <td class="px-4 py-4">
                                                 <a href="{{ route('contracts.show', $contract) }}" 
-                                                   class="text-primary hover:text-primary/80 text-sm transition-all">
-                                                    View
+                                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-all duration-200 group-hover:scale-105">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                                    </svg>
+                                                    <span>View</span>
                                                 </a>
                                             </td>
                                         </tr>
@@ -1195,14 +1262,32 @@
                                     </tbody>
                                 </table>
                             </div>
+                            
+                            <!-- Card footer with summary -->
+                            <div class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 flex justify-between items-center">
+                                <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                    <div class="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                                    <span>{{ $recentContracts->count() }} active contracts</span>
+                                </div>
+                                <a href="{{ route('contracts.index') }}" class="text-xs text-primary hover:text-primary-dark transition-all">
+                                    Browse all documents →
+                                </a>
+                            </div>
+                            
                         @else
-                            <div class="text-center py-12">
-                                <svg class="mx-auto h-16 w-16 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                </svg>
-                                <h3 class="mt-4 text-lg font-medium text-title">No contracts yet</h3>
-                                <p class="mt-1 text-body">Create your first contract review request</p>
-                                <a href="{{ route('contracts.create') }}" class="mt-6 inline-flex items-center px-4 py-2 btn-primary rounded-lg">
+                            <!-- Empty State - Modern Design -->
+                            <div class="text-center py-16">
+                                <div class="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 flex items-center justify-center">
+                                    <svg class="w-12 h-12 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                    </svg>
+                                </div>
+                                <h3 class="text-lg font-semibold text-title mb-2">No contracts yet</h3>
+                                <p class="text-sm text-body mb-6">Create your first contract review request</p>
+                                <a href="{{ route('contracts.create') }}" class="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-primary to-secondary text-white rounded-xl hover:shadow-lg transition-all">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                    </svg>
                                     Create New Contract
                                 </a>
                             </div>
