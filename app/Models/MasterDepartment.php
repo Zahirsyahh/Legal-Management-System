@@ -68,4 +68,11 @@ class MasterDepartment extends Model
         return $query->where('nama_departemen', 'like', "%{$keyword}%")
                      ->orWhere('kode_pendek', 'like', "%{$keyword}%");
     }
+
+    //RELATIONS
+    public function users()
+    {
+        return $this->hasMany(TblUser::class, 'kode_department', 'kode_pendek');
+        //                                     ↑ FK di tbl_user   ↑ bukan PK, tapi kode_pendek
+    }
 }
