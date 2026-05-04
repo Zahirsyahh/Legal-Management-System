@@ -115,7 +115,40 @@
             margin-left: 4rem; /* Default untuk sidebar collapsed */
             overflow-x: hidden;
         }
-        
+        .validity-badge.valid {
+            background: rgba(14, 165, 233, 0.15);
+            color: #38bdf8;
+            border-color: rgba(14, 165, 233, 0.3);
+        }
+
+        .validity-badge.expired {
+            background: rgba(107, 114, 128, 0.15);
+            color: #9ca3af;
+            border-color: rgba(107, 114, 128, 0.3);
+        }
+
+        .validity-badge.terminated {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+
+        /* Optional: Add hover effects for better UX */
+        .validity-badge.valid:hover {
+            background: rgba(14, 165, 233, 0.25);
+            border-color: rgba(14, 165, 233, 0.5);
+        }
+
+        .validity-badge.expired:hover {
+            background: rgba(107, 114, 128, 0.25);
+            border-color: rgba(107, 114, 128, 0.5);
+        }
+
+        .validity-badge.terminated:hover {
+            background: rgba(239, 68, 68, 0.25);
+            border-color: rgba(239, 68, 68, 0.5);
+        }
+
         /* Custom Scrollbar */
         ::-webkit-scrollbar {
             width: 6px;
@@ -588,15 +621,11 @@
 
         <!-- Notifications -->
         <a href="{{ route('notifications.index') }}" 
-           class="sidebar-item group {{ request()->routeIs('notifications.*') ? 'active' : '' }}">
-            <div class="icon-wrapper relative">
+        class="sidebar-item group {{ request()->routeIs('notifications.*') ? 'active' : '' }}">
+            <div class="icon-wrapper">
                 <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                 </svg>
-                @php $unreadCount = auth()->user()->unreadNotifications()->count(); @endphp
-                @if($unreadCount > 0)
-                    <span class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[9px] flex items-center justify-center text-white font-bold border-2 border-gray-900">{{ $unreadCount > 9 ? '9+' : $unreadCount }}</span>
-                @endif
             </div>
             <span class="label">Notifications</span>
         </a>
@@ -874,21 +903,15 @@
                         </a>
                         
                         <a href="{{ route('notifications.index') }}" class="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-300 hover:text-white hover:bg-white/10 transition-all duration-200 group">
-                            <div class="w-8 h-8 rounded-xl bg-purple-500/10 flex items-center justify-center group-hover:bg-purple-500/20 transition-all relative">
+                            <div class="w-8 h-8 rounded-xl bg-purple-500/10 flex items-center justify-center group-hover:bg-purple-500/20 transition-all">
                                 <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                                 </svg>
-                                @if($unreadCount > 0)
-                                    <span class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[9px] flex items-center justify-center text-white font-bold">{{ $unreadCount > 9 ? '9+' : $unreadCount }}</span>
-                                @endif
                             </div>
                             <div class="flex-1">
                                 <div class="font-medium">Notifications</div>
                                 <div class="text-xs text-gray-500">Stay updated</div>
                             </div>
-                            @if($unreadCount > 0)
-                                <span class="text-xs text-red-400">{{ $unreadCount }} new</span>
-                            @endif
                         </a>
                         
                         <a href="{{ route('dashboard') }}" class="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-300 hover:text-white hover:bg-white/10 transition-all duration-200 group">

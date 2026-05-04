@@ -551,6 +551,11 @@ Route::middleware(['auth', 'role:legal|admin'])
     ->name('legal.workflow.')
     ->group(function () {
         // ✅ Static route WAJIB di atas
+
+        Route::post('/{contract}/reinvite/{contractDepartment}', 
+            [EditWorkflowController::class, 'reInvite']
+        )->name('reinvite');
+        
         Route::get('/reviewer-candidates', [EditWorkflowController::class, 'getReviewerCandidates'])
             ->name('reviewer.candidates');
 
@@ -613,6 +618,8 @@ Route::middleware(['auth', 'role:admin_fin|admin'])
         Route::get('/completed', [DepartmentAdminController::class, 'completedReviews'])->name('completed');
         Route::get('/assign/{contractDepartment}', [DepartmentAdminController::class, 'showAssignForm'])->name('assign');
         Route::post('/assign/{contractDepartment}', [DepartmentAdminController::class, 'assignStaff'])->name('assign.post');
+        Route::post('/invitations/{contractDepartment}/accept', [DepartmentAdminController::class, 'acceptInvitation'])->name('invitation.accept');
+        Route::post('/invitations/{contractDepartment}/decline', [DepartmentAdminController::class, 'declineInvitation'])->name('invitation.decline');
     });
 
 Route::middleware(['auth', 'role:admin_acc|admin'])
@@ -625,6 +632,8 @@ Route::middleware(['auth', 'role:admin_acc|admin'])
         Route::get('/completed', [DepartmentAdminController::class, 'completedReviews'])->name('completed');
         Route::get('/assign/{contractDepartment}', [DepartmentAdminController::class, 'showAssignForm'])->name('assign');
         Route::post('/assign/{contractDepartment}', [DepartmentAdminController::class, 'assignStaff'])->name('assign.post');
+        Route::post('/invitations/{contractDepartment}/accept', [DepartmentAdminController::class, 'acceptInvitation'])->name('invitation.accept');
+        Route::post('/invitations/{contractDepartment}/decline', [DepartmentAdminController::class, 'declineInvitation'])->name('invitation.decline');
     });
 
 Route::middleware(['auth', 'role:admin_tax|admin'])
@@ -637,6 +646,8 @@ Route::middleware(['auth', 'role:admin_tax|admin'])
         Route::get('/completed', [DepartmentAdminController::class, 'completedReviews'])->name('completed');
         Route::get('/assign/{contractDepartment}', [DepartmentAdminController::class, 'showAssignForm'])->name('assign');
         Route::post('/assign/{contractDepartment}', [DepartmentAdminController::class, 'assignStaff'])->name('assign.post');
+        Route::post('/invitations/{contractDepartment}/accept', [DepartmentAdminController::class, 'acceptInvitation'])->name('invitation.accept');
+        Route::post('/invitations/{contractDepartment}/decline', [DepartmentAdminController::class, 'declineInvitation'])->name('invitation.decline');
     });
 
 /*

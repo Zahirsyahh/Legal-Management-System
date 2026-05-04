@@ -104,15 +104,20 @@ class ContractNumberService
         // ===============================
         // 1. VALIDASI STRICT
         // ===============================
-        if ($contract->status !== Contract::STATUS_UNDER_REVIEW) {
+        $allowedStatuses = [
+            Contract::STATUS_UNDER_REVIEW,   // Kontrak: review by Legal/FAT
+            Contract::STATUS_FINAL_APPROVED, // Surat: request penomoran
+        ];
+
+        if (!in_array($contract->status, $allowedStatuses)) {
             throw new \Exception(
-                'The contract must be in UNDER REVIEW status. Current status: ' . $contract->status
+                'The document must be in UNDER REVIEW or FINAL APPROVED status. Current status: ' . $contract->status
             );
         }
         
         if (!empty($contract->contract_number)) {
             throw new \Exception(
-                'Contract already has number: ' . $contract->contract_number
+                'The document already has a number: ' . $contract->contract_number
             );
         }
         

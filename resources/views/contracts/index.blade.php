@@ -235,7 +235,7 @@
                                 <option value="executed"         {{ request('status') == 'executed'         ? 'selected' : '' }}>Executed</option>
                                 <option value="archived"         {{ request('status') == 'archived'         ? 'selected' : '' }}>Archived</option>
                                 <option value="final_approved"   {{ request('status') == 'final_approved'   ? 'selected' : '' }}>Approved (Surat)</option>
-                                <option value="released"         {{ request('status') == 'released'         ? 'selected' : '' }}>Released (Surat)</option>
+                                <option value="released"         {{ request('status') == 'released'         ? 'selected' : '' }}>Completed (Surat)</option>
                                 <option value="declined"         {{ request('status') == 'declined'         ? 'selected' : '' }}>Declined / Rejected</option>
                                 <option value="cancelled"        {{ request('status') == 'cancelled'        ? 'selected' : '' }}>Cancelled</option>
                             </select>

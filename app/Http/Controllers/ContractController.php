@@ -1478,38 +1478,47 @@ public function edit(Contract $contract)
     /**
      * Submit contract
      */
-    public function submit(Contract $contract)
-    {
-        if ($contract->user_id !== Auth::id() || !Auth::user()->can('contract_request_submit')) {
-            abort(403);
+        public function submit(Contract $contract)
+        {
+            if ($contract->user_id !== Auth::id() || !Auth::user()->can('contract_request_submit')) {
+                abort(403);
+            }
+    
+            if (!$contract->canBeSubmitted()) {
+                return back()->with('error', 'Document cannot be submitted.');
+            }
+    
+            // ── Auto-map synology path dari department user yang submit ──
+            $synologyDbValue = null;
+            if (empty($contract->synology_folder_path)) {
+                $kode = Auth::user()->kode_department ?? '';
+                $synologyDbValue = \App\Helpers\SynologyMapper::toDbValue($kode);
+    
+                if (!$synologyDbValue) {
+                    \Illuminate\Support\Facades\Log::warning('SynologyMapper: kode_department tidak ditemukan', [
+                        'user_id'         => Auth::id(),
+                        'kode_department' => $kode,
+                    ]);
+                }
+            }
+    
+            $contract->update([
+                'status'               => Contract::STATUS_SUBMITTED,
+                'submitted_at'         => now(),
+                'review_flow_status'   => Contract::REVIEW_FLOW_PENDING_ASSIGNMENT,
+                // Hanya set jika belum pernah diisi
+                'synology_folder_path' => $contract->synology_folder_path ?? $synologyDbValue,
+            ]);
+    
+            // Notify Legal
+            $legalUsers = TblUser::role('legal')->get();
+            foreach ($legalUsers as $legal) {
+                $legal->notify(new DocumentSubmittedNotification($contract, Auth::user()));
+            }
+    
+            return redirect()->route('contracts.show', $contract)
+                ->with('success', 'Document submitted for legal review.');
         }
-
-        if (!$contract->canBeSubmitted()) {
-            return back()->with('error', 'Document cannot be submitted.');
-        }
-
-        $contract->update([
-            'status' => Contract::STATUS_SUBMITTED,
-            'submitted_at' => now(),
-            'review_flow_status' => Contract::REVIEW_FLOW_PENDING_ASSIGNMENT,
-        ]);
-
-        /*
-        |--------------------------------------------------------------------------
-        | SEND NOTIFICATION TO LEGAL
-        |--------------------------------------------------------------------------
-        */
-        $legalUsers = TblUser::role('legal')->get();
-
-        foreach ($legalUsers as $legal) {
-            $legal->notify(
-                new DocumentSubmittedNotification($contract, Auth::user())
-            );
-        }
-
-        return redirect()->route('contracts.show', $contract)
-            ->with('success', 'Document submitted for legal review.');
-    }
 
     /**
      * Legal upload document

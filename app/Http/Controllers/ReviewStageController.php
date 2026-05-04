@@ -48,9 +48,36 @@ class ReviewStageController extends Controller
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
+        
+        $legalOfficers = TblUser::whereHas('roles', fn($q) => $q->where('name', 'legal'))
+            ->where('status_karyawan', 'AKTIF')
+            ->orderBy('nama_user')
+            ->get();
+ 
+        // ── Synology auto-fill dari department contract owner ──────
+        $contractOwner   = $contract->user;
+        $ownerKode       = strtoupper(trim($contractOwner?->kode_department ?? ''));
+        $ownerDeptInfo   = \App\Helpers\SynologyMapper::resolve($ownerKode);
+ 
+        // Nilai yang sudah tersimpan di DB (jika ada dari saat submit)
+        $existingParsed  = \App\Helpers\SynologyMapper::parse($contract->synology_folder_path);
+ 
+        // Yang ditampilkan di form: prioritaskan yang sudah ada di DB,
+        // fallback ke auto-detect dari department owner
+        $synologyAutoFill = [
+            'db_value'   => $contract->synology_folder_path
+                            ?? ($ownerDeptInfo ? $ownerDeptInfo['path'].'||'.$ownerDeptInfo['link'] : null),
+            'path'       => $existingParsed['path'] ?? $ownerDeptInfo['path']     ?? null,
+            'link'       => $existingParsed['link'] ?? $ownerDeptInfo['link']     ?? null,
+            'dept_label' => $ownerDeptInfo['label'] ?? null,
+            'dept_kode'  => $ownerKode,
+        ];
+ 
+        // Semua pilihan untuk dropdown (deduplicated per folder)
+        $synologyOptions = \App\Helpers\SynologyMapper::allOptions();
 
         return view('contracts.start-review-dynamic', compact(
-            'contract', 'legalOfficers', 'otherDepartments'
+            'contract', 'legalOfficers', 'otherDepartments', 'synologyAutoFill','synologyOptions',
         ));
     }
 
@@ -407,11 +434,11 @@ class ReviewStageController extends Controller
             if (request()->expectsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Nomor kontrak sudah ada: ' . $contract->contract_number,
+                    'message' => 'The document already has a number: ' . $contract->contract_number,
                 ], 422);
             }
             return redirect()->route('contracts.show', $contract)
-                ->with('error', 'Nomor kontrak sudah ada: ' . $contract->contract_number);
+                ->with('error', 'The document already has a number: ' . $contract->contract_number);
         }
     
         // Cari stage legal aktif milik user ini
@@ -426,11 +453,11 @@ class ReviewStageController extends Controller
             if (request()->expectsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Kamu tidak memiliki stage legal aktif di kontrak ini.',
+                    'message' => 'You do not have an active legal stage on this document review.',
                 ], 422);
             }
             return redirect()->route('contracts.show', $contract)
-                ->with('error', 'Kamu tidak memiliki stage legal aktif di kontrak ini.');
+                ->with('error', 'You do not have an active legal stage on this document review.');
         }
     
         // Resolve department_code jika belum ada
@@ -443,11 +470,11 @@ class ReviewStageController extends Controller
                 if (request()->expectsJson()) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'Contract missing department code. Hubungi admin.',
+                        'message' => 'The document missing department code. Contact admin.',
                     ], 422);
                 }
                 return redirect()->route('contracts.show', $contract)
-                    ->with('error', 'Contract missing department code. Hubungi admin.');
+                    ->with('error', 'The document missing department code. Contact admin.');
             }
         }
     
@@ -527,8 +554,8 @@ class ReviewStageController extends Controller
                 'stage_id'    => $myActiveStage?->id,
                 'user_id'     => $user->id_user,
                 'action'      => 'number_generated',
-                'description' => 'Nomor kontrak digenerate: ' . $contractNumber,
-                'notes'       => 'Status kontrak diubah menjadi Number Issued.',
+                'description' => 'Contract number generated: ' . $contractNumber,
+                'notes'       => 'Contract status changed to Number Issued.',
                 'metadata'    => [
                     'contract_number'    => $contractNumber,
                     'generated_by'       => $user->nama_user,
@@ -579,7 +606,7 @@ class ReviewStageController extends Controller
                 return response()->json([
                     'success'         => true,
                     'contract_number' => $contractNumber,
-                    'message'         => 'Nomor kontrak berhasil digenerate: ' . $contractNumber,
+                    'message'         => 'Contract number generated successfully: ' . $contractNumber,
                 ]);
             }
     
@@ -1851,7 +1878,7 @@ class ReviewStageController extends Controller
             Log::error('ContractRejectedNotification (reviewers) failed: ' . $e->getMessage());
         }
 
-        return redirect()->route('contracts.show', $contract)->with('error', 'Contract has been rejected.');
+        return redirect()->route('contracts.show', $contract)->with('error', 'Document has been rejected.');
     }
 
     // ============================================================

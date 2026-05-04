@@ -95,6 +95,23 @@ class Archive extends Model
         'superseded' => 'Superseded',
     ];
 
+    // -----------------------------------------------------------
+    // 2. VALIDITY STATUS CONSTANTS
+    //    Digunakan di index, show, badge, filter.
+    // -----------------------------------------------------------
+    
+    const VALIDITY_STATUS = [
+        'valid',
+        'expired',
+        'terminated',
+    ];
+    
+    const VALIDITY_STATUS_LABEL = [
+        'valid'      => 'Valid',
+        'expired'    => 'Expired',       // otomatis: end_date terlewati
+        'terminated' => 'Terminated',    // manual: diset oleh Legal
+    ];
+
     /*
     |--------------------------------------------------------------------------
     | ACCESSOR : DOCUMENT TYPE NAME
@@ -115,11 +132,20 @@ class Archive extends Model
 
     public function getValidityStatusAttribute()
     {
-        if (!$this->end_date) {
-            return 'ongoing';
+        if ($this->version_status === 'obsolete') {
+            // Cek apakah expired dulu berdasarkan tanggal
+            if ($this->end_date && \Carbon\Carbon::parse($this->end_date)->isPast()) {
+                return 'expired';
+            }
+            return 'terminated';
         }
-
-        return Carbon::now()->gt($this->end_date) ? 'ended' : 'ongoing';
+    
+        // Expired = end_date sudah terlewati
+        if ($this->end_date && \Carbon\Carbon::parse($this->end_date)->isPast()) {
+            return 'expired';
+        }
+    
+        return 'valid';
     }
 
     /*

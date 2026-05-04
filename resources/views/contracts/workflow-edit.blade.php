@@ -9,6 +9,8 @@
 .par-card { border:2px dashed rgba(168,85,247,.5); border-radius:.75rem; background:rgba(88,28,135,.07); padding:1rem; position:relative; }
 .par-card.drag-over { border-color:#a855f7; box-shadow:0 0 0 2px rgba(168,85,247,.3); }
 .dept-section { background:rgba(15,23,42,.7); border:1px solid rgba(168,85,247,.25); border-radius:.5rem; padding:.75rem 1rem; margin-bottom:.5rem; }
+/* ✅ FIX: Dept section khusus untuk yang declined */
+.dept-section.dept-declined { border-color:rgba(239,68,68,.35); background:rgba(127,29,29,.08); }
 .dept-reviewer-row { background:rgba(30,41,59,.7); border:1px solid rgba(255,255,255,.08); border-radius:.4rem; padding:.5rem .75rem; margin-top:.4rem; display:flex; align-items:center; gap:.6rem; }
 .dept-placeholder-notice { background:rgba(168,85,247,.05); border:1px dashed rgba(168,85,247,.3); border-radius:.35rem; padding:.4rem .75rem; margin-top:.4rem; font-size:.75rem; color:rgba(196,181,253,.8); display:flex; align-items:center; gap:.4rem; }
 .drag-handle { cursor:grab; color:rgba(255,255,255,.35); padding:.2rem; flex-shrink:0; touch-action:none; }
@@ -24,6 +26,7 @@
 .s-in_progress{background:rgba(14,165,233,.15);color:#38bdf8;border:1px solid rgba(14,165,233,.3)}
 .s-completed{background:rgba(34,197,94,.15);color:#4ade80;border:1px solid rgba(34,197,94,.3)}
 .s-revision_requested{background:rgba(249,115,22,.15);color:#fb923c;border:1px solid rgba(249,115,22,.3)}
+.s-declined{background:rgba(239,68,68,.15);color:#f87171;border:1px solid rgba(239,68,68,.3)}
 .s-skipped{background:rgba(148,163,184,.15);color:#94a3b8;border:1px solid rgba(148,163,184,.3)}
 .s-placeholder{background:rgba(168,85,247,.1);color:#c4b5fd;border:1px solid rgba(168,85,247,.3)}
 .btn-blue{background:linear-gradient(135deg,#0ea5e9,#3b82f6);color:#fff;border:none;padding:.45rem .9rem;border-radius:.4rem;font-size:.8rem;font-weight:600;cursor:pointer;transition:opacity .2s,transform .15s}
@@ -51,7 +54,7 @@
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
                 </svg>
-                Back to Contract
+                Back to Document
             </a>
             <h1 class="text-2xl font-bold text-white">Edit Workflow</h1>
             <p class="text-sm text-gray-400 mt-1">{{ $contract->title }}</p>
@@ -83,6 +86,11 @@
         <div class="flex items-center gap-2">
             <span class="status-pill s-placeholder">Waiting</span>
             = registered dept, no reviewer yet — <strong class="text-purple-400">still saved</strong>
+        </div>
+        {{-- ✅ TAMBAH: legenda untuk declined --}}
+        <div class="flex items-center gap-2">
+            <span class="status-pill s-declined">Declined</span>
+            = department declined the invitation — use <strong class="text-yellow-400">Re-Invite</strong>
         </div>
     </div>
 
@@ -117,7 +125,7 @@
 
         <div class="flex items-center justify-between pt-4 border-t border-gray-800">
             <p class="text-xs text-gray-500 max-w-lg">
-                ⚠ Department without reviewers (FIN/ACC/TAX) will still be listed in the substantial review and <strong>not deleted</strong>.
+                ⚠ Departments without reviewers (FIN/ACC/TAX) remain listed in the substantial review and <strong>not deleted</strong>.
                 Reviewers can be assigned later by the admin of each department.
             </p>
             <div class="flex gap-3 flex-shrink-0 ml-4">
@@ -148,9 +156,30 @@ foreach (['FIN', 'ACC', 'TAX', 'LEGAL'] as $code) {
         'jabatan' => $u->jabatan ?? '',
     ])->values();
 }
+
+// ✅ FIX: Format displayOrder agar contract_department_id ikut ke JS
+// buildDisplayOrder() sudah mengembalikan array (bukan Eloquent), tapi kita
+// pastikan versi JSON-nya benar untuk parallel stages
+$displayOrderForJs = array_map(function($item) {
+    if ($item['type'] === 'parallel') {
+        // stages sudah berupa array dari buildDisplayOrder()
+        return $item;
+    }
+    // sequential: konversi stage Eloquent ke array
+    $s = $item['stage'];
+    return [
+        'type'  => 'sequential',
+        'stage' => [
+            'id'               => $s->id,
+            'stage_name'       => $s->stage_name,
+            'assigned_user_id' => $s->assigned_user_id,
+            'status'           => $s->status,
+            'sequence'         => $s->sequence,
+        ],
+    ];
+}, $displayOrder);
 @endphp
 
-<!-- Tambahkan jQuery dan Select2 CSS/JS -->
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
@@ -167,9 +196,12 @@ const DEPT_META   = {
     LEGAL: { icon:'⚖️',  cls:'text-blue-400'  },
 };
 
-const INITIAL_DISPLAY_ORDER = @json($displayOrder);
-const DELETE_ROUTE_BASE = "{{ route('legal.workflow.delete', ['contract' => $contract->id, 'stage' => '__ID__']) }}";
-const LOCKED = ['in_progress','completed','revision_requested','skipped'];
+// ✅ FIX: Gunakan $displayOrderForJs yang sudah di-format dengan benar
+const INITIAL_DISPLAY_ORDER = @json($displayOrderForJs);
+
+const DELETE_ROUTE_BASE   = "{{ route('legal.workflow.delete', ['contract' => $contract->id, 'stage' => '__ID__']) }}";
+const REINVITE_ROUTE_BASE = "{{ route('legal.workflow.reinvite', ['contract' => $contract->id, 'contractDepartment' => '__ID__']) }}";
+const LOCKED = ['in_progress','completed','revision_requested'];
 
 let items = [];
 let dragSrc = null;
@@ -191,18 +223,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 locked:     LOCKED.includes(s.status),
             };
         } else {
+            // ✅ FIX: item.stages adalah array (bukan Eloquent), map langsung
             const depts = { FIN:[], ACC:[], TAX:[], LEGAL:[] };
 
-            item.stages.forEach(s => {
+            (item.stages || []).forEach(s => {
                 const code = stageTypeToCode(s.stage_type);
                 if (!depts[code]) depts[code] = [];
                 depts[code].push({
-                    _id:        rnd(),
-                    id:         s.id,
-                    user_id:    s.assigned_user_id,
-                    stage_name: s.stage_name,
-                    status:     s.status,
-                    locked:     LOCKED.includes(s.status),
+                    _id:                    rnd(),
+                    id:                     s.id,
+                    user_id:                s.assigned_user_id,
+                    stage_name:             s.stage_name,
+                    status:                 s.status,
+                    locked:                 LOCKED.includes(s.status),
+                    // ✅ KUNCI FIX masalah 404: simpan contract_department_id
+                    contract_department_id: s.contract_department_id,
                 });
             });
 
@@ -219,6 +254,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function stageTypeToCode(t) {
+    if (!t) return 'LEGAL';
     return { finance:'FIN', accounting:'ACC', tax:'TAX', legal:'LEGAL' }[t] || t.toUpperCase();
 }
 function rnd() { return Math.random().toString(36).slice(2); }
@@ -243,7 +279,7 @@ function render() {
     document.getElementById('stageCountLabel').textContent = items.length;
 }
 
-// ─── Sequential card dengan Select2 ──────────────────────────
+// ─── Sequential card ──────────────────────────────────────────
 function buildSeqCard(item, idx, seq) {
     const div = document.createElement('div');
     div.className = 'seq-card' + (item.locked ? ' active-stage-card' : '');
@@ -295,7 +331,7 @@ function buildSeqCard(item, idx, seq) {
                     $(selectEl).append(option).trigger('change');
                 }
             }
-            
+
             $(selectEl).select2({
                 placeholder: 'Pilih Reviewer',
                 allowClear: true,
@@ -305,23 +341,14 @@ function buildSeqCard(item, idx, seq) {
                     dataType: 'json',
                     delay: 250,
                     data: function (params) {
-                        return {
-                            q: params.term || '',
-                            contract_id: '{{ $contract->id }}'
-                        };
+                        return { q: params.term || '', contract_id: '{{ $contract->id }}' };
                     },
                     processResults: function (data) {
-                        if (data && data.results) {
-                            return { results: data.results };
-                        }
-                        return { results: [] };
-                    },
-                    error: function(xhr, status, error) {
-                        console.error('Select2 Error:', error);
+                        return data && data.results ? { results: data.results } : { results: [] };
                     },
                     cache: true
                 }
-            }).on('change', function(e) {
+            }).on('change', function() {
                 items[idx].user_id = $(this).val() || null;
             });
         }
@@ -338,7 +365,9 @@ function buildParCard(item, idx, seq) {
 
     const totalDepts    = ['FIN','ACC','TAX','LEGAL'].filter(c => (item.depts[c]||[]).length > 0).length;
     const assignedDepts = ['FIN','ACC','TAX','LEGAL'].filter(c => (item.depts[c]||[]).some(s => s.user_id)).length;
-    const waitingDepts  = totalDepts - assignedDepts;
+    // ✅ Hitung dept yang declined
+    const declinedDepts = ['FIN','ACC','TAX','LEGAL'].filter(c => (item.depts[c]||[]).some(s => s.status === 'declined')).length;
+    const waitingDepts  = totalDepts - assignedDepts - declinedDepts;
 
     let html = `
         <div class="flex items-center justify-between mb-4">
@@ -353,7 +382,8 @@ function buildParCard(item, idx, seq) {
                     <p class="text-sm font-semibold text-purple-300">⚡ Substantial / Parallel Review</p>
                     <p class="text-xs text-gray-500 mt-0.5">
                         ${totalDepts} departments registered · ${assignedDepts} reviewers assigned
-                        ${waitingDepts > 0 ? ` · <span class="text-amber-400">${waitingDepts} waiting for reviewer</span>` : ''}
+                        ${waitingDepts > 0 ? ` · <span class="text-amber-400">${waitingDepts} waiting</span>` : ''}
+                        ${declinedDepts > 0 ? ` · <span class="text-red-400">${declinedDepts} declined</span>` : ''}
                     </p>
                 </div>
             </div>
@@ -371,6 +401,11 @@ function buildParCard(item, idx, seq) {
     return div;
 }
 
+// ─────────────────────────────────────────────────────────────
+// ✅ FIX UTAMA: buildDeptSection
+// - Tampilkan status 'declined' dengan benar
+// - Tombol Re-Invite menggunakan contract_department_id (bukan stage id)
+// ─────────────────────────────────────────────────────────────
 function buildDeptSection(code, deptStages, parIdx) {
     const label    = DEPT_LABELS[code] || code;
     const meta     = DEPT_META[code]  || { icon:'🏢', cls:'text-gray-400' };
@@ -378,28 +413,39 @@ function buildDeptSection(code, deptStages, parIdx) {
     const included = deptStages.length > 0;
     const hasAssigned = deptStages.some(ds => ds.user_id);
 
+    // ✅ FIX: Cari stage yang declined — bisa punya atau tidak punya user_id
+    const declinedStage = deptStages.find(ds => ds.status === 'declined');
+    const isDeclinedDept = !!declinedStage;
+
+    // ✅ FIX: class tambahan untuk dept yang declined
+    const deptSectionClass = isDeclinedDept ? 'dept-section dept-declined' : 'dept-section';
+
     let html = `
-        <div class="dept-section">
+        <div class="${deptSectionClass}">
             <div class="flex items-center justify-between mb-2">
                 <div class="flex items-center gap-2">
                     <label class="flex items-center gap-2 cursor-pointer select-none">
                         <input type="checkbox"
                                data-par="${parIdx}" data-code="${code}"
                                ${included ? 'checked' : ''}
+                               ${isDeclinedDept ? 'disabled title="This dept declined, use Re-Invite"' : ''}
                                onchange="toggleDept(${parIdx},'${code}',this.checked)"
                                class="w-3.5 h-3.5 accent-purple-500">
                         <span class="text-sm font-semibold ${meta.cls}">${meta.icon} ${label}</span>
                     </label>
-                    ${included && !hasAssigned
-                        ? '<span class="text-xs text-amber-400/80 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">Menunggu reviewer</span>'
-                        : included
-                            ? `<span class="text-xs text-green-400/70 bg-green-500/5 px-2 py-0.5 rounded-full border border-green-500/20">${deptStages.filter(s=>s.user_id).length} reviewer</span>`
-                            : ''
+
+                    ${isDeclinedDept
+                        ? '<span class="text-xs text-red-400/80 bg-red-500/10 px-2 py-0.5 rounded-full border border-red-500/20">Declined</span>'
+                        : included && !hasAssigned
+                            ? '<span class="text-xs text-amber-400/80 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">Waiting for reviewer</span>'
+                            : included
+                                ? `<span class="text-xs text-green-400/70 bg-green-500/5 px-2 py-0.5 rounded-full border border-green-500/20">${deptStages.filter(s=>s.user_id).length} reviewer</span>`
+                                : ''
                     }
                 </div>
                 <div class="flex items-center gap-2">
                     <span class="text-xs text-gray-600">${staff.length} Active Staff(s)</span>
-                    ${included ? `<button type="button" class="btn-ghost text-xs" onclick="addReviewerToDept(${parIdx},'${code}')">+ Reviewer</button>` : ''}
+                    ${included && !isDeclinedDept ? `<button type="button" class="btn-ghost text-xs" onclick="addReviewerToDept(${parIdx},'${code}')">+ Reviewer</button>` : ''}
                 </div>
             </div>
             <div id="deptRevs_${parIdx}_${code}">
@@ -409,15 +455,18 @@ function buildDeptSection(code, deptStages, parIdx) {
         deptStages.forEach((ds, ri) => {
             html += buildDeptReviewerRow(ds, parIdx, code, ri, staff);
         });
-        if (!hasAssigned) {
+
+        // ✅ FIX: Tampilkan notice yang tepat berdasarkan status
+        if (isDeclinedDept) {
+            // Status declined: tidak perlu placeholder notice
+        } else if (!hasAssigned) {
             html += `
                 <div class="dept-placeholder-notice">
                     <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
-                    This department is registered but there are no reviewers yet.
-                    Admin ${label} need to assign reviewers before substantial review begins.
-                    This structure will <strong>still be saved</strong>.
+                    This dept is registered but there are no reviewers yet.
+                    ${label} need to assign reviewers before substantial review begins.
                 </div>
             `;
         }
@@ -425,7 +474,48 @@ function buildDeptSection(code, deptStages, parIdx) {
         html += `<p class="text-xs text-gray-600 italic py-1">Department not included in parallel review.</p>`;
     }
 
-    html += `</div></div>`;
+    html += `</div>`;
+
+    // ✅ FIX UTAMA: Tombol Re-Invite menggunakan contract_department_id
+    // declinedStage.contract_department_id adalah ID dari tabel contract_departments
+    // bukan ID dari tabel contract_review_stages
+    if (isDeclinedDept && declinedStage.contract_department_id) {
+        const reinviteUrl = REINVITE_ROUTE_BASE.replace('__ID__', declinedStage.contract_department_id);
+        html += `
+            <div class="mt-3 pt-2 border-t border-red-500/20">
+                <div class="flex items-center gap-2 text-xs text-red-400/70 mb-2">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    ${label} declined the invitation. Resend the invitation to include them again.
+                </div>
+                <form method="POST"
+                      action="${reinviteUrl}"
+                      onsubmit="return confirm('Re-invite department ${label}?\\n\\nDepartment admin will receive a new invitation notification.')"
+                      class="inline-block">
+                    <input type="hidden" name="_token" value="{{ csrf_token() }}">
+                    <button type="submit"
+                            class="px-3 py-1.5 text-xs bg-yellow-500/20 hover:bg-yellow-500/30
+                                   text-yellow-300 rounded-lg border border-yellow-500/30 transition-all
+                                   flex items-center gap-1.5">
+                        🔄 Re-Invite ${label} Department
+                    </button>
+                </form>
+            </div>
+        `;
+    } else if (isDeclinedDept && !declinedStage.contract_department_id) {
+        // ✅ Fallback: contract_department_id tidak ada (data lama), tampilkan pesan
+        html += `
+            <div class="mt-3 pt-2 border-t border-red-500/20">
+                <p class="text-xs text-red-400/60 italic">
+                    ⚠ Re-invite is not available. Department document data not found.
+Resave this workflow to fix it.
+                </p>
+            </div>
+        `;
+    }
+
+    html += `</div>`;
     return html;
 }
 
@@ -435,23 +525,27 @@ function buildDeptReviewerRow(ds, parIdx, code, ri, staff) {
     ).join('');
 
     const isUnassigned = !ds.user_id;
+    const isDeclined   = ds.status === 'declined';
 
     return `
-        <div class="dept-reviewer-row ${isUnassigned?'opacity-60':''}">
+        <div class="dept-reviewer-row ${isUnassigned?'opacity-60':''} ${isDeclined?'border-red-500/30 bg-red-500/5':''}">
             <select class="wf-select" style="max-width:260px"
-                    ${ds.locked?'disabled':''}
+                    ${ds.locked || isDeclined ? 'disabled' : ''}
                     onchange="updateParReviewer(${parIdx},'${code}',${ri},parseInt(this.value)||null)">
                 <option value="">-- Pilih reviewer --</option>
                 ${opts}
             </select>
             <input class="wf-input" type="text" style="max-width:190px"
                    value="${escHtml(ds.stage_name)}" placeholder="Nama stage"
-                   ${ds.locked?'readonly style="opacity:.6;cursor:not-allowed"':''}
+                   ${ds.locked || isDeclined ? 'readonly style="opacity:.6;cursor:not-allowed"' : ''}
                    oninput="updateParStageName(${parIdx},'${code}',${ri},this.value)">
-            <span class="status-pill ${isUnassigned?'s-placeholder':'s-'+ds.status}">
-                ${isUnassigned ? 'Menunggu' : ds.status.replace(/_/g,' ')}
+            <span class="status-pill ${isUnassigned && !isDeclined ? 's-placeholder' : 's-'+ds.status}">
+                ${isDeclined ? 'Declined' : isUnassigned ? 'Waiting' : ds.status.replace(/_/g,' ')}
             </span>
-            ${!ds.locked?`<button type="button" class="btn-red" onclick="removeDeptReviewer(${parIdx},'${code}',${ri})">✕</button>`:''}
+            ${!ds.locked && !isDeclined
+                ? `<button type="button" class="btn-red" onclick="removeDeptReviewer(${parIdx},'${code}',${ri})">✕</button>`
+                : ''
+            }
         </div>
     `;
 }
@@ -460,7 +554,7 @@ function buildDeptReviewerRow(ds, parIdx, code, ri, staff) {
 // STATE MUTATIONS
 // ─────────────────────────────────────────────────────────────
 function removeItem(idx) {
-    if (!confirm('Hapus item ini dari workflow?')) return;
+    if (!confirm('Remove this item from workflow?')) return;
     items.splice(idx, 1);
     render();
 }
@@ -485,11 +579,12 @@ function toggleDept(parIdx, code, checked) {
             _id:rnd(), id:null, user_id:null,
             stage_name: (DEPT_LABELS[code]||code) + ' Review',
             status:'pending', locked:false,
+            contract_department_id: null,
         }];
     } else {
         const hasLocked = (items[parIdx].depts[code]||[]).some(s => s.locked);
         if (hasLocked) {
-            alert(`Dept ${DEPT_LABELS[code]||code} memiliki reviewer aktif, tidak bisa dihapus dari group.`);
+            alert(`Dept ${DEPT_LABELS[code]||code} has active reviewers, cannot be removed from the group.`);
             setTimeout(() => {
                 const cb = document.querySelector(`[data-par="${parIdx}"][data-code="${code}"]`);
                 if (cb) cb.checked = true;
@@ -508,6 +603,7 @@ function addReviewerToDept(parIdx, code) {
         _id:rnd(), id:null, user_id:null,
         stage_name: (DEPT_LABELS[code]||code) + ' Review',
         status:'pending', locked:false,
+        contract_department_id: null,
     });
     render();
 }
@@ -516,7 +612,8 @@ function removeDeptReviewer(parIdx, code, ri) {
     const ds = items[parIdx]?.depts[code]?.[ri];
     if (!ds) return;
     if (ds.locked) { alert('Active reviewers cannot be deleted.'); return; }
-    if (!confirm('Hapus reviewer ini?')) return;
+    if (ds.status === 'declined') { alert('Declined stage cannot be deleted. Use Re-Invite.'); return; }
+    if (!confirm('Remove this reviewer?')) return;
     items[parIdx].depts[code].splice(ri, 1);
     render();
 }
@@ -534,7 +631,7 @@ function updateParStageName(parIdx, code, ri, name) {
 }
 
 function deleteFromDb(stageId, stageName) {
-    if (!confirm(`Hapus stage "${stageName}" dari database?\nAksi ini permanen.`)) return;
+    if (!confirm(`Remove stage "${stageName}" from the database?\nThis action is permanent.`)) return;
     const form = document.getElementById('deleteForm');
     form.action = DELETE_ROUTE_BASE.replace('__ID__', stageId);
     form.submit();
@@ -604,10 +701,11 @@ function onFormSubmit(e) {
                     departments.push({
                         code,
                         stages: slots.map(ds => ({
-                            id:         ds.id       || null,
-                            user_id:    ds.user_id  || null,
-                            stage_name: ds.stage_name,
-                            status:     ds.status,
+                            id:                     ds.id       || null,
+                            user_id:                ds.user_id  || null,
+                            stage_name:             ds.stage_name,
+                            status:                 ds.status,
+                            contract_department_id: ds.contract_department_id || null,
                         })),
                     });
                 }
@@ -671,8 +769,6 @@ function escHtml(s) {
     font-size: 18px !important;
     margin-right: 8px !important;
 }
-
-/* Dropdown */
 .select2-dropdown {
     background: rgba(15, 23, 42, 0.98) !important;
     border: 1px solid rgba(14, 165, 233, 0.25) !important;
@@ -680,8 +776,6 @@ function escHtml(s) {
     box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5) !important;
     overflow: hidden !important;
 }
-
-/* Search box */
 .select2-container--default .select2-search--dropdown {
     padding: 8px !important;
     background: rgba(10, 15, 25, 0.6) !important;
@@ -700,8 +794,6 @@ function escHtml(s) {
     border-color: #0ea5e9 !important;
     box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.2) !important;
 }
-
-/* Scrollbar */
 .select2-container--default .select2-results__options {
     max-height: 280px !important;
     scrollbar-width: thin !important;
@@ -710,43 +802,30 @@ function escHtml(s) {
 .select2-container--default .select2-results__options::-webkit-scrollbar { width: 6px !important; }
 .select2-container--default .select2-results__options::-webkit-scrollbar-track { background: #1e293b !important; }
 .select2-container--default .select2-results__options::-webkit-scrollbar-thumb { background: #0ea5e9 !important; border-radius: 3px !important; }
-
-/* ── RESULT ITEMS — INI BAGIAN PENTING ───────────────────── */
-
-/* Default item (tidak selected, tidak hover) */
 .select2-container--default .select2-results__option {
     background: transparent !important;
-    color: #cbd5e1 !important;         /* abu-abu terang, bukan putih */
+    color: #cbd5e1 !important;
     padding: 10px 14px !important;
     font-size: 0.875rem !important;
     border-bottom: 1px solid rgba(255,255,255,0.03) !important;
     transition: background 0.15s ease !important;
 }
-
-/* Item yang sudah dipilih (checkmark) — BUKAN saat di-hover */
 .select2-container--default .select2-results__option[aria-selected="true"] {
     background: rgba(14, 165, 233, 0.12) !important;
-    color: #38bdf8 !important;         /* biru muda */
+    color: #38bdf8 !important;
 }
-
-/* Item yang di-hover / keyboard-navigated — belum dipilih */
 .select2-container--default .select2-results__option--highlighted[aria-selected="false"] {
     background: rgba(14, 165, 233, 0.18) !important;
-    color: #e2e8f0 !important;         /* putih soft */
+    color: #e2e8f0 !important;
     border-left: 3px solid #0ea5e9 !important;
     padding-left: 11px !important;
 }
-
-/* ── INI YANG FIX MASALAH UTAMA ──
-   Item yang sudah dipilih DAN sedang di-hover — warna harus tetap gelap */
 .select2-container--default .select2-results__option--highlighted[aria-selected="true"] {
     background: rgba(14, 165, 233, 0.25) !important;
-    color: #7dd3fc !important;         /* biru lebih terang, bukan putih */
+    color: #7dd3fc !important;
     border-left: 3px solid #0ea5e9 !important;
     padding-left: 11px !important;
 }
-
-/* No results */
 .select2-results__message,
 .select2-container--default .select2-results__option--loading {
     background: transparent !important;
@@ -754,8 +833,6 @@ function escHtml(s) {
     text-align: center !important;
     font-style: italic !important;
 }
-
-/* Disabled state */
 .select2-container--default.select2-container--disabled .select2-selection--single {
     background: rgba(30, 41, 59, 0.5) !important;
     border-color: rgba(255,255,255,0.1) !important;

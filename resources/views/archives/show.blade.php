@@ -13,7 +13,6 @@
             padding: 2rem 1.5rem;
         }
 
-        /* 2. Tambahin grid column span */
         .two-column-layout > .col-span-2 {
             grid-column: span 2;
         }
@@ -28,7 +27,6 @@
             min-width: 0;
         }
 
-        /* 3. HAPUS margin-top: 5.5rem agar sejajar otomatis */
         .info-sidebar {
             position: relative;
             display: flex;
@@ -129,13 +127,11 @@
             color: #c084fc;
         }
 
-        /* Status Colors */
         .status-active { background: rgba(34, 197, 94, 0.15); border-color: rgba(34, 197, 94, 0.3); color: #4ade80; }
         .status-draft { background: rgba(251, 191, 36, 0.15); border-color: rgba(251, 191, 36, 0.3); color: #fbbf24; }
         .status-archived { background: rgba(107, 114, 128, 0.15); border-color: rgba(107, 114, 128, 0.3); color: #9ca3af; }
         .status-expired { background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.3); color: #f87171; }
 
-        /* Cross Reference Cards */
         .cross-ref-section {
             background: linear-gradient(145deg, rgba(30, 41, 59, 0.6), rgba(15, 23, 42, 0.85));
             backdrop-filter: blur(12px);
@@ -237,7 +233,6 @@
             font-style: italic;
         }
 
-        /* Action Buttons */
         .action-buttons {
             display: flex;
             gap: 1rem;
@@ -287,7 +282,6 @@
             color: white;
         }
 
-        /* Responsive */
         @media (max-width: 1024px) {
             .two-column-layout {
                 grid-template-columns: 1fr;
@@ -327,33 +321,7 @@
         </div>
 
         <div class="main-content">
-            <div class="detail-section">
-                <div class="section-header">
-                    <div class="section-title">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"/>
-                        </svg>
-                        Record Identification
-                    </div>
-                </div>
-                <div class="detail-grid">
-                    <div class="detail-item">
-                        <div class="detail-label">Record ID</div>
-                        <div class="detail-value">
-                            <span class="badge badge-status">{{ $archive->record_id ?? '-' }}</span>
-                        </div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Document Number</div>
-                        <div class="detail-value">{{ $archive->doc_number ?? '-' }}</div>
-                    </div>
-                    <div class="detail-item full-width">
-                        <div class="detail-label">Document Name</div>
-                        <div class="detail-value">{{ $archive->doc_name ?? '-' }}</div>
-                    </div>
-                </div>
-            </div>
-
+            <!-- DOCUMENT CLASSIFICATION CARD (with Record ID moved here) -->
             <div class="detail-section">
                 <div class="section-header">
                     <div class="section-title">
@@ -364,6 +332,12 @@
                     </div>
                 </div>
                 <div class="detail-grid">
+                    <div class="detail-item">
+                        <div class="detail-label">Record ID</div>
+                        <div class="detail-value">
+                            <span class="badge badge-status">{{ $archive->record_id ?? '-' }}</span>
+                        </div>
+                    </div>
                     <div class="detail-item">
                         <div class="detail-label">Company</div>
                         <div class="detail-value">{{ $archive->company ?? '-' }}</div>
@@ -383,6 +357,7 @@
                 </div>
             </div>
 
+            <!-- DOCUMENT DETAILS CARD (with Document Name and Document Number moved here) -->
             <div class="detail-section">
                 <div class="section-header">
                     <div class="section-title">
@@ -393,6 +368,14 @@
                     </div>
                 </div>
                 <div class="detail-grid">
+                    <div class="detail-item">
+                        <div class="detail-label">Document Number</div>
+                        <div class="detail-value">{{ $archive->doc_number ?? '-' }}</div>
+                    </div>
+                    <div class="detail-item full-width">
+                        <div class="detail-label">Document Name</div>
+                        <div class="detail-value">{{ $archive->doc_name ?? '-' }}</div>
+                    </div>
                     <div class="detail-item">
                         <div class="detail-label">Counterparty</div>
                         <div class="detail-value {{ !$archive->counterparty ? 'empty' : '' }}">
@@ -432,16 +415,37 @@
                         <div class="detail-label">Version Status</div>
                         <div class="detail-value">
                             @php
-                                $versionLabels = ['latest' => 'Latest', 'previous' => 'Previous', 'draft' => 'Draft'];
+                                $versionLabels = [
+                                    'latest'     => 'Latest',
+                                    'obsolete'   => 'Obsolete',
+                                    'superseded' => 'Superseded',
+                                ];
                                 $vValue = $archive->version_status;
-                                $vText = is_string($vValue) ? ($versionLabels[$vValue] ?? ucfirst($vValue)) : '-';
+                                $vText  = $versionLabels[$vValue] ?? ucfirst($vValue ?? '-');
                             @endphp
                             <span class="badge badge-version">{{ $vText }}</span>
+                        </div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Validity Status</div>
+                        <div class="detail-value">
+                            @php
+                                $vs = $archive->validity_status;
+                                $vsText  = match($vs) { 'valid' => 'Valid', 'expired' => 'Expired', 'terminated' => 'Terminated', default => ucfirst($vs) };
+                                $vsBadge = match($vs) {
+                                    'valid'      => 'background:rgba(14,165,233,0.15);border:1px solid rgba(14,165,233,0.3);color:#38bdf8;',
+                                    'expired'    => 'background:rgba(107,114,128,0.15);border:1px solid rgba(107,114,128,0.3);color:#9ca3af;',
+                                    'terminated' => 'background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#f87171;',
+                                    default      => '',
+                                };
+                            @endphp
+                            <span class="badge" style="{{ $vsBadge }}">{{ $vsText }}</span>
                         </div>
                     </div>
                 </div>
             </div>
 
+            <!-- Validity Period & Location Card (unchanged) -->
             <div class="detail-section">
                 <div class="section-header">
                     <div class="section-title">
@@ -491,7 +495,7 @@
             </div>
         </div>
 
-                <!-- RIGHT COLUMN — CROSS REFERENCES -->
+        <!-- RIGHT COLUMN — CROSS REFERENCES (unchanged) -->
         <div class="info-sidebar">
             <div class="cross-ref-section">
                 <div class="cross-ref-header">
@@ -505,48 +509,48 @@
                         {{ $archive->crossReferences ? $archive->crossReferences->count() : 0 }} Reference(s)
                     </span>
                 </div>
-                    <div class="cross-ref-body">
-                        @if($archive->crossReferences && $archive->crossReferences->count() > 0)
-                            @foreach($archive->crossReferences as $index => $ref)
-                                <div class="cross-ref-card">
-                                    <div class="cross-ref-card-header">
-                                        <span class="cross-ref-badge-num">{{ $index + 1 }}</span>
-                                    </div>
-
-                                    <div class="cross-ref-field">
-                                        <div class="cross-ref-label">Document Name</div>
-                                        <div class="cross-ref-value">{{ $ref->ref_doc_name ?? '-' }}</div>
-                                    </div>
-
-                                    <div class="cross-ref-field">
-                                        <div class="cross-ref-label">Record ID</div>
-                                        <div class="cross-ref-value {{ !$ref->ref_record_id ? 'empty' : '' }}">{{ $ref->ref_record_id ?? 'Not specified' }}</div>
-                                    </div>
-
-                                    <div class="cross-ref-field">
-                                        <div class="cross-ref-label">Location</div>
-                                        <div class="cross-ref-value {{ !$ref->ref_location ? 'empty' : '' }}">{{ $ref->ref_location ?? 'Not specified' }}</div>
-                                    </div>
-
-                                    <div class="cross-ref-field">
-                                        <div class="cross-ref-label">Description / Notes</div>
-                                        <div class="cross-ref-value {{ !$ref->ref_relation ? 'empty' : '' }}">{{ $ref->ref_relation ?? 'No additional notes' }}</div>
-                                    </div>
+                <div class="cross-ref-body">
+                    @if($archive->crossReferences && $archive->crossReferences->count() > 0)
+                        @foreach($archive->crossReferences as $index => $ref)
+                            <div class="cross-ref-card">
+                                <div class="cross-ref-card-header">
+                                    <span class="cross-ref-badge-num">{{ $index + 1 }}</span>
                                 </div>
-                            @endforeach
-                        @else
-                            <div class="text-center py-8">
-                                <svg class="w-12 h-12 mx-auto text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
-                                </svg>
-                                <p class="text-gray-500 text-sm">No cross references found</p>
-                                <p class="text-gray-600 text-xs mt-1">This document has no linked references</p>
+
+                                <div class="cross-ref-field">
+                                    <div class="cross-ref-label">Document Name</div>
+                                    <div class="cross-ref-value">{{ $ref->ref_doc_name ?? '-' }}</div>
+                                </div>
+
+                                <div class="cross-ref-field">
+                                    <div class="cross-ref-label">Record ID</div>
+                                    <div class="cross-ref-value {{ !$ref->ref_record_id ? 'empty' : '' }}">{{ $ref->ref_record_id ?? 'Not specified' }}</div>
+                                </div>
+
+                                <div class="cross-ref-field">
+                                    <div class="cross-ref-label">Location</div>
+                                    <div class="cross-ref-value {{ !$ref->ref_location ? 'empty' : '' }}">{{ $ref->ref_location ?? 'Not specified' }}</div>
+                                </div>
+
+                                <div class="cross-ref-field">
+                                    <div class="cross-ref-label">Description / Notes</div>
+                                    <div class="cross-ref-value {{ !$ref->ref_relation ? 'empty' : '' }}">{{ $ref->ref_relation ?? 'No additional notes' }}</div>
+                                </div>
                             </div>
-                        @endif
-                    </div>
+                        @endforeach
+                    @else
+                        <div class="text-center py-8">
+                            <svg class="w-12 h-12 mx-auto text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+                            </svg>
+                            <p class="text-gray-500 text-sm">No cross references found</p>
+                            <p class="text-gray-600 text-xs mt-1">This document has no linked references</p>
+                        </div>
+                    @endif
+                </div>
             </div>
 
-            <!-- Additional Info Card -->
+            <!-- Additional Info Card (unchanged) -->
             <div class="mt-4 cross-ref-section">
                 <div class="cross-ref-header">
                     <div class="cross-ref-title">
@@ -561,9 +565,7 @@
                         <div class="cross-ref-field">
                             <div class="cross-ref-label">Created At</div>
                             <div class="cross-ref-value">
-                                {{ $archive->created_at
-                                    ? \Carbon\Carbon::parse($archive->created_at)->format('d M Y, H:i')
-                                    : '-' }}
+                                {{ $archive->created_at ? \Carbon\Carbon::parse($archive->created_at)->format('d M Y, H:i') : '-' }}
                             </div>
                         </div>
                         <div class="cross-ref-field">
@@ -587,8 +589,7 @@
                             <div class="cross-ref-value">
                                 @if($archive->updater && $archive->updated_by !== $archive->created_by)
                                     {{ $archive->updater->nama_user }}
-                                @elseif($archive->updater && $archive->updated_by === $archive->created_by
-                                        && $archive->updated_at->ne($archive->created_at))
+                                @elseif($archive->updater && $archive->updated_by === $archive->created_by && $archive->updated_at->ne($archive->created_at))
                                     {{ $archive->updater->nama_user }}
                                 @else
                                     <span style="color:#6b7280;font-style:italic;">—</span>

@@ -193,21 +193,6 @@
                     </div>
                 </div>
                 
-                <!-- Pending Feedback -->
-                <div class="glass-card p-4 rounded-xl hover:shadow-lg hover:shadow-purple-500/5 transition-all group">
-                    <div class="flex items-center gap-3">
-                        <div class="p-2 rounded-lg bg-gradient-to-br from-purple-500/20 to-pink-600/20 group-hover:scale-110 transition-transform">
-                            <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                            </svg>
-                        </div>
-                        <div>
-                            <p class="text-sm text-gray-400">Pending Feedback</p>
-                            <p class="text-2xl font-bold text-white">{{ $pendingFeedbackCount }}</p>
-                        </div>
-                    </div>
-                </div>
-                
                 <!-- Overdue -->
                 <div class="glass-card p-4 rounded-xl hover:shadow-lg hover:shadow-red-500/5 transition-all group">
                     <div class="flex items-center gap-3">
@@ -228,60 +213,6 @@
                     </div>
                 </div>
             </div>
-
-            <!-- Performance Metrics -->
-            @if($totalReviews > 0)
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
-                <div class="glass-card p-4 rounded-xl">
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="text-sm text-gray-400">Average Review Time</span>
-                        <span class="text-xs {{ $currentColor['text'] }}">{{ $avgReviewTime ? round($avgReviewTime, 1) . ' hours' : 'N/A' }}</span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <div class="flex-1 h-2 bg-gray-700 rounded-full overflow-hidden">
-                            <div class="h-full bg-gradient-to-r {{ $currentColor['gradient'] }} rounded-full" style="width: {{ $avgReviewTime ? min(($avgReviewTime/48)*100, 100) : 0 }}%"></div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="glass-card p-4 rounded-xl">
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="text-sm text-gray-400">Completion Rate</span>
-                        <span class="text-xs text-green-400">{{ $totalReviews > 0 ? round(($inProgressCount + $pendingFeedbackCount)/$totalReviews * 100) : 0 }}%</span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <div class="flex-1 h-2 bg-gray-700 rounded-full overflow-hidden">
-                            <div class="h-full bg-gradient-to-r from-green-400 to-emerald-400 rounded-full" style="width: {{ $totalReviews > 0 ? ($inProgressCount + $pendingFeedbackCount)/$totalReviews * 100 : 0 }}%"></div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="glass-card p-4 rounded-xl">
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="text-sm text-gray-400">Staff Workload</span>
-                        <span class="text-xs {{ $currentColor['text'] }}">{{ $assignedCount }} assigned</span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                        </svg>
-                        <div class="flex-1 flex gap-1">
-                            @php
-                                $staffCount = $reviews->pluck('assignedStaff.id')->unique()->count();
-                                $avgPerStaff = $staffCount > 0 ? round($assignedCount / $staffCount, 1) : 0;
-                            @endphp
-                            <span class="text-sm text-gray-300">{{ $avgPerStaff }} per staff</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            @endif
         </div>
 
         <!-- Enhanced Filters -->
@@ -293,8 +224,6 @@
                         <select id="statusFilter" class="appearance-none bg-gray-800/50 border border-gray-700 rounded-lg px-4 py-2 pl-10 pr-8 text-white focus:outline-none focus:ring-2 focus:ring-{{ $department->code == 'FIN' ? 'blue' : ($department->code == 'ACC' ? 'indigo' : 'red') }}-500 focus:border-transparent min-w-[160px]">
                             <option value="all">📋 All Status</option>
                             <option value="assigned">👤 Assigned</option>
-                            <option value="under_review">🔄 In Progress</option>
-                            <option value="pending_feedback">💬 Pending Feedback</option>
                             <option value="overdue">⚠️ Overdue</option>
                             <option value="completed">✅ Completed</option>
                         </select>
@@ -373,43 +302,6 @@
                             </svg>
                         </div>
                     </div>
-                </div>
-                
-                <div class="flex items-center gap-3">
-                    <!-- View Toggle -->
-                    <div class="flex items-center bg-gray-800/50 rounded-lg border border-gray-700 p-1">
-                        <button id="listViewBtn" class="p-2 rounded {{ $currentColor['bg'] }} {{ $currentColor['text'] }}" title="List View">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-                            </svg>
-                        </button>
-                        <button id="gridViewBtn" class="p-2 rounded text-gray-400 hover:text-white" title="Grid View">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                            </svg>
-                        </button>
-                    </div>
-                    
-                    <!-- Export Options -->
-                    <div class="relative group">
-                        <button id="exportBtn" class="action-btn p-2 rounded-lg bg-gray-800/50 hover:bg-gray-700/50 border border-gray-700/50">
-                            <svg class="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                            </svg>
-                        </button>
-                        <div class="absolute right-0 mt-2 w-48 bg-gray-800 rounded-lg shadow-xl border border-gray-700 hidden group-hover:block z-10">
-                            <a href="#" class="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">Export as CSV</a>
-                            <a href="#" class="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">Export as PDF</a>
-                            <a href="#" class="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700">Print View</a>
-                        </div>
-                    </div>
-                    
-                    <!-- Refresh Button with Animation -->
-                    <button id="refreshBtn" class="action-btn p-2 rounded-lg bg-gray-800/50 hover:bg-gray-700/50 border border-gray-700/50 group">
-                        <svg class="w-5 h-5 text-gray-300 group-hover:rotate-180 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        </svg>
-                    </button>
                 </div>
             </div>
             
@@ -869,39 +761,6 @@
                     </div>
                     @endforelse
                 </div>
-                
-                <!-- Bulk Actions -->
-                @if($totalReviews > 0)
-                <div class="mt-6 pt-4 border-t border-gray-700/50 flex items-center justify-between">
-                    <div class="flex items-center gap-4">
-                        <label class="flex items-center gap-2">
-                            <input type="checkbox" id="selectAll" class="rounded bg-gray-800 border-gray-600 text-{{ $department->code == 'FIN' ? 'blue' : ($department->code == 'ACC' ? 'indigo' : 'red') }}-500 focus:ring-0">
-                            <span class="text-sm text-gray-300">Select All</span>
-                        </label>
-                        
-                        <select id="bulkAction" class="text-sm bg-gray-800/50 border border-gray-700 rounded-lg px-3 py-1.5 text-gray-300">
-                            <option value="">Bulk Actions</option>
-                            <option value="assign">Reassign Selected</option>
-                            <option value="priority">Mark as Priority</option>
-                            <option value="export">Export Selected</option>
-                            <option value="reminder">Set Reminder</option>
-                        </select>
-                        
-                        <button id="applyBulkAction" class="text-sm {{ $currentColor['text'] }} hover:underline">Apply</button>
-                    </div>
-                    
-                    <!-- Pagination -->
-                    @if($reviews->hasPages())
-                        {{ $reviews->links() }}
-                    @endif
-                </div>
-                @endif
-            </div>
-            
-            <!-- Grid View (Hidden by Default) -->
-            <div id="gridView" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <!-- Grid items will be populated by JavaScript -->
-            </div>
 
             <!-- Empty State Help Card (only show when empty) -->
             @if($reviews->isEmpty())

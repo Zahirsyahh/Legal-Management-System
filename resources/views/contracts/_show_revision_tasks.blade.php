@@ -30,8 +30,8 @@ ContractController::show() — lihat patch controller di bawah.
             </svg>
         </div>
         <div class="flex-1 min-w-0">
-            <h3 class="text-sm font-semibold text-orange-400">Revisi Untukmu</h3>
-            <p class="text-xs text-gray-500">Kamu diminta untuk melakukan revisi</p>
+            <h3 class="text-sm font-semibold text-orange-400">Revision For You</h3>
+            <p class="text-xs text-gray-500">You are requested to perform a revision</p>
         </div>
         <span class="px-2 py-0.5 text-xs bg-orange-500/20 text-orange-400 rounded-full border border-orange-500/30">
             {{ $myReceived->count() }}
@@ -100,25 +100,25 @@ ContractController::show() — lihat patch controller di bawah.
         </div>
         <div class="flex-1 min-w-0">
             <h3 class="text-sm font-semibold {{ $submittedCount > 0 ? 'text-purple-400' : 'text-amber-400' }}">
-                Revisi yang Kamu Kirim
+                Revision You Sent
             </h3>
             <p class="text-xs text-gray-500">
                 @if($submittedCount > 0)
-                    {{ $submittedCount }} hasil menunggu keputusanmu
+                    {{ $submittedCount }} results waiting for your decision
                 @else
-                    Sedang dikerjakan oleh reviewer
+                    Currently being worked on by the reviewer
                 @endif
             </p>
         </div>
         <div class="flex items-center gap-1 flex-shrink-0">
             @if($submittedCount > 0)
             <span class="px-2 py-0.5 text-xs bg-purple-500/20 text-purple-400 rounded-full border border-purple-500/30 animate-pulse">
-                {{ $submittedCount }} perlu ditinjau
+                {{ $submittedCount }} needs to be reviewed
             </span>
             @endif
             @if($openCount > 0)
             <span class="px-2 py-0.5 text-xs bg-amber-500/20 text-amber-400 rounded-full border border-amber-500/30">
-                {{ $openCount }} berjalan
+                {{ $openCount }} in progress
             </span>
             @endif
         </div>
@@ -158,7 +158,7 @@ ContractController::show() — lihat patch controller di bawah.
             {{-- Jika sudah submitted: tampilkan cuplikan respons --}}
             @if($task->response_notes)
             <div class="mb-2 p-2 bg-purple-500/5 border border-purple-500/20 rounded text-xs text-gray-300 line-clamp-2">
-                <span class="text-purple-400 font-medium">Hasil: </span>{{ $task->response_notes }}
+                <span class="text-purple-400 font-medium">Result: </span>{{ $task->response_notes }}
             </div>
             @endif
 
@@ -169,7 +169,7 @@ ContractController::show() — lihat patch controller di bawah.
                     @csrf
                     <button type="submit"
                             class="w-full py-1.5 text-xs font-medium bg-green-600/20 hover:bg-green-600/30 text-green-400 border border-green-500/30 rounded-lg transition-all"
-                            onclick="return confirm('Setujui hasil revisi dari {{ addslashes($task->assignee->nama_user ?? '-') }}?')">
+                            onclick="return confirm('Approve the revision result from {{ addslashes($task->assignee->nama_user ?? '-') }}?')">
                         ✓ Approve
                     </button>
                 </form>
@@ -181,7 +181,7 @@ ContractController::show() — lihat patch controller di bawah.
             @else
             <a href="{{ route('revision-tasks.show', $task) }}"
                class="block w-full text-center py-1.5 text-xs text-gray-400 border border-gray-700/50 rounded-lg hover:bg-gray-700/50 transition-all">
-                Lihat Detail →
+                View Detail →
             </a>
             @endif
         </div>

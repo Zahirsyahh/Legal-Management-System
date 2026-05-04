@@ -1104,7 +1104,7 @@
                     <span class="px-3 py-1 bg-red-500/20 text-red-400 text-xs rounded-full">Admin Only</span>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
-                    <a href="{{ route('admin.users.index') }}" class="p-4 bg-white/5 rounded-lg hover:bg-white/10 transition-colors">
+                    <a href="{{ route('admin.master-departments.index') }}" class="p-4 bg-white/5 rounded-lg hover:bg-white/10 transition-colors">
                         <div class="flex items-center">
                             <div class="p-2 bg-red-500/20 rounded-lg mr-3">
                                 <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1428,37 +1428,6 @@
                                 <span class="text-sm text-gray-300">{{ now()->subHours(2)->diffForHumans() }}</span>
                             </div>
                         </div>
-                    </div>
-                </div>
-
-                <!-- Help Card -->
-                <div class="bg-gradient-to-r from-blue-500/10 to-indigo-500/10 rounded-2xl border border-blue-500/20 p-6 hover:border-blue-500/40 transition-all duration-300">
-                    <div class="flex items-center gap-3 mb-4">
-                        <div class="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center">
-                            <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                        </div>
-                        <h3 class="text-lg font-semibold text-white">Need Help?</h3>
-                    </div>
-                    <p class="text-sm text-gray-400 mb-6">Get assistance with the contract system</p>
-                    <div class="space-y-4">
-                        <a href="#" class="flex items-center gap-3 p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-all group">
-                            <div class="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center group-hover:bg-blue-500/20 transition-all">
-                                <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                                </svg>
-                            </div>
-                            <span class="text-sm text-blue-400 group-hover:text-blue-300">User Guide</span>
-                        </a>
-                        <a href="#" class="flex items-center gap-3 p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-all group">
-                            <div class="w-8 h-8 rounded-full bg-purple-500/10 flex items-center justify-center group-hover:bg-purple-500/20 transition-all">
-                                <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                </svg>
-                            </div>
-                            <span class="text-sm text-purple-400 group-hover:text-purple-300">Contact Support</span>
-                        </a>
                     </div>
                 </div>
             </div>

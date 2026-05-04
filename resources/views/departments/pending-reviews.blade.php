@@ -1,11 +1,27 @@
 {{-- resources/views/departments/pending-reviews.blade.php --}}
+{{-- Shared by: finance-admin, accounting-admin, tax-admin --}}
 @php
-    $department = Auth::user()->department;
-    $routePrefix = match($department->code) {
+    $user       = Auth::user();
+    $department = $user->department ?? null;
+
+    // Fallback: derive department from role if relationship not loaded
+    if (!$department) {
+        if ($user->hasRole('admin_fin')) {
+            $department = \App\Models\Department::where('code', 'FIN')->first();
+        } elseif ($user->hasRole('admin_acc')) {
+            $department = \App\Models\Department::where('code', 'ACC')->first();
+        } elseif ($user->hasRole('admin_tax')) {
+            $department = \App\Models\Department::where('code', 'TAX')->first();
+        }
+    }
+
+    $deptCode = $department->code ?? 'FIN';
+
+    $routePrefix = match($deptCode) {
         'FIN' => 'finance',
         'ACC' => 'accounting',
         'TAX' => 'tax',
-        default => 'finance'
+        default => 'finance',
     };
 
     $deptColors = [
@@ -50,8 +66,8 @@
         ],
     ];
 
-    $color     = $deptColors[$department->code] ?? $deptColors['FIN'];
-    $pageTitle = $color['name'] . ' Pending Reviews';
+    $color     = $deptColors[$deptCode] ?? $deptColors['FIN'];
+    $pageTitle = $color['name'] . ' Review Invitations';
 
     $now = \Carbon\Carbon::now();
     $statsSource = $allPendingAssignments ?? $pendingAssignments;
@@ -84,7 +100,7 @@
 
     <style>
         /* ------------------------------------------------------------------ */
-        /* TOOLBAR                                                             */
+        /* TOOLBAR INPUTS                                                       */
         /* ------------------------------------------------------------------ */
         #pr-search,
         #pr-statusFilter,
@@ -139,7 +155,6 @@
             color: #64748b; pointer-events: none; z-index: 1;
         }
 
-        /* Clear "×" inside search input */
         #pr-clearSearch {
             display: none;
             position: absolute; right: 0.55rem; top: 50%; transform: translateY(-50%);
@@ -169,13 +184,154 @@
             text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap;
         }
 
-        /* Loading overlay */
+        /* ------------------------------------------------------------------ */
+        /* ACTION BUTTONS — ICON-ONLY STYLE                                    */
+        /* ------------------------------------------------------------------ */
+        .btn-action {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 0.5rem;
+            border: 1px solid;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            position: relative;
+            text-decoration: none;
+        }
+        /* Tooltip on hover */
+        .btn-action::after {
+            content: attr(title);
+            position: absolute;
+            bottom: calc(100% + 6px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1e293b;
+            color: #e2e8f0;
+            font-size: 0.65rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.4rem;
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s;
+            border: 1px solid #334155;
+            z-index: 10;
+        }
+        .btn-action:hover::after {
+            opacity: 1;
+        }
+        .btn-view {
+            background: rgba(255,255,255,0.06);
+            border-color: rgba(255,255,255,0.15);
+            color: #94a3b8;
+        }
+        .btn-view:hover {
+            background: rgba(255,255,255,0.12);
+            border-color: rgba(255,255,255,0.25);
+            color: #e2e8f0;
+        }
+        .btn-accept {
+            background: rgba(34,197,94,0.12);
+            border-color: rgba(34,197,94,0.3);
+            color: #86efac;
+        }
+        .btn-accept:hover {
+            background: rgba(34,197,94,0.22);
+            border-color: rgba(34,197,94,0.5);
+            color: #4ade80;
+        }
+        .btn-decline {
+            background: rgba(239,68,68,0.1);
+            border-color: rgba(239,68,68,0.25);
+            color: #fca5a5;
+        }
+        .btn-decline:hover {
+            background: rgba(239,68,68,0.2);
+            border-color: rgba(239,68,68,0.45);
+            color: #f87171;
+        }
+
+        /* ------------------------------------------------------------------ */
+        /* DECLINE MODAL                                                        */
+        /* ------------------------------------------------------------------ */
+        #decline-modal {
+            position: fixed; inset: 0; z-index: 9999;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(2,6,23,0.7);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+        #decline-modal.open {
+            opacity: 1; pointer-events: all;
+        }
+        #decline-modal-inner {
+            transform: scale(0.95) translateY(8px);
+            transition: transform 0.2s ease;
+        }
+        #decline-modal.open #decline-modal-inner {
+            transform: scale(1) translateY(0);
+        }
+        #decline-reason-input {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #e2e8f0;
+            border-radius: 0.75rem;
+            padding: 0.75rem 1rem;
+            font-size: 0.875rem;
+            resize: none;
+            width: 100%;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        #decline-reason-input:focus {
+            border-color: rgba(239,68,68,0.5);
+            box-shadow: 0 0 0 3px rgba(239,68,68,0.1);
+        }
+        #decline-reason-input::placeholder { color: #475569; }
+
+        /* ------------------------------------------------------------------ */
+        /* LOADING OVERLAY                                                      */
+        /* ------------------------------------------------------------------ */
         #pr-loading {
             display: none; position: fixed; inset: 0;
             background: rgba(2,6,23,0.55); backdrop-filter: blur(3px);
-            z-index: 9999; align-items: center; justify-content: center;
+            z-index: 9998; align-items: center; justify-content: center;
         }
         #pr-loading.active { display: flex; }
+
+        /* ------------------------------------------------------------------ */
+        /* GLASS                                                                */
+        /* ------------------------------------------------------------------ */
+        .glass-card {
+            background: rgba(255,255,255,0.03);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.08);
+            box-shadow: 0 8px 32px 0 rgba(0,0,0,0.2);
+        }
+        .glass-stat {
+            background: rgba(255,255,255,0.02);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255,255,255,0.05);
+            transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+        }
+        .hover-row { transition: background 0.15s; }
+        .hover-row:hover { background: rgba(255,255,255,0.025); }
+
+        /* badges */
+        .badge {
+            display: inline-flex; align-items: center; gap: 0.3rem;
+            padding: 0.25rem 0.65rem; border-radius: 9999px;
+            font-size: 0.7rem; font-weight: 600; border: 1px solid;
+        }
+        .badge-overdue  { background:rgba(239,68,68,0.15);  border-color:rgba(239,68,68,0.35);  color:#fca5a5; }
+        .badge-due-soon { background:rgba(234,179,8,0.15);  border-color:rgba(234,179,8,0.35);  color:#fde047; }
+        .badge-pending  { background:rgba(234,179,8,0.08);  border-color:rgba(234,179,8,0.2);   color:#fde047; }
     </style>
 
     {{-- Loading overlay --}}
@@ -185,23 +341,85 @@
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
             </svg>
-            <span class="text-sm text-gray-400">Searching…</span>
+            <span class="text-sm text-gray-400">Loading…</span>
         </div>
     </div>
 
+    {{-- ================================================================ --}}
+    {{-- DECLINE MODAL                                                     --}}
+    {{-- ================================================================ --}}
+    <div id="decline-modal" role="dialog" aria-modal="true" aria-labelledby="decline-modal-title">
+        <div id="decline-modal-inner"
+             class="glass-card rounded-2xl p-6 w-full max-w-md mx-4">
+            <div class="flex items-start justify-between mb-4">
+                <div>
+                    <h3 id="decline-modal-title" class="text-white font-semibold text-lg">Decline Invitation</h3>
+                    <p class="text-gray-400 text-sm mt-1">Legal will be notified of your decision.</p>
+                </div>
+                <button onclick="closeDeclineModal()"
+                        class="text-gray-500 hover:text-gray-300 transition-colors p-1 rounded-lg hover:bg-white/10">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+
+            {{-- Contract info display --}}
+            <div id="decline-contract-info"
+                 class="mb-4 px-4 py-3 rounded-xl border border-white/8"
+                 style="background:rgba(255,255,255,0.04)">
+                <p class="text-xs text-gray-500 mb-0.5">Contract</p>
+                <p id="decline-contract-title" class="text-sm text-gray-200 font-medium">—</p>
+            </div>
+
+            <textarea id="decline-reason-input"
+                      rows="3"
+                      placeholder="Reason for declining (optional)…"></textarea>
+
+            <div class="flex justify-end gap-3 mt-4">
+                <button onclick="closeDeclineModal()"
+                        class="px-4 py-2 text-sm text-gray-300 rounded-xl border border-white/10
+                               bg-white/5 hover:bg-white/10 transition-all">
+                    Cancel
+                </button>
+                <button onclick="submitDecline()"
+                        class="px-4 py-2 text-sm text-red-300 rounded-xl border border-red-500/30
+                               bg-red-500/15 hover:bg-red-500/25 transition-all font-medium">
+                    Confirm Decline
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {{-- Hidden decline forms — one per assignment --}}
+    @foreach($pendingAssignments as $assignment)
+    <form id="decline-form-{{ $assignment->id }}"
+          method="POST"
+          action="{{ route($routePrefix . '-admin.invitation.decline', $assignment) }}"
+          class="hidden">
+        @csrf
+        <input type="hidden" name="decline_reason" id="decline-reason-{{ $assignment->id }}">
+    </form>
+    @endforeach
+
     <div class="relative pb-8 px-4 sm:px-6 lg:px-8">
-        <!-- Background Orbs -->
+
+        {{-- Background Orbs --}}
         <div class="fixed inset-0 overflow-hidden pointer-events-none">
             <div class="absolute -top-40 -right-40 w-80 h-80 bg-{{ $color['orb1'] }}-600/20 rounded-full blur-3xl animate-pulse"></div>
             <div class="absolute -bottom-40 -left-40 w-80 h-80 bg-{{ $color['orb2'] }}-600/20 rounded-full blur-3xl animate-pulse" style="animation-delay:2s"></div>
             <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-{{ $color['orb3'] }}-600/10 rounded-full blur-3xl"></div>
         </div>
 
-        {{-- ===== HEADER ===== --}}
+        {{-- ================================================================ --}}
+        {{-- HEADER                                                            --}}
+        {{-- ================================================================ --}}
         <div class="relative mb-8">
             <a href="{{ route($routePrefix . '-admin.dashboard') }}"
-               class="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white mb-6 transition-all group glass-stat px-4 py-2 rounded-full">
-                <svg class="w-4 h-4 transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+               class="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white mb-6
+                      transition-all group glass-stat px-4 py-2 rounded-full">
+                <svg class="w-4 h-4 transition-transform group-hover:-translate-x-1"
+                     fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
                 </svg>
                 Back to Dashboard
@@ -209,68 +427,88 @@
             <div class="flex justify-between items-center">
                 <div>
                     <h1 class="text-3xl md:text-4xl font-bold">
-                        <span class="gradient-text-animated">{{ $pageTitle }}</span>
+                        <span style="background: linear-gradient(135deg, {{ $color['hex'] }}, {{ $color['hex2'] }});
+                                     -webkit-background-clip: text; background-clip: text; color: transparent;">
+                            {{ $pageTitle }}
+                        </span>
                     </h1>
                     <p class="text-gray-300 mt-2 backdrop-blur-sm inline-block px-3 py-1 rounded-full bg-white/5">
-                        Documents waiting for staff assignment
+                        Accept or decline contracts sent to your department
                     </p>
                 </div>
                 <div class="text-right glass-stat px-5 py-3 rounded-2xl">
                     <div class="flex items-center gap-2">
                         <span class="w-2 h-2 rounded-full bg-yellow-400 animate-pulse shadow-lg shadow-yellow-400/50"></span>
-                        <span class="text-sm text-gray-300">{{ $totalCount }} Pending Assignments</span>
+                        <span class="text-sm text-gray-300">{{ $totalCount }} Pending</span>
                     </div>
                 </div>
             </div>
         </div>
 
-        {{-- ===== STATS CARDS ===== --}}
+        {{-- ================================================================ --}}
+        {{-- STATS CARDS                                                       --}}
+        {{-- ================================================================ --}}
         <div class="relative grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+
+            {{-- Total --}}
             <div class="glass-stat rounded-2xl p-6">
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="text-gray-300 text-sm mb-1 font-medium">Total Pending</p>
+                        <p class="text-gray-300 text-sm mb-1 font-medium">Total Invitations</p>
                         <p class="text-4xl font-bold text-white">{{ $totalCount }}</p>
-                        <p class="text-gray-400 text-xs mt-2">Awaiting assignment</p>
+                        <p class="text-gray-400 text-xs mt-2">Awaiting response</p>
                     </div>
-                    <div class="w-12 h-12 bg-{{ $color['orb1'] }}-500/10 rounded-xl flex items-center justify-center backdrop-blur-sm border border-{{ $color['orb1'] }}-500/20">
+                    <div class="w-12 h-12 bg-{{ $color['orb1'] }}-500/10 rounded-xl flex items-center justify-center
+                                backdrop-blur-sm border border-{{ $color['orb1'] }}-500/20">
                         <svg class="w-6 h-6 {{ $color['text'] }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                         </svg>
                     </div>
                 </div>
             </div>
 
+            {{-- Due this week --}}
             <div class="glass-stat rounded-2xl p-6">
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-gray-300 text-sm mb-1 font-medium">Due This Week</p>
-                        <p class="text-4xl font-bold {{ $dueThisWeekCount > 0 ? 'text-yellow-400' : 'text-white' }}">{{ $dueThisWeekCount }}</p>
+                        <p class="text-4xl font-bold {{ $dueThisWeekCount > 0 ? 'text-yellow-400' : 'text-white' }}">
+                            {{ $dueThisWeekCount }}
+                        </p>
                         <p class="text-gray-400 text-xs mt-2">Upcoming deadlines</p>
                     </div>
-                    <div class="w-12 h-12 bg-yellow-500/10 rounded-xl flex items-center justify-center backdrop-blur-sm border border-yellow-500/20">
+                    <div class="w-12 h-12 bg-yellow-500/10 rounded-xl flex items-center justify-center
+                                backdrop-blur-sm border border-yellow-500/20">
                         <svg class="w-6 h-6 text-yellow-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                         </svg>
                     </div>
                 </div>
             </div>
 
+            {{-- Overdue --}}
             <div class="glass-stat rounded-2xl p-6">
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-gray-300 text-sm mb-1 font-medium">Overdue</p>
-                        <p class="text-4xl font-bold {{ $overdueCount > 0 ? 'text-red-400' : 'text-white' }}">{{ $overdueCount }}</p>
+                        <p class="text-4xl font-bold {{ $overdueCount > 0 ? 'text-red-400' : 'text-white' }}">
+                            {{ $overdueCount }}
+                        </p>
                         <p class="text-gray-400 text-xs mt-2">Past deadline</p>
                     </div>
-                    <div class="w-12 h-12 bg-red-500/10 rounded-xl flex items-center justify-center backdrop-blur-sm border border-red-500/20">
+                    <div class="w-12 h-12 bg-red-500/10 rounded-xl flex items-center justify-center
+                                backdrop-blur-sm border border-red-500/20">
                         <svg class="w-6 h-6 text-red-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.998-.833-2.732 0L4.732 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.998-.833-2.732 0L4.732 16.5c-.77.833.192 2.5 1.732 2.5z"/>
                         </svg>
                     </div>
                 </div>
             </div>
 
+            {{-- Available staff --}}
             <div class="glass-stat rounded-2xl p-6">
                 <div class="flex items-center justify-between">
                     <div>
@@ -278,20 +516,20 @@
                         <p class="text-4xl font-bold {{ $color['text'] }}">{{ $availableStaff ?? 0 }}</p>
                         <p class="text-gray-400 text-xs mt-2">Ready to assign</p>
                     </div>
-                    <div class="w-12 h-12 bg-{{ $color['orb2'] }}-500/10 rounded-xl flex items-center justify-center backdrop-blur-sm border border-{{ $color['orb2'] }}-500/20">
+                    <div class="w-12 h-12 bg-{{ $color['orb2'] }}-500/10 rounded-xl flex items-center justify-center
+                                backdrop-blur-sm border border-{{ $color['orb2'] }}-500/20">
                         <svg class="w-6 h-6 {{ $color['text'] }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
                         </svg>
                     </div>
                 </div>
             </div>
         </div>
 
-        {{-- ===== TOOLBAR =====
-             Toolbar adalah <form method="GET"> — semua filter dikirim ke server.
-             Search di-debounce 450ms agar tidak spam request saat mengetik.
-             Pagination links di-append dengan query params agar filter tetap aktif saat ganti halaman.
-        --}}
+        {{-- ================================================================ --}}
+        {{-- TOOLBAR                                                           --}}
+        {{-- ================================================================ --}}
         <form id="pr-filterForm"
               method="GET"
               action="{{ request()->url() }}"
@@ -304,7 +542,8 @@
                 {{-- Search --}}
                 <div class="pr-search-wrap">
                     <svg class="pr-search-icon w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                     </svg>
                     <input id="pr-search"
                            name="search"
@@ -345,10 +584,11 @@
                 {{-- Result count --}}
                 <span class="text-xs px-3 py-1.5 rounded-full font-medium"
                       style="background:rgba(255,255,255,0.07); color:#94a3b8; border:1px solid rgba(255,255,255,0.1);">
-                    {{ $pendingAssignments->total() }} result{{ $pendingAssignments->total() !== 1 ? 's' : '' }}
+                    {{ method_exists($pendingAssignments,'total') ? $pendingAssignments->total() : $pendingAssignments->count() }}
+                    result{{ (method_exists($pendingAssignments,'total') ? $pendingAssignments->total() : $pendingAssignments->count()) !== 1 ? 's' : '' }}
                 </span>
 
-                {{-- Clear filters badge --}}
+                {{-- Clear filters --}}
                 @if($activeSearch || $activeStatus !== 'all')
                     <a href="{{ request()->url() }}"
                        class="text-xs px-2.5 py-1.5 rounded-full font-medium transition-all"
@@ -367,59 +607,71 @@
             </div>
         </form>
 
-        {{-- ===== MAIN TABLE ===== --}}
+        {{-- ================================================================ --}}
+        {{-- MAIN TABLE                                                        --}}
+        {{-- ================================================================ --}}
         <div class="relative glass-card rounded-2xl overflow-hidden">
+
+            {{-- Table header --}}
             <div class="px-6 py-4 border-b border-white/10 bg-white/5">
                 <div class="grid grid-cols-12 gap-3 text-[0.7rem] font-semibold text-gray-400 uppercase tracking-wider">
-                    <div class="col-span-5">
-                        <span>Document Information</span>
-                    </div>
+                    <div class="col-span-4">Document</div>
                     <div class="col-span-2">Status</div>
                     <div class="col-span-2">Due Date</div>
-                    <div class="col-span-2">Assigned By</div>
-                    <div class="col-span-1 text-right">Action</div>
+                    <div class="col-span-2">Requested By</div>
+                    <div class="col-span-2 text-right">Actions</div>
                 </div>
             </div>
 
+            {{-- Table rows --}}
             <div id="assignmentsList" class="divide-y divide-white/5">
                 @forelse($pendingAssignments as $assignment)
                 @php
-                    $rawDue = $assignment->contract?->drafting_deadline ?? ($assignment->due_date ?? null);
+                    $rawDue  = $assignment->contract?->drafting_deadline ?? ($assignment->due_date ?? null);
                     $dueDate = $rawDue ? \Carbon\Carbon::parse($rawDue) : null;
-                    $isOverdue = $dueDate && $dueDate->isPast();
-                    $isDueSoon = $dueDate && !$isOverdue && $dueDate->diffInDays(now()) <= 7;
+                    $isOverdue  = $dueDate && $dueDate->isPast();
+                    $isDueSoon  = $dueDate && !$isOverdue && $dueDate->diffInDays(now()) <= 7;
+                    $statusTag  = $isOverdue ? 'overdue' : ($isDueSoon ? 'due_soon' : 'pending');
 
-                    $legalStage = $assignment->contract?->reviewStages
+                    // Who triggered this assignment (legal reviewer from review stages)
+                    $legalStage    = $assignment->contract?->reviewStages
                         ?->where('stage_type', 'legal')
                         ->whereNotNull('assigned_user_id')
                         ->sortBy('sequence')
                         ->first();
-                    $assignedByUser = $legalStage?->assignedUser;
-                    $statusTag = $isOverdue ? 'overdue' : ($isDueSoon ? 'due_soon' : 'pending');
+                    $requestedBy = $legalStage?->assignedUser;
+
+                    $contractTitle = $assignment->contract?->title ?? 'Unknown';
                 @endphp
 
-                <div class="hover-row transition-all duration-200"
-                    data-status="{{ $statusTag }}"
-                    data-duedate="{{ $rawDue ?? '' }}"
-                    data-contract-number="{{ $assignment->contract?->contract_number ?? '' }}"
-                    data-title="{{ $assignment->contract?->title ?? '' }}">
+                <div class="hover-row"
+                     data-status="{{ $statusTag }}"
+                     data-contract-number="{{ $assignment->contract?->contract_number ?? '' }}"
+                     data-title="{{ $contractTitle }}">
 
-                    <div class="grid grid-cols-12 gap-3 px-6 py-4 items-center text-sm">
-                        <div class="col-span-5 flex items-start gap-3">
+                    <div class="grid grid-cols-12 gap-3 px-6 py-4 items-center">
+
+                        {{-- Document info --}}
+                        <div class="col-span-4">
                             @if($assignment->contract)
                                 <div class="flex items-center gap-3 min-w-0">
-                                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br {{ $color['bg'] }} flex items-center justify-center border {{ $color['border'] }} flex-shrink-0">
+                                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br {{ $color['bg'] }} flex items-center justify-center
+                                                border {{ $color['border'] }} flex-shrink-0">
                                         <svg class="w-5 h-5 {{ $color['text'] }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                                         </svg>
                                     </div>
                                     <div class="min-w-0">
-                                        <p class="font-medium text-white truncate text-sm" title="{{ $assignment->contract->title }}">
-                                            {{ Str::limit($assignment->contract->title, 45) }}
+                                        <p class="font-medium text-white text-sm truncate"
+                                           title="{{ $contractTitle }}">
+                                            {{ Str::limit($contractTitle, 40) }}
                                         </p>
                                         <div class="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
                                             @if($assignment->contract->contract_number)
                                                 <span class="font-mono">#{{ $assignment->contract->contract_number }}</span>
+                                            @else
+                                                <span class="font-mono text-gray-600">No number yet</span>
                                             @endif
                                             @if($assignment->contract->contract_type)
                                                 <span>• {{ $assignment->contract->contract_type }}</span>
@@ -432,37 +684,41 @@
                             @endif
                         </div>
 
+                        {{-- Status badge --}}
                         <div class="col-span-2">
                             @if($isOverdue)
                                 <span class="badge badge-overdue">
                                     <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"/>
+                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/>
                                     </svg>
                                     Overdue
                                 </span>
                             @elseif($isDueSoon)
                                 <span class="badge badge-due-soon">
                                     <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"/>
+                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/>
                                     </svg>
                                     Due Soon
                                 </span>
                             @else
                                 <span class="badge badge-pending">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-yellow-400"></span>
+                                    <span class="w-1.5 h-1.5 rounded-full bg-yellow-400 inline-block"></span>
                                     Pending
                                 </span>
                             @endif
                         </div>
 
+                        {{-- Due date --}}
                         <div class="col-span-2">
                             @if($dueDate)
                                 <div class="flex flex-col">
-                                    <div class="flex items-center gap-1.5 {{ $isOverdue ? 'text-red-400' : ($isDueSoon ? 'text-yellow-400' : 'text-gray-400') }}">
+                                    <div class="flex items-center gap-1.5 text-sm
+                                        {{ $isOverdue ? 'text-red-400' : ($isDueSoon ? 'text-yellow-400' : 'text-gray-400') }}">
                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                                         </svg>
-                                        <span class="text-sm">{{ $dueDate->format('d M Y') }}</span>
+                                        {{ $dueDate->format('d M Y') }}
                                     </div>
                                     @if($isOverdue)
                                         <span class="text-xs text-red-500/80 mt-0.5 ml-5">{{ $dueDate->diffForHumans() }}</span>
@@ -475,16 +731,18 @@
                             @endif
                         </div>
 
+                        {{-- Requested by --}}
                         <div class="col-span-2">
-                            @if($assignedByUser)
+                            @if($requestedBy)
                                 <div class="flex items-center gap-2">
-                                    <div class="w-7 h-7 rounded-full bg-gradient-to-br {{ $color['bg'] }} border {{ $color['border'] }}
-                                                flex items-center justify-center text-xs font-bold {{ $color['text'] }}">
-                                        {{ strtoupper(substr($assignedByUser->nama_user ?? 'L', 0, 1)) }}
+                                    <div class="w-7 h-7 rounded-full bg-gradient-to-br {{ $color['bg'] }}
+                                                border {{ $color['border'] }} flex items-center justify-center
+                                                text-xs font-bold {{ $color['text'] }} flex-shrink-0">
+                                        {{ strtoupper(substr($requestedBy->nama_user ?? 'L', 0, 1)) }}
                                     </div>
-                                    <div>
+                                    <div class="min-w-0">
                                         <p class="text-sm text-gray-300 truncate">
-                                            {{ Str::limit($assignedByUser->nama_user ?? '—', 20) }}
+                                            {{ Str::limit($requestedBy->nama_user ?? '—', 18) }}
                                         </p>
                                         <span class="text-xs text-gray-500">Legal</span>
                                     </div>
@@ -494,112 +752,154 @@
                             @endif
                         </div>
 
-                        <div class="col-span-1 flex items-center justify-end gap-1">
-                            @if($assignment->contract)
-                                <a href="{{ route('contracts.show', $assignment->contract) }}"
-                                class="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200"
-                                title="View Details">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                                    </svg>
-                                </a>
-                            @endif
+                        {{-- Actions: View / Accept / Decline (ICON ONLY) --}}
+                        <div class="col-span-2 flex items-center justify-end gap-1.5">
 
-                            <a href="{{ route($routePrefix . '-admin.assign', $assignment) }}"
-                            class="p-2 {{ $color['text'] }} hover:bg-white/10 rounded-lg transition-all duration-200"
-                            title="Assign Staff">
+                            {{-- View --}}
+                            @if($assignment->contract)
+                            <a href="{{ route('contracts.show', $assignment->contract) }}"
+                               class="btn-action btn-view"
+                               title="View contract details">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                                 </svg>
                             </a>
+                            @endif
+
+                            {{-- Accept --}}
+                            <form method="POST"
+                                  action="{{ route($routePrefix . '-admin.invitation.accept', $assignment) }}"
+                                  onsubmit="return confirm('Accept this review invitation for \'{{ addslashes(Str::limit($contractTitle,40)) }}\'?')">
+                                @csrf
+                                <button type="submit" class="btn-action btn-accept" title="Accept invitation">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                    </svg>
+                                </button>
+                            </form>
+
+                            {{-- Decline --}}
+                            <button type="button"
+                                    class="btn-action btn-decline"
+                                    onclick="openDeclineModal('{{ $assignment->id }}', '{{ addslashes(Str::limit($contractTitle, 60)) }}')"
+                                    title="Decline invitation">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                            </button>
                         </div>
+
                     </div>
                 </div>
                 @empty
                 <div class="text-center py-16">
-                    <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br {{ $color['bg'] }} border {{ $color['border'] }} mb-4">
+                    <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl
+                                bg-gradient-to-br {{ $color['bg'] }} border {{ $color['border'] }} mb-4">
                         <svg class="w-8 h-8 {{ $color['text'] }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 13l4 4L19 7"/>
                         </svg>
                     </div>
                     <h3 class="text-lg font-semibold text-gray-300 mb-1">All caught up!</h3>
-                    <p class="text-gray-500 text-sm">No pending assignments for {{ strtolower($color['name']) }} department.</p>
+                    <p class="text-gray-500 text-sm">
+                        No pending invitations for {{ strtolower($color['name']) }} department.
+                    </p>
                 </div>
                 @endforelse
             </div>
 
-            @if($pendingAssignments->count() > 0)
-            <div class="px-6 py-4 border-t border-white/10 bg-white/5 flex items-center justify-end text-sm">
-                @if(method_exists($pendingAssignments, 'hasPages') && $pendingAssignments->hasPages())
-                    <div class="flex items-center gap-2">
-                        {{ $pendingAssignments->links() }}
-                    </div>
-                @endif
+            {{-- Pagination --}}
+            @if(method_exists($pendingAssignments, 'hasPages') && $pendingAssignments->hasPages())
+            <div class="px-6 py-4 border-t border-white/10 bg-white/5 flex justify-end">
+                {{ $pendingAssignments->links() }}
             </div>
             @endif
-        </div>
-    </div>
+
+        </div>{{-- end glass-card --}}
+
+    </div>{{-- end container --}}
 
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const form        = document.getElementById('pr-filterForm');
-            const searchInput = document.getElementById('pr-search');
-            const clearBtn    = document.getElementById('pr-clearSearch');
-            const statusSel   = document.getElementById('pr-statusFilter');
-            const sortSel     = document.getElementById('pr-sortBy');
-            const loading     = document.getElementById('pr-loading');
+    document.addEventListener('DOMContentLoaded', function () {
 
-            /* ── Debounce helper ── */
-            let debounceTimer;
-            function debounce(fn, ms = 450) {
-                clearTimeout(debounceTimer);
-                debounceTimer = setTimeout(fn, ms);
-            }
+        /* ── Toolbar ─────────────────────────────────────────── */
+        const form        = document.getElementById('pr-filterForm');
+        const searchInput = document.getElementById('pr-search');
+        const clearBtn    = document.getElementById('pr-clearSearch');
+        const statusSel   = document.getElementById('pr-statusFilter');
+        const sortSel     = document.getElementById('pr-sortBy');
+        const loading     = document.getElementById('pr-loading');
 
-            /* ── Submit (dengan loading overlay) ── */
-            function submitForm() {
-                if (loading) loading.classList.add('active');
-                form.submit();
-            }
+        let debounceTimer;
+        function debounce(fn, ms = 450) { clearTimeout(debounceTimer); debounceTimer = setTimeout(fn, ms); }
 
-            /* ── Search: debounce 450ms ── */
-            searchInput?.addEventListener('input', function () {
-                clearBtn?.classList.toggle('visible', this.value.length > 0);
-                debounce(submitForm);
-            });
+        function submitForm() {
+            if (loading) loading.classList.add('active');
+            form.submit();
+        }
 
-            /* ── Clear search ── */
-            clearBtn?.addEventListener('click', function () {
-                searchInput.value = '';
-                this.classList.remove('visible');
-                submitForm();
-            });
-
-            /* ── Selects: submit langsung ── */
-            statusSel?.addEventListener('change', submitForm);
-            sortSel?.addEventListener('change',   submitForm);
-
-            /* ── Refresh ── */
-            document.getElementById('pr-refreshBtn')?.addEventListener('click', function () {
-                this.querySelector('svg').classList.add('animate-spin');
-                setTimeout(() => location.reload(), 400);
-            });
-
-            /* ── Checkbox select-all ── */
-            const selectAll     = document.getElementById('selectAll');
-            const rowCheckboxes = document.querySelectorAll('.row-checkbox');
-            const selectedCount = document.getElementById('selectedCount');
-
-            function updateCount() {
-                if (selectedCount)
-                    selectedCount.textContent = document.querySelectorAll('.row-checkbox:checked').length;
-            }
-            selectAll?.addEventListener('change', function () {
-                rowCheckboxes.forEach(cb => cb.checked = this.checked);
-                updateCount();
-            });
-            rowCheckboxes.forEach(cb => cb.addEventListener('change', updateCount));
+        searchInput?.addEventListener('input', function () {
+            clearBtn?.classList.toggle('visible', this.value.length > 0);
+            debounce(submitForm);
         });
+
+        clearBtn?.addEventListener('click', function () {
+            searchInput.value = '';
+            this.classList.remove('visible');
+            submitForm();
+        });
+
+        statusSel?.addEventListener('change', submitForm);
+        sortSel?.addEventListener('change',   submitForm);
+
+        document.getElementById('pr-refreshBtn')?.addEventListener('click', function () {
+            this.querySelector('svg').classList.add('animate-spin');
+            setTimeout(() => location.reload(), 400);
+        });
+
+    });
+
+    /* ── Decline modal ───────────────────────────────────────── */
+    let activeDeclineId = null;
+
+    function openDeclineModal(assignmentId, contractTitle) {
+        activeDeclineId = assignmentId;
+        document.getElementById('decline-reason-input').value = '';
+        const titleEl = document.getElementById('decline-contract-title');
+        if (titleEl) titleEl.textContent = contractTitle || '—';
+        document.getElementById('decline-modal').classList.add('open');
+        // Focus textarea for accessibility
+        setTimeout(() => document.getElementById('decline-reason-input')?.focus(), 150);
+    }
+
+    function closeDeclineModal() {
+        activeDeclineId = null;
+        document.getElementById('decline-modal').classList.remove('open');
+    }
+
+    function submitDecline() {
+        if (!activeDeclineId) return;
+        const reason = document.getElementById('decline-reason-input').value.trim();
+        const reasonInput = document.getElementById('decline-reason-' + activeDeclineId);
+        if (reasonInput) reasonInput.value = reason;
+        const form = document.getElementById('decline-form-' + activeDeclineId);
+        if (form) {
+            const loading = document.getElementById('pr-loading');
+            if (loading) loading.classList.add('active');
+            form.submit();
+        }
+    }
+
+    // Close on backdrop click
+    document.getElementById('decline-modal')?.addEventListener('click', function (e) {
+        if (e.target === this) closeDeclineModal();
+    });
+
+    // Close on Escape key
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeDeclineModal();
+    });
     </script>
 </x-app-layout-dark>

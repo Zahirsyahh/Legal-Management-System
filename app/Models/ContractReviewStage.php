@@ -148,7 +148,7 @@ class ContractReviewStage extends Model
         $hasNextSequential = ContractReviewStage::where('contract_id', $this->contract_id)
             ->whereNull('parallel_group')
             ->where('sequence', '>', $this->sequence)
-            ->whereNotIn('status', ['completed', 'rejected', 'skipped'])
+            ->whereNotIn('status', ['completed', 'rejected'])
             ->exists();
 
         if ($hasNextSequential) {
@@ -165,6 +165,21 @@ class ContractReviewStage extends Model
         }
 
         return true;
+    }
+
+
+    public function markAsRejected(string $notes = null)
+    {
+        $this->update([
+            'status' => 'rejected',
+            'notes' => $notes,
+            'completed_at' => now(),
+        ]);
+
+        // Optional: trigger contract sync
+        $this->contract?->update([
+            'status' => 'rejected'
+        ]);
     }
 
     public function isManualAdded(): bool
@@ -218,6 +233,22 @@ class ContractReviewStage extends Model
         return ContractRevisionTask::where('from_stage_id', $this->id)
             ->whereIn('status', ['pending', 'in_progress', 're_requested'])
             ->count();
+    }
+
+    public function getDisplayStatusAttribute(): string
+    {
+        if ($this->relationLoaded('contractDepartment')) {
+            $contractDept = $this->contractDepartment;
+        } else {
+            $contractDept = \App\Models\ContractDepartment::where(...)
+                ->first();
+        }
+
+        if ($contractDept && $contractDept->status === 'declined') {
+            return 'declined';
+        }
+
+        return $this->status;
     }
 
     /* =====================================================

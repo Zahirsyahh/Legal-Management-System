@@ -133,6 +133,8 @@ class Contract extends Model
         // ── FIX: Tambahkan field executing & archiving stage ID ──────────
         'executing_stage_id',
         'archiving_stage_id',
+        'deadline_reminder_3d_sent_at',
+        'deadline_reminder_1d_sent_at',
     ];
 
     protected $casts = [
@@ -163,6 +165,8 @@ class Contract extends Model
         'current_stage'                 => 'integer',
         'selected_departments'          => 'array',
         'allow_stage_addition'          => 'boolean',
+        'deadline_reminder_3d_sent_at' => 'datetime',
+        'deadline_reminder_1d_sent_at' => 'datetime',
     ];
 
     protected $attributes = [

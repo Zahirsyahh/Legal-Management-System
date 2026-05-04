@@ -61,17 +61,58 @@
         }
         
         .form-input {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: white;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #e2e8f0;
             transition: all 0.3s ease;
         }
         
         .form-input:focus {
-            background: rgba(255, 255, 255, 0.05);
+            background: rgba(255, 255, 255, 0.08);
             border-color: rgba(14, 165, 233, 0.5);
             box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
             outline: none;
+        }
+        
+        /* Perbaikan untuk Select Dropdown */
+        select.form-input {
+            background-color: rgba(30, 41, 59, 0.9);
+            color: #e2e8f0;
+            cursor: pointer;
+        }
+        
+        select.form-input option {
+            background-color: #1e293b;
+            color: #e2e8f0;
+            padding: 10px;
+        }
+        
+        select.form-input option:hover {
+            background-color: #334155;
+        }
+        
+        /* Untuk select yang menggunakan class khusus */
+        .custom-select {
+            background-color: rgba(30, 41, 59, 0.9);
+            color: #e2e8f0;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+            width: 100%;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .custom-select:focus {
+            border-color: rgba(14, 165, 233, 0.5);
+            box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+            outline: none;
+        }
+        
+        .custom-select option {
+            background-color: #1e293b;
+            color: #e2e8f0;
+            padding: 10px;
         }
         
         /* Role Checkbox Grid */
@@ -147,6 +188,22 @@
         
         .role-name {
             font-weight: 500;
+        }
+
+        /* Animations */
+        @keyframes fade-in {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .animate-fade-in {
+            animation: fade-in 0.3s ease-out;
         }
     </style>
     
@@ -384,8 +441,8 @@
                                 </label>
                                 <select name="kode_department" 
                                         id="kode_department"
-                                        class="w-full px-4 py-3 form-input rounded-lg">
-                                    <option value="">Select Department</option>
+                                        class="custom-select">
+                                    <option value="">-- Select Department --</option>
                                     @foreach($departments as $department)
                                         <option value="{{ $department->kode_pendek }}" 
                                                 {{ (old('kode_department', $user->kode_department) == $department->kode_pendek) ? 'selected' : '' }}>
@@ -403,9 +460,9 @@
                                 <select name="status_karyawan" 
                                         id="status_karyawan"
                                         required
-                                        class="w-full px-4 py-3 form-input rounded-lg">
-                                    <option value="AKTIF" {{ old('status_karyawan', $user->status_karyawan) == 'AKTIF' ? 'selected' : '' }}>Active</option>
-                                    <option value="TIDAK AKTIF" {{ old('status_karyawan', $user->status_karyawan) == 'TIDAK AKTIF' ? 'selected' : '' }}>Inactive</option>
+                                        class="custom-select">
+                                    <option value="AKTIF" {{ old('status_karyawan', $user->status_karyawan) == 'AKTIF' ? 'selected' : '' }}>✅ Active</option>
+                                    <option value="TIDAK AKTIF" {{ old('status_karyawan', $user->status_karyawan) == 'TIDAK AKTIF' ? 'selected' : '' }}>❌ Inactive</option>
                                 </select>
                             </div>
 
@@ -417,7 +474,7 @@
                                 <select name="kode_status_kepegawaian" 
                                         id="kode_status_kepegawaian"
                                         required
-                                        class="w-full px-4 py-3 form-input rounded-lg">
+                                        class="custom-select">
                                     <option value="1" {{ old('kode_status_kepegawaian', $user->kode_status_kepegawaian) == '1' ? 'selected' : '' }}>1 - Permanent</option>
                                     <option value="2" {{ old('kode_status_kepegawaian', $user->kode_status_kepegawaian) == '2' ? 'selected' : '' }}>2 - Contract</option>
                                     <option value="3" {{ old('kode_status_kepegawaian', $user->kode_status_kepegawaian) == '3' ? 'selected' : '' }}>3 - Intern</option>
@@ -432,7 +489,7 @@
                                 </label>
                                 <select name="hak_akses" 
                                         id="hak_akses"
-                                        class="w-full px-4 py-3 form-input rounded-lg">
+                                        class="custom-select">
                                     <option value="2" {{ old('hak_akses', $user->hak_akses) == '2' ? 'selected' : '' }}>2 - General User</option>
                                     <option value="1" {{ old('hak_akses', $user->hak_akses) == '1' ? 'selected' : '' }}>1 - Super Admin</option>
                                     <option value="3" {{ old('hak_akses', $user->hak_akses) == '3' ? 'selected' : '' }}>3 - Basic User</option>

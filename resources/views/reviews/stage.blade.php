@@ -162,14 +162,14 @@
                     </div>
                     @if($stage->status === 'completed')
                         <div class="p-5 rounded-xl border border-green-500/30 bg-green-500/5 text-center">
-                            <div class="text-4xl mb-3">&#9989;</div>
+                            <div class="text-4xl mb-3">✅</div>
                             <p class="text-green-400 font-semibold text-lg">Document Successfully Executed</p>
                             <p class="text-gray-400 text-sm mt-2">{{ $contract->executed_at?->format('d M Y, H:i') ?? $stage->completed_at?->format('d M Y, H:i') }}</p>
                             @if($stage->notes)<div class="mt-4 p-3 bg-gray-800/30 rounded-lg text-left"><p class="text-xs text-gray-500 mb-1">Notes:</p><p class="text-sm text-gray-300">{{ $stage->notes }}</p></div>@endif
                         </div>
                     @elseif($stage->status === 'pending')
                         <div class="p-5 rounded-xl border border-gray-700/30 bg-gray-800/20 text-center">
-                            <div class="text-4xl mb-3">&#9203;</div>
+                            <div class="text-4xl mb-3">⏳</div>
                             <p class="text-gray-400 font-medium">Waiting for Legal to Complete Review</p>
                             <p class="text-gray-500 text-sm mt-2">This stage will be active after the legal reviewer approves their last stage.</p>
                         </div>
@@ -178,7 +178,7 @@
                             @if($stage->status === 'assigned')
                                 <form action="{{ route('review-stages.start', [$contract, $stage]) }}" method="POST">
                                     @csrf
-                                    <button type="submit" class="w-full py-3.5 bg-gradient-to-r from-indigo-500/80 to-blue-500/80 hover:from-indigo-500 hover:to-blue-500 rounded-xl font-semibold text-white transition-all mb-4">&#9654; Start the Executing Process</button>
+                                    <button type="submit" class="w-full py-3.5 bg-gradient-to-r from-indigo-500/80 to-blue-500/80 hover:from-indigo-500 hover:to-blue-500 rounded-xl font-semibold text-white transition-all mb-4">▶ Start the Executing Process</button>
                                 </form>
                             @else
                                 <form action="{{ route('review-stages.execute', [$contract, $stage]) }}" method="POST" onsubmit="return confirm('Mark document as executed?')">
@@ -189,19 +189,35 @@
                                             <input type="date" name="execution_date" value="{{ now()->toDateString() }}" max="{{ now()->toDateString() }}" class="w-full bg-gray-800/50 border border-gray-700/50 rounded-lg px-4 py-2.5 text-gray-300 focus:ring-1 focus:ring-indigo-500/30 focus:outline-none">
                                         </div>
                                         <div>
-                                            <label class="block text-sm font-medium text-gray-300 mb-2">Execution Notes <span class="text-red-400">*</span> <span class="text-gray-500 text-xs">(min 5 characters)</span></label>
-                                            <textarea name="execution_notes" rows="4" required minlength="5" maxlength="2000" placeholder="Example: Document signed by both parties on ... Soft copy in Synology/..." class="w-full bg-gray-800/50 border border-gray-700/50 rounded-lg px-4 py-3 text-gray-300 focus:ring-1 focus:ring-indigo-500/30 focus:outline-none resize-none"></textarea>
+                                            <div class="flex items-center justify-between mb-2">
+                                                <label class="block text-sm font-medium text-gray-300">Execution Notes <span class="text-red-400">*</span> <span class="text-gray-500 text-xs">(min 5 characters)</span></label>
+                                                
+                                                {{-- INFO BUTTON - Sejajar dengan label Execution Notes --}}
+                                                <div class="info-hover">
+                                                    <span class="info-icon">i</span>
+                                                    <div class="info-tooltip">
+                                                        <strong class="text-blue-300 block mb-1">📝 Notes Guidelines</strong>
+                                                        <p class="text-gray-300 text-xs leading-relaxed mb-2">Please include the following information:</p>
+                                                        <ul class="text-gray-400 text-xs space-y-1 list-disc pl-4">
+                                                            <li>Date and method of signing (wet signature / digital)</li>
+                                                            <li>Any additional remarks relevant to the execution</li>
+                                                            <li>Can a executed document be handed over to Legal? Specify in notes.</li>
+                                                        </ul>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <textarea name="execution_notes" rows="4" required minlength="5" maxlength="2000" placeholder="Example: Document signed by both parties on 2024-01-15. Soft copy in Synology/Legal/2024/Contract_ABC.pdf. Hard copy in Shelf A-3. Legal can receive a copy." class="w-full bg-gray-800/50 border border-gray-700/50 rounded-lg px-4 py-3 text-gray-300 focus:ring-1 focus:ring-indigo-500/30 focus:outline-none resize-none"></textarea>
                                         </div>
                                     </div>
                                     @error('execution_notes')<p class="text-sm text-red-400 mb-3">{{ $message }}</p>@enderror
-                                    <button type="submit" class="w-full py-3.5 bg-gradient-to-r from-indigo-500/90 to-blue-500/90 hover:from-indigo-500 hover:to-blue-500 rounded-xl font-semibold text-white transition-all">&#9989; Execute Document</button>
+                                    <button type="submit" class="w-full py-3.5 bg-gradient-to-r from-indigo-500/90 to-blue-500/90 hover:from-indigo-500 hover:to-blue-500 rounded-xl font-semibold text-white transition-all">✅ Execute Document</button>
                                 </form>
                             @endif
                         @else
                             <div class="p-4 rounded-xl border border-gray-700/30 bg-gray-800/20">
                                 <div class="flex items-center gap-3">
                                     <div class="w-10 h-10 rounded-full bg-indigo-500/10 flex items-center justify-center text-lg font-bold text-indigo-400">{{ substr($stage->assignedUser?->nama_user ?? 'U', 0, 1) }}</div>
-                                    <div><p class="text-sm font-medium text-gray-300">{{ $stage->assignedUser?->nama_user ?? 'Document Owner' }}</p><p class="text-xs text-gray-500">&#9203; Waiting for the document owner to complete the signature</p></div>
+                                    <div><p class="text-sm font-medium text-gray-300">{{ $stage->assignedUser?->nama_user ?? 'Document Owner' }}</p><p class="text-xs text-gray-500">⏳ Waiting for the document owner to complete the signature</p></div>
                                 </div>
                             </div>
                         @endif
@@ -662,6 +678,80 @@
 textarea:focus,select:focus,input[type="date"]:focus{outline:none}
 input[type="date"]{color-scheme:dark}
 ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:rgba(255,255,255,.05);border-radius:3px}::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:3px}
+
+.info-hover {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: help;
+}
+
+.info-hover .info-icon {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: rgba(59, 130, 246, 0.15);
+    border: 1px solid rgba(59, 130, 246, 0.4);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: #60a5fa;
+    transition: all 0.2s ease;
+}
+
+.info-hover:hover .info-icon {
+    background: rgba(59, 130, 246, 0.25);
+    border-color: rgba(59, 130, 246, 0.6);
+    color: #93c5fd;
+    transform: scale(1.05);
+}
+
+.info-hover .info-tooltip {
+    visibility: hidden;
+    opacity: 0;
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    min-width: 260px;
+    max-width: 320px;
+    width: max-content;
+    background: #1e293b;
+    color: #e2e8f0;
+    font-size: 0.75rem;
+    font-weight: normal;
+    padding: 0.75rem 1rem;
+    border-radius: 0.75rem;
+    white-space: normal;
+    word-wrap: break-word;
+    pointer-events: none;
+    z-index: 50;
+    border: 1px solid #334155;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+    line-height: 1.4;
+    text-align: left;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.info-hover .info-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 6px;
+    border-style: solid;
+    border-color: #334155 transparent transparent transparent;
+}
+
+.info-hover:hover .info-tooltip {
+    visibility: visible;
+    opacity: 1;
+}
+
 </style>
 
 <script>

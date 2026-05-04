@@ -13,6 +13,7 @@
     background: rgba(15, 23, 42, 0.6); 
     border: 1px solid rgba(255, 255, 255, .1); 
     transition: all .2s cubic-bezier(0.4, 0, 0.2, 1); 
+    color: #e2e8f0;
 }
 .input-field:focus { 
     border-color: #3b82f6; 
@@ -88,52 +89,66 @@
 }
 .btn-submit:hover { background: #059669; transform: translateY(-1px); box-shadow: 0 6px 16px rgba(16, 185, 129, 0.3); }
 
-/* Checkbox styling */
 .checkbox-wrapper {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    cursor: pointer;
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: #c084fc;
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.5rem;
-    background: rgba(168, 85, 247, 0.05);
-    transition: all 0.2s;
+    display: flex; align-items: center; gap: 0.5rem; cursor: pointer;
+    font-size: 0.75rem; font-weight: 500; color: #c084fc;
+    padding: 0.25rem 0.5rem; border-radius: 0.5rem;
+    background: rgba(168, 85, 247, 0.05); transition: all 0.2s;
 }
-
-.checkbox-wrapper:hover {
-    background: rgba(168, 85, 247, 0.12);
-}
-
+.checkbox-wrapper:hover { background: rgba(168, 85, 247, 0.12); }
 .checkbox-wrapper input[type="checkbox"] {
-    width: 1rem;
-    height: 1rem;
-    border-radius: 0.25rem;
+    width: 1rem; height: 1rem; border-radius: 0.25rem;
     border: 1.5px solid rgba(168, 85, 247, 0.5);
-    background: rgba(15, 23, 42, 0.6);
-    cursor: pointer;
-    appearance: none;
-    -webkit-appearance: none;
-    position: relative;
-    transition: all 0.2s;
+    background: rgba(15, 23, 42, 0.6); cursor: pointer;
+    appearance: none; -webkit-appearance: none; position: relative; transition: all 0.2s;
 }
-
-.checkbox-wrapper input[type="checkbox"]:checked {
-    background: #a855f7;
-    border-color: #a855f7;
-}
-
+.checkbox-wrapper input[type="checkbox"]:checked { background: #a855f7; border-color: #a855f7; }
 .checkbox-wrapper input[type="checkbox"]:checked::after {
-    content: '✓';
-    position: absolute;
-    color: white;
-    font-size: 0.7rem;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
+    content: '✓'; position: absolute; color: white; font-size: 0.7rem;
+    left: 50%; top: 50%; transform: translate(-50%, -50%);
 }
+
+/* ─── Synology Folder Selector ───────────────────── */
+.synology-box {
+    background: rgba(15, 23, 42, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.75rem;
+    padding: 1rem;
+    transition: border-color 0.2s;
+}
+.synology-box.has-value {
+    border-color: rgba(16, 185, 129, 0.35);
+    background: rgba(16, 185, 129, 0.04);
+}
+.synology-box.auto-detected {
+    border-color: rgba(59, 130, 246, 0.35);
+    background: rgba(59, 130, 246, 0.04);
+}
+
+.synology-dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0; right: 0;
+    z-index: 50;
+    background: rgba(15, 23, 42, 0.98);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 0.75rem;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+    backdrop-filter: blur(12px);
+    overflow: hidden;
+}
+.synology-dropdown.open { display: block; }
+
+.synology-option {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.65rem 1rem; cursor: pointer;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    transition: background 0.15s;
+}
+.synology-option:last-child { border-bottom: none; }
+.synology-option:hover { background: rgba(59, 130, 246, 0.12); }
+.synology-option.active { background: rgba(16, 185, 129, 0.12); }
 
 @keyframes slideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 .animate-slide-up { animation: slideUp 0.3s ease-out forwards; }
@@ -177,7 +192,9 @@
     <form id="wfSetupForm" method="POST" action="{{ route('contracts.process-start-review-dynamic', $contract) }}">
         @csrf
         <input type="hidden" name="workflow_items" id="workflowItemsInput">
-        <input type="hidden" name="synology_folder_path" id="synologyHidden">
+        {{-- ✅ Simpan format: path||link --}}
+        <input type="hidden" name="synology_folder_path" id="synologyHidden"
+               value="{{ $synologyAutoFill['db_value'] ?? '' }}">
 
         {{-- Canvas --}}
         <div class="glass-card rounded-2xl p-6 mb-6">
@@ -212,26 +229,129 @@
             <div id="wbCanvas" class="space-y-3"></div>
         </div>
 
-        {{-- File Directory & Review Summary (Side by Side) --}}
+        {{-- File Directory & Review Summary --}}
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-            {{-- File Directory Link --}}
+
+            {{-- ✅ File Directory — Auto-fill + Dropdown --}}
             <div class="glass-card rounded-2xl p-6">
-                <h3 class="text-sm font-bold text-gray-300 mb-4 flex items-center gap-2">
+                <h3 class="text-sm font-bold text-gray-300 mb-1 flex items-center gap-2">
                     <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
                     </svg>
-                    File Directory Link <span class="text-gray-600 font-normal">(Optional)</span>
+                    File Directory — Synology
                 </h3>
-                <input type="text" id="synologyInput" value="{{ old('synology_folder_path') }}" 
-                       placeholder="e.g. \\server\Legal\Contracts\2024" 
-                       class="input-field w-full rounded-xl py-3 px-4 text-sm"
-                       oninput="updateSynologyLink(this.value)">
+
+                {{-- Info department owner --}}
+                @if($synologyAutoFill['dept_label'])
+                <p class="text-xs text-gray-500 mb-4">
+                    Auto-detected from department
+                    <span class="text-blue-400 font-semibold">
+                        {{ $contract->user?->nama_user ?? 'Owner' }}
+                        ({{ $synologyAutoFill['dept_label'] }})
+                    </span>
+                </p>
+                @else
+                <p class="text-xs text-amber-400/80 mb-4">
+                    ⚠ Department user not found in mapping — select folder manually.
+                </p>
+                @endif
+
+                {{-- ✅ Synology Selector --}}
+                <div class="relative" id="synologySelector">
+
+                    {{-- Display box — klik untuk buka dropdown --}}
+                    <div id="synologyDisplay"
+                         class="synology-box {{ $synologyAutoFill['path'] ? ($synologyAutoFill['dept_label'] ? 'auto-detected' : 'has-value') : '' }} cursor-pointer"
+                         onclick="toggleSynologyDropdown()">
+
+                        @if($synologyAutoFill['path'])
+                        {{-- Ada nilai --}}
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="flex-1 min-w-0">
+                                {{-- PATH --}}
+                                <div class="flex items-center gap-2 mb-2">
+                                    <span class="text-[10px] uppercase tracking-widest font-bold text-gray-500 flex-shrink-0">Path</span>
+                                    <span class="text-xs font-mono text-emerald-300 truncate"
+                                          id="displayPath">{{ $synologyAutoFill['path'] }}</span>
+                                </div>
+                                {{-- LINK --}}
+                                @if($synologyAutoFill['link'])
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[10px] uppercase tracking-widest font-bold text-gray-500 flex-shrink-0">Link</span>
+                                    <a href="{{ $synologyAutoFill['link'] }}" target="_blank"
+                                       onclick="event.stopPropagation()"
+                                       class="text-xs text-blue-400 hover:text-blue-300 truncate underline underline-offset-2"
+                                       id="displayLink">{{ $synologyAutoFill['link'] }}</a>
+                                </div>
+                                @endif
+                            </div>
+                            {{-- Edit icon --}}
+                            <div class="flex-shrink-0 p-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors mt-0.5">
+                                <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                </svg>
+                            </div>
+                        </div>
+                        @else
+                        {{-- Belum ada nilai --}}
+                        <div class="flex items-center gap-3 text-gray-500">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                            </svg>
+                            <span class="text-sm">Click to select Synology folder...</span>
+                            <svg class="w-4 h-4 ml-auto flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </div>
+                        @endif
+                    </div>
+
+                    {{-- ✅ Dropdown pilihan folder --}}
+                    <div id="synologyDropdown" class="synology-dropdown">
+                        <div class="px-3 py-2 border-b border-white/5">
+                            <p class="text-[10px] uppercase tracking-widest font-bold text-gray-500">Select Synology Folder</p>
+                        </div>
+
+                        {{-- Option: Kosongkan --}}
+                        <div class="synology-option" onclick="selectSynologyFolder(null, null, null)">
+                            <div>
+                                <p class="text-xs font-medium text-gray-400 italic">— None / Fill in manually later</p>
+                            </div>
+                        </div>
+
+                        {{-- Options dari SynologyMapper::allOptions() --}}
+                        @foreach($synologyOptions as $opt)
+                        <div class="synology-option {{ ($synologyAutoFill['path'] ?? '') === $opt['path'] ? 'active' : '' }}"
+                             onclick="selectSynologyFolder('{{ $opt['path'] }}', '{{ $opt['link'] }}', '{{ $opt['value'] }}')">
+                            <div class="flex-1 min-w-0">
+                                <p class="text-xs font-semibold text-gray-200">{{ $opt['folder'] }}</p>
+                                <p class="text-[10px] text-gray-500 truncate font-mono mt-0.5">{{ $opt['path'] }}</p>
+                            </div>
+                            <div class="flex-shrink-0 ml-3">
+                                <svg class="w-3.5 h-3.5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                                </svg>
+                            </div>
+                        </div>
+                        @endforeach
+                    </div>
+                </div>
+
+                {{-- Badge status --}}
+                <div class="mt-3 flex items-center gap-2">
+                    @if($synologyAutoFill['dept_label'])
+                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400 border border-blue-500/20 font-medium">
+                        🎯 Auto-detected · {{ $synologyAutoFill['dept_label'] }}
+                    </span>
+                    @endif
+                    <span class="text-[10px] text-gray-600">Click the box above to change</span>
+                </div>
             </div>
 
             {{-- Review Summary --}}
             <div class="glass-card rounded-2xl p-6">
                 <h2 class="text-lg font-bold text-gray-300 mb-4">Review Summary</h2>
-                
+
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div class="bg-gray-800/30 rounded-lg p-3">
                         <div class="flex items-center gap-2 mb-2">
@@ -247,7 +367,7 @@
                         </div>
                         <p class="text-[10px] text-gray-500">Sequential review stages</p>
                     </div>
-                    
+
                     <div class="bg-gray-800/30 rounded-lg p-3">
                         <div class="flex items-center gap-2 mb-2">
                             <div class="p-1.5 rounded-lg bg-gradient-to-br from-purple-500/10 to-pink-600/10">
@@ -263,11 +383,24 @@
                         <p class="text-[10px] text-gray-500">For parallel review</p>
                     </div>
                 </div>
-                
-                <div class="mt-3 pt-3 border-t border-white/5">
+
+                <div class="mt-3 pt-3 border-t border-white/5 space-y-2">
+                    {{-- Owner dept info --}}
                     <div class="flex items-center justify-between text-xs">
-                        <span class="text-gray-500">Document Link Status:</span>
-                        <span class="text-amber-400 font-mono text-[10px] truncate max-w-[180px]" id="synologyLinkStatus">Not Provided</span>
+                        <span class="text-gray-500">Submitted by:</span>
+                        <span class="text-gray-300 font-medium">
+                            {{ $contract->user?->nama_user ?? '—' }}
+                            @if($synologyAutoFill['dept_label'])
+                                <span class="text-blue-400">({{ $synologyAutoFill['dept_label'] }})</span>
+                            @endif
+                        </span>
+                    </div>
+                    {{-- Synology status --}}
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="text-gray-500">Synology Folder:</span>
+                        <span class="font-mono text-[10px] truncate max-w-[160px]" id="synologyStatusText">
+                            {{ $synologyAutoFill['path'] ? basename($synologyAutoFill['path']) : 'Not Set' }}
+                        </span>
                     </div>
                 </div>
             </div>
@@ -277,7 +410,7 @@
         <div class="flex flex-col sm:flex-row items-center justify-between gap-6 border-t border-white/5 pt-8">
             <div id="wfSummary" class="text-sm font-medium"></div>
             <div class="flex gap-4 w-full sm:w-auto">
-                <a href="{{ route('contracts.show', $contract) }}" 
+                <a href="{{ route('contracts.show', $contract) }}"
                    class="flex-1 sm:flex-none px-8 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-sm font-bold text-gray-300 transition-all text-center">
                     Cancel
                 </a>
@@ -302,42 +435,126 @@ $legalOfficersJson = $legalOfficers->map(fn($u) => [
 <script>
 const LEGAL_OFFICERS = @json($legalOfficersJson);
 const DEPT_OPTIONS = [
-    { code:'FIN', label:'Finance', icon:'💹' },
-    { code:'ACC', label:'Accounting', icon:'📊' },
-    { code:'TAX', label:'Tax', icon:'🏛️' },
-    { code:'LEGAL', label:'Legal', icon:'⚖️' },
+    { code:'FIN',   label:'Finance',    icon:'💹' },
+    { code:'ACC',   label:'Accounting', icon:'📊' },
+    { code:'TAX',   label:'Tax',        icon:'🏛️' },
+    { code:'LEGAL', label:'Legal',      icon:'⚖️'  },
 ];
 
-let items = [];
+let items        = [];
 let parallelExists = false;
-let dragSrc = null;
+let dragSrc      = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     addLegalStage(false);
     render();
     document.getElementById('wfSetupForm').addEventListener('submit', onSubmit);
-    updateSynologyLink(document.getElementById('synologyInput').value);
+
+    // Tutup dropdown kalau klik di luar
+    document.addEventListener('click', (e) => {
+        const selector = document.getElementById('synologySelector');
+        if (selector && !selector.contains(e.target)) {
+            closeSynologyDropdown();
+        }
+    });
 });
 
-function updateSynologyLink(value) {
-    const statusEl = document.getElementById('synologyLinkStatus');
-    if (value && value.trim() !== '') {
-        statusEl.textContent = value.length > 25 ? value.substring(0, 22) + '...' : value;
-        statusEl.classList.add('text-amber-400');
-    } else {
-        statusEl.textContent = 'Not Provided';
-        statusEl.classList.remove('text-amber-400');
-    }
-    document.getElementById('synologyHidden').value = value;
+// ─────────────────────────────────────────────────────────────
+// SYNOLOGY FOLDER SELECTOR
+// ─────────────────────────────────────────────────────────────
+function toggleSynologyDropdown() {
+    const dd = document.getElementById('synologyDropdown');
+    dd.classList.toggle('open');
 }
 
+function closeSynologyDropdown() {
+    document.getElementById('synologyDropdown')?.classList.remove('open');
+}
+
+/**
+ * Dipanggil saat user memilih folder dari dropdown.
+ * path   : "/SHARE DATA LEGAL/LEGAL-FINANCE"
+ * link   : "https://gofile.me/..."
+ * dbValue: "path||link"  — null jika pilih "tidak ada"
+ */
+function selectSynologyFolder(path, link, dbValue) {
+    // Simpan ke hidden input
+    document.getElementById('synologyHidden').value = dbValue ?? '';
+
+    // Update display box
+    const display = document.getElementById('synologyDisplay');
+
+    if (path) {
+        display.className = 'synology-box has-value cursor-pointer';
+        display.innerHTML = `
+            <div class="flex items-start justify-between gap-3">
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="text-[10px] uppercase tracking-widest font-bold text-gray-500 flex-shrink-0">Path</span>
+                        <span class="text-xs font-mono text-emerald-300 truncate" id="displayPath">${escHtml(path)}</span>
+                    </div>
+                    ${link ? `
+                    <div class="flex items-center gap-2">
+                        <span class="text-[10px] uppercase tracking-widest font-bold text-gray-500 flex-shrink-0">Link</span>
+                        <a href="${escHtml(link)}" target="_blank"
+                           onclick="event.stopPropagation()"
+                           class="text-xs text-blue-400 hover:text-blue-300 truncate underline underline-offset-2"
+                           id="displayLink">${escHtml(link)}</a>
+                    </div>` : ''}
+                </div>
+                <div class="flex-shrink-0 p-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors mt-0.5">
+                    <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </div>
+            </div>
+        `;
+
+        // Update summary text
+        const folder = path.split('/').pop();
+        document.getElementById('synologyStatusText').textContent = folder;
+        document.getElementById('synologyStatusText').className = 'font-mono text-[10px] truncate max-w-[160px] text-emerald-400';
+    } else {
+        // Kosongkan
+        display.className = 'synology-box cursor-pointer';
+        display.innerHTML = `
+            <div class="flex items-center gap-3 text-gray-500">
+                <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                </svg>
+                <span class="text-sm">Klik untuk pilih folder Synology...</span>
+                <svg class="w-4 h-4 ml-auto flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </div>
+        `;
+        document.getElementById('synologyStatusText').textContent = 'Not Set';
+        document.getElementById('synologyStatusText').className = 'font-mono text-[10px] truncate max-w-[160px] text-gray-500';
+    }
+
+    // Tandai active option di dropdown
+    document.querySelectorAll('.synology-option').forEach(el => {
+        el.classList.remove('active');
+    });
+    if (path) {
+        document.querySelectorAll('.synology-option').forEach(el => {
+            const elPath = el.querySelector('p.font-semibold')?.nextElementSibling?.textContent?.trim();
+            if (elPath === path) el.classList.add('active');
+        });
+    }
+
+    closeSynologyDropdown();
+}
+
+// ─────────────────────────────────────────────────────────────
+// WORKFLOW BUILDER
+// ─────────────────────────────────────────────────────────────
 function updateSummaryStats() {
     const legalCount = items.filter(i => i.type === 'legal').length;
     const parallelBlock = items.find(i => i.type === 'parallel');
     const deptCount = parallelBlock ? parallelBlock.depts.length : 0;
-    
     document.getElementById('stageCount').textContent = legalCount;
-    document.getElementById('deptCount').textContent = deptCount;
+    document.getElementById('deptCount').textContent  = deptCount;
 }
 
 function render() {
@@ -355,7 +572,7 @@ function render() {
 
     const parBtn = document.getElementById('addParBtn');
     if (parBtn) {
-        parBtn.disabled = parallelExists;
+        parBtn.disabled      = parallelExists;
         parBtn.style.opacity = parallelExists ? '.3' : '1';
     }
     updateSummary();
@@ -363,9 +580,11 @@ function render() {
 }
 
 function buildLegalCard(item, idx, seq) {
-    const div = document.createElement('div');
+    const div  = document.createElement('div');
     div.className = 'wb-seq';
-    const opts = LEGAL_OFFICERS.map(u => `<option value="${u.id}" ${u.id == item.user_id ? 'selected' : ''}>${escHtml(u.name)}</option>`).join('');
+    const opts = LEGAL_OFFICERS.map(u =>
+        `<option value="${u.id}" ${u.id == item.user_id ? 'selected' : ''}>${escHtml(u.name)}</option>`
+    ).join('');
 
     div.innerHTML = `
         <div class="flex items-center gap-4">
@@ -376,14 +595,17 @@ function buildLegalCard(item, idx, seq) {
             <div class="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label class="text-[10px] uppercase tracking-widest font-bold text-gray-500 mb-1.5 block">Legal Officer</label>
-                    <select class="input-field select-field w-full rounded-lg py-2 px-3 text-sm" onchange="items[${idx}].user_id=parseInt(this.value)||null; updateSummaryStats();" required>
+                    <select class="input-field select-field w-full rounded-lg py-2 px-3 text-sm"
+                            onchange="items[${idx}].user_id=parseInt(this.value)||null; updateSummaryStats();" required>
                         <option value="">Select Officer...</option>
                         ${opts}
                     </select>
                 </div>
                 <div>
                     <label class="text-[10px] uppercase tracking-widest font-bold text-gray-500 mb-1.5 block">Stage Name</label>
-                    <input type="text" class="input-field w-full rounded-lg py-2 px-3 text-sm stage-name-input" value="${escHtml(item.stage_name)}" oninput="items[${idx}].stage_name=this.value" required>
+                    <input type="text" class="input-field w-full rounded-lg py-2 px-3 text-sm stage-name-input"
+                           value="${escHtml(item.stage_name)}"
+                           oninput="items[${idx}].stage_name=this.value" required>
                 </div>
             </div>
             <button type="button" class="btn-remove p-2" onclick="removeItem(${idx})">
@@ -397,9 +619,8 @@ function buildLegalCard(item, idx, seq) {
 function buildParCard(item, idx, seq) {
     const div = document.createElement('div');
     div.className = 'wb-par';
-    
     const allSelected = item.depts.length === DEPT_OPTIONS.length;
-    
+
     const deptCards = DEPT_OPTIONS.map(d => {
         const selected = item.depts.includes(d.code);
         return `
@@ -416,12 +637,16 @@ function buildParCard(item, idx, seq) {
         `;
     }).join('');
 
-    const legalOpts = LEGAL_OFFICERS.map(u => `<option value="${u.id}" ${u.id == item.legal_reviewer_id ? 'selected' : ''}>${escHtml(u.name)}</option>`).join('');
+    const legalOpts = LEGAL_OFFICERS.map(u =>
+        `<option value="${u.id}" ${u.id == item.legal_reviewer_id ? 'selected' : ''}>${escHtml(u.name)}</option>`
+    ).join('');
 
     div.innerHTML = `
         <div class="flex items-center justify-between mb-4">
             <div class="flex items-center gap-4">
-                <div class="drag-handle text-purple-500/50"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"/></svg></div>
+                <div class="drag-handle text-purple-500/50">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"/></svg>
+                </div>
                 <div class="w-8 h-8 rounded-lg bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400 font-bold text-sm">${seq}</div>
                 <div>
                     <h4 class="text-sm font-bold text-purple-300">Substantial Review</h4>
@@ -430,16 +655,19 @@ function buildParCard(item, idx, seq) {
             </div>
             <div class="flex items-center gap-3">
                 <label class="checkbox-wrapper">
-                    <input type="checkbox" id="selectAllDepts_${idx}" ${allSelected ? 'checked' : ''} onchange="toggleAllDepartments(${idx}, this.checked)">
+                    <input type="checkbox" id="selectAllDepts_${idx}" ${allSelected ? 'checked' : ''}
+                           onchange="toggleAllDepartments(${idx}, this.checked)">
                     <span>Select All</span>
                 </label>
-                <button type="button" class="text-xs font-bold text-red-400/60 hover:text-red-400 transition-colors" onclick="removeParallel(${idx})">REMOVE</button>
+                <button type="button" class="text-xs font-bold text-red-400/60 hover:text-red-400 transition-colors"
+                        onclick="removeParallel(${idx})">REMOVE</button>
             </div>
         </div>
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">${deptCards}</div>
         <div id="legalReviewerRow_${idx}" class="${item.depts.includes('LEGAL') ? '' : 'hidden'} animate-slide-up p-4 bg-purple-500/5 border border-purple-500/10 rounded-xl">
             <label class="text-[10px] font-bold text-purple-300 uppercase tracking-widest mb-2 block">Assign Legal Reviewer</label>
-            <select class="input-field select-field w-full md:w-1/2 rounded-lg py-2 px-3 text-sm" onchange="items[${idx}].legal_reviewer_id=parseInt(this.value)||null">
+            <select class="input-field select-field w-full md:w-1/2 rounded-lg py-2 px-3 text-sm"
+                    onchange="items[${idx}].legal_reviewer_id=parseInt(this.value)||null">
                 <option value="">Select Officer...</option>
                 ${legalOpts}
             </select>
@@ -451,13 +679,8 @@ function buildParCard(item, idx, seq) {
 function toggleAllDepartments(parIdx, isChecked) {
     const item = items[parIdx];
     if (!item || item.type !== 'parallel') return;
-    
-    if (isChecked) {
-        item.depts = DEPT_OPTIONS.map(d => d.code);
-    } else {
-        item.depts = [];
-        item.legal_reviewer_id = null;
-    }
+    item.depts = isChecked ? DEPT_OPTIONS.map(d => d.code) : [];
+    if (!isChecked) item.legal_reviewer_id = null;
     render();
 }
 
@@ -474,44 +697,39 @@ function addParallelBlock() {
     render();
 }
 
-function removeItem(idx) { 
-    if (confirm('Remove this stage?')) { 
-        items.splice(idx, 1); 
-        render(); 
-    } 
+function removeItem(idx) {
+    if (confirm('Remove this stage?')) { items.splice(idx, 1); render(); }
 }
 
-function removeParallel(idx) { 
-    if (confirm('Remove the Substantial Review block?')) { 
-        parallelExists = false; 
-        items.splice(idx, 1); 
-        render(); 
-    } 
+function removeParallel(idx) {
+    if (confirm('Remove the Substantial Review block?')) { parallelExists = false; items.splice(idx, 1); render(); }
 }
 
 function toggleDept(parIdx, code) {
     const item = items[parIdx];
-    const pos = item.depts.indexOf(code);
+    const pos  = item.depts.indexOf(code);
     if (pos === -1) item.depts.push(code);
     else { item.depts.splice(pos, 1); if (code === 'LEGAL') item.legal_reviewer_id = null; }
     render();
 }
 
 function updateSummary() {
-    const el = document.getElementById('wfSummary');
-    const flow = items.map((it, i) => it.type === 'legal' ? `L${items.filter((x,j) => x.type==='legal' && j<=i).length}` : '⚡').join(' → ');
+    const el   = document.getElementById('wfSummary');
+    const flow = items.map((it, i) =>
+        it.type === 'legal' ? `L${items.filter((x,j) => x.type==='legal' && j<=i).length}` : '⚡'
+    ).join(' → ');
     el.innerHTML = `<span class="text-gray-500 uppercase text-[10px] tracking-widest mr-2">Route:</span><span class="text-blue-400 font-mono">User → ${flow || '...'} → End</span>`;
 }
 
 function setupDrag(el, idx) {
     el.setAttribute('draggable', 'true');
-    el.addEventListener('dragstart', e => { 
-        if (['INPUT','SELECT','BUTTON'].includes(e.target.tagName)) { e.preventDefault(); return; }
-        dragSrc = idx; el.classList.add('dragging'); 
+    el.addEventListener('dragstart', e => {
+        if (['INPUT','SELECT','BUTTON','A'].includes(e.target.tagName)) { e.preventDefault(); return; }
+        dragSrc = idx; el.classList.add('dragging');
     });
-    el.addEventListener('dragend', () => { el.classList.remove('dragging'); render(); });
+    el.addEventListener('dragend',  () => { el.classList.remove('dragging'); render(); });
     el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('drag-over'); });
-    el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
+    el.addEventListener('dragleave',() => el.classList.remove('drag-over'));
     el.addEventListener('drop', e => {
         e.preventDefault();
         const moved = items.splice(dragSrc, 1)[0];
@@ -521,44 +739,41 @@ function setupDrag(el, idx) {
 }
 
 function onSubmit(e) {
+    // Sync stage names dari DOM
     document.querySelectorAll('.stage-name-input').forEach((input, i) => {
         const legalItems = items.filter(item => item.type === 'legal');
         if (legalItems[i]) legalItems[i].stage_name = input.value;
     });
-    
-    if (items.filter(i => i.type === 'legal').length < 1) { 
-        alert('Minimum 1 Legal Review Stage is required.'); 
-        e.preventDefault(); 
-        return; 
+
+    if (items.filter(i => i.type === 'legal').length < 1) {
+        alert('Minimum 1 Legal Review Stage is required.');
+        e.preventDefault(); return;
     }
-    
     for (let i = 0; i < items.length; i++) {
         if (items[i].type === 'legal' && !items[i].user_id) {
             alert(`Please select a Legal Officer for "${items[i].stage_name}"`);
-            e.preventDefault(); 
-            return;
+            e.preventDefault(); return;
         }
     }
-    
     const par = items.find(i => i.type === 'parallel');
     if (par && par.depts.length === 0) {
         alert('Substantial Review must have at least one department selected!');
-        e.preventDefault(); 
-        return;
+        e.preventDefault(); return;
     }
-    
     if (par && par.depts.includes('LEGAL') && !par.legal_reviewer_id) {
         alert('Please assign a reviewer for the Legal department in Substantial Review!');
-        e.preventDefault(); 
-        return;
+        e.preventDefault(); return;
     }
-    
+
     document.getElementById('workflowItemsInput').value = JSON.stringify(items);
+
     const btn = document.getElementById('submitBtn');
-    btn.disabled = true;
+    btn.disabled  = true;
     btn.innerHTML = `<svg class="animate-spin h-4 w-4 mr-2 inline" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Processing...`;
 }
 
-function escHtml(s) { return s ? String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[m])) : ''; }
+function escHtml(s) {
+    return s ? String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[m])) : '';
+}
 </script>
 </x-app-layout-dark>

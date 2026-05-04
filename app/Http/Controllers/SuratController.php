@@ -57,7 +57,7 @@ class SuratController extends Controller
                     
                     // ✅ WARNING jika department kosong (tapi form tetap bisa dibuka)
                     if (empty($departmentCode)) {
-                        $errorMessage = 'Your department code is not set in HRMS. Please contact HR department before submitting.';
+                        $errorMessage = 'Your department code is not set in HRMS. Please contact IT department before submitting.';
                         $hasError = true;
                     }
                 } else {
@@ -125,7 +125,7 @@ class SuratController extends Controller
         ]);
         
         // OPSI 1: LANGSUNG 404
-        abort(404, 'Bukan surat request nomor.');
+        abort(404, 'Not a number request letter.');
         
         // OPSI 2: REDIRECT KE CONTRACT SHOW (comment salah satu)
         // return redirect()->route('contracts.show', $contract)
@@ -171,7 +171,7 @@ class SuratController extends Controller
             ]);
             
             // Tampilkan warning tapi tetap lanjut
-            session()->flash('warning', 'File surat tidak ditemukan di storage. Silakan upload ulang.');
+            session()->flash('warning', 'The letter file was not found in storage. Please re-upload it.');
         }
         
         Log::info('SURAT FILE CHECK', [
@@ -263,13 +263,13 @@ class SuratController extends Controller
     try {
         // ✅ FILE CHECK
         if (!$request->hasFile('surat_file')) {
-            throw new \Exception('File surat wajib diupload.');
+            throw new \Exception('The letter file is required.');
         }
 
         $file = $request->file('surat_file');
 
         if (!$file->isValid()) {
-            throw new \Exception('File upload gagal. Silakan coba lagi.');
+            throw new \Exception('File upload failed. Please try again.');
         }
 
         // =========================================================
@@ -300,7 +300,7 @@ class SuratController extends Controller
 
         // ✅ VERIFY FILE EXISTS
         if (!Storage::disk('public')->exists($path)) {
-            throw new \Exception('File gagal tersimpan di storage.');
+            throw new \Exception('File failed to be stored in storage.');
         }
 
         // =========================================================
@@ -332,14 +332,14 @@ class SuratController extends Controller
             'contract_id' => $contract->id,
             'user_id'     => Auth::id(),
             'action'      => 'surat_created',
-            'description' => 'Surat draft dibuat',
+            'description' => 'Draft letter created',
         ]);
 
         DB::commit();
 
         return redirect()
             ->route('surat.show', $contract)
-            ->with('success', '✅ Draft surat berhasil dibuat. Silakan submit untuk approval Legal.');
+            ->with('success', '✅ The draft letter has been successfully created. Please submit it for legal approval.');
 
     } catch (\Exception $e) {
 
@@ -369,15 +369,15 @@ class SuratController extends Controller
         }
 
         if ($contract->status !== Contract::STATUS_DRAFT) {
-            return back()->with('error', 'Hanya draft yang bisa disubmit.');
+            return back()->with('error', 'Only drafts can be submitted.');
         }
 
         if (!$contract->surat_file_path) {
-            return back()->with('error', 'File draft wajib ada.');
+            return back()->with('error', 'The draft file is required.');
         }
 
         if (!Storage::disk('public')->exists($contract->surat_file_path)) {
-            return back()->with('error', 'File tidak ditemukan di storage.');
+            return back()->with('error', 'File not found in storage.');
         }
 
         DB::transaction(function () use ($contract) {
@@ -391,7 +391,7 @@ class SuratController extends Controller
                 'contract_id' => $contract->id,
                 'user_id'     => Auth::id(),
                 'action'      => 'surat_submitted',
-                'description' => 'Surat disubmit ke Legal',
+                'description' => 'Letter submitted for Legal approval',
             ]);
 
             // 🔥 KIRIM NOTIF KE LEGAL
@@ -500,9 +500,9 @@ class SuratController extends Controller
             $request->validate([
                 'notes' => 'required|string|min:10|max:2000',
             ], [
-                'notes.required' => 'Catatan wajib diisi.',
-                'notes.min'      => 'Catatan minimal 10 karakter.',
-                'notes.max'      => 'Catatan maksimal 2000 karakter.',
+                'notes.required' => 'Required fields.',
+                'notes.min'      => 'Notes must be at least 10 characters.',
+                'notes.max'      => 'Notes may not be greater than 2000 characters.',
             ]);
 
             DB::beginTransaction();
@@ -515,7 +515,7 @@ class SuratController extends Controller
                     'contract_id' => $contract->id,
                     'user_id'     => Auth::id(),
                     'action'      => 'surat_note_sent',
-                    'description' => 'Legal mengirim catatan kepada user',
+                    'description' => 'Legal sends note to user',
                     'notes'       => $request->notes,
                     'metadata'    => [
                         'sender_name'  => $sender->nama_user ?? $sender->name,
@@ -545,7 +545,7 @@ class SuratController extends Controller
                     }
                 }
 
-                return back()->with('success', '✅ Catatan berhasil dikirim kepada ' . ($contract->user->nama_user ?? 'user') . '.');
+                return back()->with('success', '✅ Note successfully sent to ' . ($contract->user->nama_user ?? 'user') . '.');
 
             } catch (\Exception $e) {
                 DB::rollBack();
@@ -554,7 +554,7 @@ class SuratController extends Controller
                     'error'       => $e->getMessage(),
                 ]);
 
-                return back()->with('error', '❌ Gagal mengirim catatan: ' . $e->getMessage());
+                return back()->with('error', '❌ Failed to send note: ' . $e->getMessage());
             }
         }
 
@@ -794,7 +794,7 @@ class SuratController extends Controller
                 'contract_id' => $contract->id,
                 'user_id'     => Auth::id(),
                 'action'      => 'file_deleted',
-                'description' => 'File surat dihapus',
+                'description' => 'File deleted',
             ]);
 
             return back()->with('success', '✅ File has been deleted.');
@@ -839,7 +839,7 @@ class SuratController extends Controller
         }
 
         if (!Storage::disk('public')->exists($contract->surat_file_path)) {
-            return back()->with('error', 'File tidak ditemukan.');
+            return back()->with('error', '❌ File not found.');
         }
 
         $fileName = $contract->contract_number 

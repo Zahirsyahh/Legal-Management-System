@@ -24,10 +24,23 @@ class EditWorkflowController extends Controller
             abort(403);
         }
 
+        // ✅ FIX: Eager-load contractDepartment supaya tersedia saat buildDisplayOrder
         $stages = $contract->reviewStages()
-            ->with('assignedUser:id_user,nama_user,email,jabatan')
+            ->with([
+                'assignedUser:id_user,nama_user,email,jabatan',
+            ])
             ->orderBy('sequence')
             ->get();
+
+        // ✅ Manual mapping: ambil semua ContractDepartment contract ini sekali
+        $contractDepartments = ContractDepartment::where('contract_id', $contract->id)->get();
+
+        // ✅ Inject contract_department_id ke setiap stage
+        $stages = $stages->map(function ($stage) use ($contractDepartments) {
+            $dept = $contractDepartments->firstWhere('department_id', $stage->department_id);
+            $stage->contract_department_id = $dept?->id;
+            return $stage;
+        });
 
         $users = TblUser::where('status_karyawan', 'AKTIF')
             ->select('id_user', 'nama_user', 'email', 'jabatan')
@@ -57,6 +70,11 @@ class EditWorkflowController extends Controller
         ));
     }
 
+    // ─────────────────────────────────────────────────────────
+    // ✅ FIX UTAMA: buildDisplayOrder sekarang menyertakan
+    //    contract_department_id di setiap stage parallel,
+    //    dan TIDAK memfilter stage 'declined'
+    // ─────────────────────────────────────────────────────────
     private function buildDisplayOrder($stages): array
     {
         $items                   = [];
@@ -68,11 +86,27 @@ class EditWorkflowController extends Controller
                 if (!in_array($groupId, $processedParallelGroups)) {
                     $processedParallelGroups[] = $groupId;
                     $groupStages = $stages->where('parallel_group', $groupId)->values();
+
+                    $groupStagesMapped = $groupStages->map(function ($s) {
+                        return [
+                            'id'                     => $s->id,
+                            'stage_name'             => $s->stage_name,
+                            'stage_type'             => $s->stage_type,
+                            'assigned_user_id'       => $s->assigned_user_id,
+                            'status'                 => $s->status,
+                            'sequence'               => $s->sequence,
+                            'department_id'          => $s->department_id,
+                            'parallel_group'         => $s->parallel_group,
+                            // ✅ FIX: pakai property hasil inject, BUKAN relationship
+                            'contract_department_id' => $s->contract_department_id,
+                        ];
+                    })->values();
+
                     $items[] = [
                         'type'     => 'parallel',
                         'group_id' => $groupId,
                         'sequence' => $stage->sequence,
-                        'stages'   => $groupStages,
+                        'stages'   => $groupStagesMapped,
                     ];
                 }
             } else {
@@ -112,7 +146,6 @@ class EditWorkflowController extends Controller
             $keepStageIds = [];
             $seqCounter  = 2;
 
-            // Ambil stage yang sedang aktif (untuk handle split)
             $currentActiveStage = $contract->reviewStages()
                 ->whereNull('parallel_group')
                 ->whereIn('status', ['assigned', 'in_progress'])
@@ -135,6 +168,20 @@ class EditWorkflowController extends Controller
 
                             if (in_array($stage->status, $lockedStatuses)) {
                                 $stage->update(['sequence' => $seqCounter]);
+
+                            // ✅ FIX: executing & archiving → JANGAN split, langsung update reviewer
+                            } elseif (in_array($stage->stage_type, ['executing', 'archiving'])) {
+                                $stage->update([
+                                    'assigned_user_id' => $userId,
+                                    'sequence'         => $seqCounter,
+                                    'stage_name'       => $stageName,
+                                ]);
+                                if ($userId && $userId !== (int) $stage->getOriginal('assigned_user_id')) {
+                                    $oldU = TblUser::find($stage->getOriginal('assigned_user_id'));
+                                    $newU = TblUser::find($userId);
+                                    $changes[] = "Reviewer '{$stageName}': " . ($oldU->nama_user ?? 'Unassigned') . " → " . ($newU->nama_user ?? '?');
+                                }
+
                             } elseif ($currentActiveStage
                                 && $stage->id === $currentActiveStage->id
                                 && $userId && $userId !== (int) $stage->assigned_user_id) {
@@ -144,6 +191,7 @@ class EditWorkflowController extends Controller
                                     'sequence'         => $seqCounter,
                                 ]);
                                 $changes[] = "Reviewer aktif diganti di: {$stage->stage_name}";
+
                             } else {
                                 $old = clone $stage;
                                 $stage->update([
@@ -161,9 +209,7 @@ class EditWorkflowController extends Controller
                             }
                         }
                     } else {
-                        // Stage baru
                         if (!$userId) {
-                            // Tidak ada reviewer — skip (sequential harus punya reviewer)
                             $seqCounter++;
                             continue;
                         }
@@ -210,10 +256,7 @@ class EditWorkflowController extends Controller
                         $deptSlots = $deptData['stages'] ?? [];
                         $stageType = $stageTypeMap[$deptCode] ?? strtolower($deptCode);
 
-                        // ── FIX UTAMA ──
-                        // Dept dengan slot kosong (belum ada reviewer) TETAP masuk ke activeDeptCodes
-                        // dan TETAP diproses — ini yang menjaga FIN/ACC/TAX tetap terdaftar
-                        if (empty($deptSlots)) continue; // skip dept yang benar-benar tidak included
+                        if (empty($deptSlots)) continue;
 
                         $activeDeptCodes[] = $deptCode;
 
@@ -224,7 +267,6 @@ class EditWorkflowController extends Controller
                             $dsStatus = $ds['status'] ?? 'pending';
 
                             if ($dsId) {
-                                // ── Update stage yang sudah ada di DB ──
                                 $pStage = ContractReviewStage::find($dsId);
                                 if ($pStage && $pStage->contract_id === $contract->id) {
                                     $keepStageIds[] = $dsId;
@@ -233,7 +275,7 @@ class EditWorkflowController extends Controller
                                         $oldUserId = $pStage->assigned_user_id;
                                         $pStage->update([
                                             'stage_name'       => $dsName,
-                                            'assigned_user_id' => $dsUserId, // boleh null (placeholder)
+                                            'assigned_user_id' => $dsUserId,
                                             'sequence'         => $seqCounter,
                                             'parallel_group'   => $groupId,
                                             'department_id'    => $dept->id,
@@ -245,7 +287,6 @@ class EditWorkflowController extends Controller
                                             $changes[] = "Reviewer parallel [{$deptCode}]: {$oldU} → {$newU}";
                                         }
                                     } else {
-                                        // Locked: hanya update sequence
                                         $pStage->update([
                                             'sequence'       => $seqCounter,
                                             'parallel_group' => $groupId,
@@ -253,9 +294,6 @@ class EditWorkflowController extends Controller
                                     }
                                 }
                             } else {
-                                // ── Slot baru (belum ada di DB) ──
-                                // Hanya buat stage baru jika BELUM ada placeholder untuk dept ini
-                                // Cek apakah sudah ada placeholder untuk dept ini di group ini
                                 $existingPlaceholder = ContractReviewStage::where('contract_id', $contract->id)
                                     ->where('department_id', $dept->id)
                                     ->where('parallel_group', $groupId)
@@ -263,7 +301,6 @@ class EditWorkflowController extends Controller
                                     ->first();
 
                                 if ($dsUserId) {
-                                    // Ada reviewer yang di-assign → buat stage baru
                                     $newPStage = ContractReviewStage::create([
                                         'contract_id'      => $contract->id,
                                         'department_id'    => $dept->id,
@@ -279,17 +316,15 @@ class EditWorkflowController extends Controller
                                     $u = TblUser::find($dsUserId)?->nama_user ?? '?';
                                     $changes[] = "Reviewer baru di parallel [{$deptCode}]: {$dsName} → {$u}";
 
-                                    // Upsert ContractDepartment
                                     $this->upsertContractDepartment($contract, $dept, $deptCode, $dsUserId);
 
                                 } elseif (!$existingPlaceholder) {
-                                    // Tidak ada reviewer DAN belum ada placeholder → buat placeholder baru
                                     $newPStage = ContractReviewStage::create([
                                         'contract_id'      => $contract->id,
                                         'department_id'    => $dept->id,
                                         'stage_name'       => $dsName,
                                         'stage_type'       => $stageType,
-                                        'assigned_user_id' => null, // placeholder
+                                        'assigned_user_id' => null,
                                         'sequence'         => $seqCounter,
                                         'parallel_group'   => $groupId,
                                         'status'           => 'pending',
@@ -299,12 +334,9 @@ class EditWorkflowController extends Controller
                                     $keepStageIds[] = $newPStage->id;
                                     $changes[] = "Dept [{$deptCode}] ditambahkan ke substantial review (menunggu reviewer)";
 
-                                    // Upsert ContractDepartment
                                     $this->upsertContractDepartment($contract, $dept, $deptCode, null);
                                 } else {
-                                    // Sudah ada placeholder → pertahankan
                                     $keepStageIds[] = $existingPlaceholder->id;
-                                    // Update sequence-nya
                                     $existingPlaceholder->update([
                                         'sequence'       => $seqCounter,
                                         'parallel_group' => $groupId,
@@ -314,7 +346,6 @@ class EditWorkflowController extends Controller
                         }
                     }
 
-                    // Update selected_departments di contract
                     $contract->update([
                         'selected_departments'    => json_encode($activeDeptCodes),
                         'multi_department_status' => count($activeDeptCodes) >= 2 ? 'multi_department' : 'single_department',
@@ -324,11 +355,11 @@ class EditWorkflowController extends Controller
                 }
             }
 
-            // ── Hapus HANYA stage yang tidak ada di keepStageIds DAN tidak terkunci ──
-            // Penting: placeholder (user_id null) yang masih di keepStageIds TIDAK ikut dihapus
+            // ✅ FIX: Jangan hapus stage 'declined' — stage declined harus dipertahankan
+            // supaya tombol re-invite tetap bisa muncul dan data tidak hilang
             $stagesToDelete = $contract->reviewStages()
                 ->whereNotIn('id', $keepStageIds)
-                ->whereNotIn('status', $lockedStatuses)
+                ->whereNotIn('status', array_merge($lockedStatuses, ['declined'])) // ← TAMBAH 'declined'
                 ->where(function ($q) {
                     $q->where('is_user_stage', false)->orWhereNull('is_user_stage');
                 })
@@ -340,7 +371,6 @@ class EditWorkflowController extends Controller
                 $del->delete();
             }
 
-            // Update current_stage contract
             $firstActive = $contract->reviewStages()
                 ->whereIn('status', ['assigned', 'in_progress'])
                 ->orderBy('sequence')
@@ -349,12 +379,10 @@ class EditWorkflowController extends Controller
                 $contract->update(['current_stage' => $firstActive->sequence]);
             }
 
-            // Synology path
             if ($request->filled('synology_folder_path')) {
                 $contract->update(['synology_folder_path' => $request->synology_folder_path]);
             }
 
-            // Log
             if (!empty($changes)) {
                 ContractReviewLog::create([
                     'contract_id' => $contract->id,
@@ -368,29 +396,20 @@ class EditWorkflowController extends Controller
 
             DB::commit();
 
-            // ✅ NOTIFIKASI: Notify owner dokumen bahwa workflow diupdate
             try {
                 if ($contract->user) {
                     $contract->user->notify(
-                        new WorkflowUpdatedNotification(
-                            $contract,
-                            $currentUser,
-                            $changes,
-                            'owner'
-                        )
+                        new WorkflowUpdatedNotification($contract, $currentUser, $changes, 'owner')
                     );
                 }
             } catch (\Exception $e) {
                 Log::error('WorkflowUpdatedNotification (owner) failed: ' . $e->getMessage());
             }
 
-            // ✅ NOTIFIKASI: Notify reviewer baru yang ditambahkan
-            // Kumpulkan user_id reviewer baru dari $orderData
             try {
                 $notifiedReviewerIds = [];
                 foreach ($orderData as $item) {
                     if ($item['type'] === 'sequential' && empty($item['stage_id'])) {
-                        // Stage baru (tidak punya stage_id = baru ditambahkan)
                         $newUserId = !empty($item['user_id']) ? (int) $item['user_id'] : null;
                         if ($newUserId && !in_array($newUserId, $notifiedReviewerIds)) {
                             $notifiedReviewerIds[] = $newUserId;
@@ -398,10 +417,7 @@ class EditWorkflowController extends Controller
                             if ($newReviewer) {
                                 $newReviewer->notify(
                                     new WorkflowUpdatedNotification(
-                                        $contract,
-                                        $currentUser,
-                                        [],
-                                        'reviewer',
+                                        $contract, $currentUser, [], 'reviewer',
                                         $item['stage_name'] ?? 'Legal Review'
                                     )
                                 );
@@ -525,23 +541,17 @@ class EditWorkflowController extends Controller
         }
 
         $allowedRoles = [
-            'legal',
-            'admin_fin',
-            'admin_tax',
-            'admin_acc',
-            'staff_fin',
-            'staff_acc',
-            'staff_tax',
+            'legal', 'admin_fin', 'admin_tax', 'admin_acc',
+            'staff_fin', 'staff_acc', 'staff_tax',
         ];
 
-        // Gunakan Spatie whereHas('roles') — konsisten dengan method edit()
         $users = TblUser::select('id_user', 'nama_user', 'jabatan')
             ->where('status_karyawan', 'AKTIF')
             ->where(function ($query) use ($allowedRoles, $contract) {
                 $query->whereHas('roles', function ($q) use ($allowedRoles) {
                     $q->whereIn('name', $allowedRoles);
                 })
-                ->orWhere('id_user', $contract->user_id); // owner tetap masuk
+                ->orWhere('id_user', $contract->user_id);
             })
             ->when($search, function ($query, $search) {
                 $query->where('nama_user', 'like', '%' . $search . '%');
@@ -551,9 +561,6 @@ class EditWorkflowController extends Controller
             ->get();
 
         $results = $users->map(function ($user) use ($contract) {
-            // Ambil nama role pertama via Spatie
-            $roleName = $user->getRoleNames()->first() ?? '-';
-
             return [
                 'id'   => $user->id_user,
                 'text' => $user->nama_user
@@ -563,5 +570,127 @@ class EditWorkflowController extends Controller
         });
 
         return response()->json(['results' => $results]);
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // ✅ FIX reInvite: cari placeholder dengan status 'declined'
+    //    (bukan 'skipped'), karena declineInvitation() menyimpan
+    //    stage dengan status 'declined', bukan 'skipped'
+    // ─────────────────────────────────────────────────────────
+    public function reInvite(Request $request, Contract $contract, ContractDepartment $contractDepartment)
+    {
+        if (!Auth::user()->hasAnyRole(['legal', 'admin'])) {
+            abort(403);
+        }
+
+        if ($contractDepartment->contract_id !== $contract->id) {
+            abort(404);
+        }
+
+        if ($contractDepartment->status !== 'declined') {
+            return back()->with('error', 'This department has not declined the invitation — no re-invite needed.');
+        }
+
+        $currentUser = TblUser::find(Auth::id());
+        $department  = $contractDepartment->department;
+
+        DB::beginTransaction();
+        try {
+            // 1. Reset ContractDepartment back to pending_assignment
+            $contractDepartment->update([
+                'status'      => 'pending_assignment',
+                'declined_at' => null,
+                'declined_by' => null,
+                'notes'       => 'Re-invited by ' . $currentUser->nama_user . ' on ' . now()->format('d M Y H:i'),
+            ]);
+
+            // ✅ FIX: Cari stage 'declined' (bukan 'skipped')
+            // DepartmentAdminController::declineInvitation() set status → 'declined'
+            $placeholderStage = ContractReviewStage::where('contract_id', $contract->id)
+                ->where('department_id', $contractDepartment->department_id)
+                ->where('status', 'declined')   // ← FIX: was 'skipped'
+                ->first();                       // ← hapus filter whereNull('assigned_user_id')
+                                                 //   karena stage declined bisa punya user_id atau tidak
+
+            if ($placeholderStage) {
+                // 2a. Restore stage yang declined → pending
+                $placeholderStage->update([
+                    'status'           => 'pending',
+                    'assigned_user_id' => null, // reset reviewer, dept admin akan assign ulang
+                    'notes'            => 'Stage restored after re-invite by ' . $currentUser->nama_user,
+                ]);
+            } else {
+                // 2b. Tidak ada stage declined → buat placeholder baru
+                $stageTypeMap = ['FIN' => 'finance', 'ACC' => 'accounting', 'TAX' => 'tax', 'LEGAL' => 'legal'];
+                $deptCode     = $department->code ?? 'FIN';
+                $stageType    = $stageTypeMap[$deptCode] ?? strtolower($deptCode);
+
+                // Cari posisi sequence dari group parallel yang ada
+                $parallelStage = ContractReviewStage::where('contract_id', $contract->id)
+                    ->whereNotNull('parallel_group')
+                    ->where('department_id', '!=', $contractDepartment->department_id)
+                    ->orderBy('sequence')
+                    ->first();
+
+                $sequence      = $parallelStage ? $parallelStage->sequence : (($contract->reviewStages()->max('sequence') ?? 1) + 1);
+                $parallelGroup = $parallelStage ? $parallelStage->parallel_group : null;
+
+                $placeholderStage = ContractReviewStage::create([
+                    'contract_id'      => $contract->id,
+                    'department_id'    => $contractDepartment->department_id,
+                    'stage_name'       => $department->name . ' Review',
+                    'stage_type'       => $stageType,
+                    'assigned_user_id' => null,
+                    'sequence'         => $sequence,
+                    'parallel_group'   => $parallelGroup,
+                    'status'           => 'pending',
+                    'notes'            => 'Awaiting staff assignment. Re-invited by ' . $currentUser->nama_user,
+                    'created_by'       => $currentUser->id_user,
+                ]);
+            }
+
+            // 3. Log the re-invite action
+            ContractReviewLog::create([
+                'contract_id' => $contract->id,
+                'stage_id'    => $placeholderStage?->id,
+                'user_id'     => $currentUser->id_user,
+                'action'      => 'department_reinvited',
+                'description' => $currentUser->nama_user . ' re-invited ' . $department->name . ' to the review workflow.',
+                'metadata'    => [
+                    'department_id'   => $contractDepartment->department_id,
+                    'department_name' => $department->name,
+                    'reinvited_by'    => $currentUser->nama_user,
+                ],
+            ]);
+
+            DB::commit();
+
+            // 4. Notify department admin (non-blocking)
+            try {
+                $adminRoleMap = ['FIN' => 'admin_fin', 'ACC' => 'admin_acc', 'TAX' => 'admin_tax'];
+                $adminRole    = $adminRoleMap[$department->code] ?? null;
+
+                if ($adminRole) {
+                    $admins = TblUser::role($adminRole)->where('status_karyawan', 'AKTIF')->get();
+                    foreach ($admins as $admin) {
+                        // Pastikan DepartmentAssignmentNotification sudah ada di project kamu
+                        if (class_exists(\App\Notifications\DepartmentAssignmentNotification::class)) {
+                            $admin->notify(new \App\Notifications\DepartmentAssignmentNotification($contract, $department, $currentUser));
+                        }
+                    }
+                }
+            } catch (\Exception $e) {
+                Log::error('Re-invite notification failed: ' . $e->getMessage());
+            }
+
+            return redirect()
+                ->route('legal.workflow.edit', $contract)
+                ->with('success', $department->name . ' has been re-invited to the review workflow.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('reInvite failed: ' . $e->getMessage(), ['contract_id' => $contract->id]);
+            return back()->with('error', 'Failed to re-invite department: ' . $e->getMessage());
+        }
     }
 }

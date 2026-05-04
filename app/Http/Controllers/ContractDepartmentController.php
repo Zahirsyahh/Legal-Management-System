@@ -186,6 +186,18 @@ class ContractDepartmentController extends Controller
         }
     }
 
+    public function acceptInvitation(ContractDepartment $contractDepartment)
+    {
+        return app(\App\Http\Controllers\DepartmentAdminController::class)
+            ->acceptInvitation($contractDepartment);
+    }
+
+    public function declineInvitation(Request $request, ContractDepartment $contractDepartment)
+    {
+        return app(\App\Http\Controllers\DepartmentAdminController::class)
+            ->declineInvitation($request, $contractDepartment);
+    }
+    
     /**
      * Show form to assign staff reviewer
      * ✅ FIX: Parameter harus ContractDepartment

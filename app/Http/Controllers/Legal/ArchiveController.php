@@ -22,19 +22,40 @@ class ArchiveController extends Controller
     {
         $query = Archive::query();
 
-        if ($request->doc_name) {
-            $query->where('doc_name', 'like', '%' . $request->doc_name . '%');
+        if ($request->search) {
+            $query->where(function($q) use ($request) {
+                $q->where('record_id', 'like', '%' . $request->search . '%')
+                ->orWhere('doc_name', 'like', '%' . $request->search . '%')
+                ->orWhere('company', 'like', '%' . $request->search . '%');
+            });
         }
 
         if ($request->department) {
-            $query->where('department_code', $request->department);
+            $departments = explode(',', $request->department);
+            $query->whereIn('department_code', $departments);
         }
 
         if ($request->doc_type) {
-            $query->where('doc_type', $request->doc_type);
+            $docTypes = explode(',', $request->doc_type);
+            $query->whereIn('doc_type', $docTypes);
         }
 
-        $archives = $query->latest()->paginate(15);
+        if ($request->version_status) {
+            $versions = explode(',', $request->version_status);
+            $query->whereIn('version_status', $versions);
+        }
+
+        if ($request->company) {
+            $companies = explode(',', $request->company);
+            $query->whereIn('company', $companies);
+        }
+
+        // Handle sorting
+        $sort = $request->get('sort', 'created_at');
+        $order = $request->get('order', 'desc');
+        $query->orderBy($sort, $order);
+
+        $archives = $query->paginate(15);
 
         return view('archives.index', compact('archives'));
     }

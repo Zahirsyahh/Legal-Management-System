@@ -343,6 +343,8 @@
             </div>
         @endif
 
+        @include('contracts._invitation_action_bar', ['contract' => $contract])
+
         {{-- ============================= --}}
         {{-- CONTRACT NUMBER GENERATION SECTION --}}
         {{-- ============================= --}}
@@ -1139,8 +1141,8 @@
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                                             </svg>
                                         </div>
-                                        <p class="text-gray-500 text-sm">Belum ada komentar legal</p>
-                                        <p class="text-gray-600 text-xs mt-1">Komentar akan muncul di sini</p>
+                                        <p class="text-gray-500 text-sm">There are no comments yet</p>
+                                        <p class="text-gray-600 text-xs mt-1">Comments will appear here</p>
                                     </div>
                                 @endforelse
                             </div>
@@ -1154,7 +1156,7 @@
                                     <textarea name="notes" 
                                             rows="1"
                                             class="flex-1 px-3 py-2 bg-gray-800/60 border border-gray-700 focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/30 rounded-lg text-gray-200 text-sm placeholder-gray-500 resize-none transition-all duration-200 outline-none"
-                                            placeholder="Tulis komentar legal..."></textarea>
+                                            placeholder="Write a comment..."></textarea>
                                     <button type="submit"
                                             class="px-3 py-2 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 rounded-lg border border-indigo-500/30 transition-all duration-200 flex items-center gap-1 text-sm">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1474,6 +1476,10 @@
                                             <div class="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center">
                                                 <div class="w-2 h-2 rounded-full bg-orange-400"></div>
                                             </div>
+                                        @elseif($reviewStage->status === 'declined')
+                                            <div class="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center">
+                                                <div class="w-2 h-2 rounded-full bg-red-400"></div>
+                                            </div>
                                         @else
                                             <div class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center">
                                                 <span class="text-xs text-gray-400">{{ $reviewStage->sequence }}</span>
@@ -1509,6 +1515,8 @@
                                                     <span class="text-yellow-400">Assigned</span>
                                                 @elseif($reviewStage->status === 'revision_requested')
                                                     <span class="text-orange-400">Revision</span>
+                                                @elseif($reviewStage->status === 'declined')
+                                                    <span class="text-red-400">Declined</span>
                                                 @else
                                                     <span class="text-gray-500">Pending</span>
                                                 @endif
