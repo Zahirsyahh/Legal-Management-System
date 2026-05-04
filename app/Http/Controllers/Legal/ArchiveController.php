@@ -22,40 +22,43 @@ class ArchiveController extends Controller
     {
         $query = Archive::query();
 
-        if ($request->search) {
-            $query->where(function($q) use ($request) {
-                $q->where('record_id', 'like', '%' . $request->search . '%')
-                ->orWhere('doc_name', 'like', '%' . $request->search . '%')
-                ->orWhere('company', 'like', '%' . $request->search . '%');
+        // ── SEARCH: semua kolom yang relevan ────────────────────────────
+        if ($request->filled('search')) {
+            $s = $request->search;
+            $query->where(function ($q) use ($s) {
+                $q->where('doc_name',     'like', "%{$s}%")
+                ->orWhere('record_id',  'like', "%{$s}%")
+                ->orWhere('doc_number', 'like', "%{$s}%")
+                ->orWhere('counterparty','like', "%{$s}%")
+                ->orWhere('description','like', "%{$s}%");
             });
         }
 
-        if ($request->department) {
-            $departments = explode(',', $request->department);
-            $query->whereIn('department_code', $departments);
+        // ── FILTERS ──────────────────────────────────────────────────────
+        if ($request->filled('department')) {
+            $query->whereIn('department_code', explode(',', $request->department));
+        }
+        if ($request->filled('doc_type')) {
+            $query->whereIn('doc_type', explode(',', $request->doc_type));
+        }
+        if ($request->filled('version_status')) {
+            $query->whereIn('version_status', explode(',', $request->version_status));
+        }
+        if ($request->filled('company')) {
+            $query->whereIn('company', explode(',', $request->company));
         }
 
-        if ($request->doc_type) {
-            $docTypes = explode(',', $request->doc_type);
-            $query->whereIn('doc_type', $docTypes);
-        }
+        // ── SORT ─────────────────────────────────────────────────────────
+        // Default: date_desc (terbaru dulu)
+        $sort = $request->get('sort', 'date_desc');
+        match($sort) {
+            'name_asc'  => $query->orderBy('doc_name', 'asc'),
+            'name_desc' => $query->orderBy('doc_name', 'desc'),
+            'date_asc'  => $query->orderBy('created_at', 'asc'),
+            default     => $query->orderBy('created_at', 'desc'), // date_desc
+        };
 
-        if ($request->version_status) {
-            $versions = explode(',', $request->version_status);
-            $query->whereIn('version_status', $versions);
-        }
-
-        if ($request->company) {
-            $companies = explode(',', $request->company);
-            $query->whereIn('company', $companies);
-        }
-
-        // Handle sorting
-        $sort = $request->get('sort', 'created_at');
-        $order = $request->get('order', 'desc');
-        $query->orderBy($sort, $order);
-
-        $archives = $query->paginate(15);
+        $archives = $query->paginate(15)->withQueryString(); // ← wajib agar pagination bawa filter/search
 
         return view('archives.index', compact('archives'));
     }
