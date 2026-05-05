@@ -318,7 +318,7 @@
                 <!-- ======================================== -->
                 <!-- BAGIAN 4: TOMBOL ADD DENGAN ID          -->
                 <!-- ======================================== -->
-                @if($type === 'department' || $type === 'user')
+                @if($type === 'user')
                 <a id="addBtn"
                    href="{{ route('admin.master-departments.create', ['type' => $type]) }}" 
                    class="glass-card px-6 py-3 rounded-xl flex items-center gap-2 hover:bg-white/5 transition-all duration-300 action-btn btn-primary">
@@ -704,7 +704,7 @@
                 // Update Add button visibility
                 const addBtn = document.getElementById('addBtn');
                 if (addBtn) {
-                    if (cat === 'department' || cat === 'user') {
+                    if (cat === 'user') {
                         addBtn.classList.remove('hidden');
                         addBtn.href = `/admin/master-departments/create?type=${cat}`;
                         addBtn.querySelector('span').textContent = 'Add ' + (cat === 'department' ? 'Department' : 'User');

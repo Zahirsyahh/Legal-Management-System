@@ -164,37 +164,37 @@
 </head>
 <body>
     <div class="no-print">
-        <button onclick="window.print()">Print / Simpan PDF</button>
-        <button onclick="window.close()">Tutup</button>
+        <button onclick="window.print()">Print / Save PDF</button>
+        <button onclick="window.close()">Close</button>
     </div>
     
     <div class="print-header">
-        <h1>LAPORAN KONTRAK</h1>
+        <h1>DOCUMENT REPORT</h1>
         <h2>
             @php
-                $title = 'Semua Kontrak';
-                if ($userRole === 'user') $title = 'Kontrak Saya';
-                elseif (in_array($userRole, ['admin_fin', 'staff_fin'])) $title = 'Kontrak Department Finance';
-                elseif (in_array($userRole, ['admin_acc', 'staff_acc'])) $title = 'Kontrak Department Accounting';
-                elseif (in_array($userRole, ['admin_tax', 'staff_tax'])) $title = 'Kontrak Department Tax';
-                elseif (in_array($userRole, ['admin', 'legal'])) $title = 'Semua Kontrak';
+                $title = 'All Document';
+                if ($userRole === 'user') $title = 'My Documents';
+                elseif (in_array($userRole, ['admin_fin', 'staff_fin'])) $title = 'Finance Department Documents';
+                elseif (in_array($userRole, ['admin_acc', 'staff_acc'])) $title = 'Accounting Department Documents';
+                elseif (in_array($userRole, ['admin_tax', 'staff_tax'])) $title = 'Tax Department Documents';
+                elseif (in_array($userRole, ['admin', 'legal'])) $title = 'All Documents';
             @endphp
             {{ $title }}
         </h2>
     </div>
     
 <div class="filter-info">
-    <p><strong>Periode:</strong> 
+    <p><strong>Period:</strong> 
         @if(request()->filled('start_date') && request()->filled('end_date'))
             {{ \Carbon\Carbon::parse(request('start_date'))->format('d/m/Y') }} 
             - 
             {{ \Carbon\Carbon::parse(request('end_date'))->format('d/m/Y') }}
         @elseif(request()->filled('start_date'))
-            Dari {{ \Carbon\Carbon::parse(request('start_date'))->format('d/m/Y') }}
+            From {{ \Carbon\Carbon::parse(request('start_date'))->format('d/m/Y') }}
         @elseif(request()->filled('end_date'))
-            Sampai {{ \Carbon\Carbon::parse(request('end_date'))->format('d/m/Y') }}
+            Until {{ \Carbon\Carbon::parse(request('end_date'))->format('d/m/Y') }}
         @else
-            Semua Periode
+            All Periode
         @endif
     </p>
 

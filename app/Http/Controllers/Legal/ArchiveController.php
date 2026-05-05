@@ -22,19 +22,17 @@ class ArchiveController extends Controller
     {
         $query = Archive::query();
 
-        // ── SEARCH: semua kolom yang relevan ────────────────────────────
         if ($request->filled('search')) {
             $s = $request->search;
             $query->where(function ($q) use ($s) {
-                $q->where('doc_name',     'like', "%{$s}%")
-                ->orWhere('record_id',  'like', "%{$s}%")
-                ->orWhere('doc_number', 'like', "%{$s}%")
+                $q->where('doc_name',      'like', "%{$s}%")
+                ->orWhere('record_id',   'like', "%{$s}%")
+                ->orWhere('doc_number',  'like', "%{$s}%")
                 ->orWhere('counterparty','like', "%{$s}%")
-                ->orWhere('description','like', "%{$s}%");
+                ->orWhere('description', 'like', "%{$s}%");
             });
         }
 
-        // ── FILTERS ──────────────────────────────────────────────────────
         if ($request->filled('department')) {
             $query->whereIn('department_code', explode(',', $request->department));
         }
@@ -48,17 +46,25 @@ class ArchiveController extends Controller
             $query->whereIn('company', explode(',', $request->company));
         }
 
-        // ── SORT ─────────────────────────────────────────────────────────
-        // Default: date_desc (terbaru dulu)
         $sort = $request->get('sort', 'date_desc');
         match($sort) {
             'name_asc'  => $query->orderBy('doc_name', 'asc'),
             'name_desc' => $query->orderBy('doc_name', 'desc'),
             'date_asc'  => $query->orderBy('created_at', 'asc'),
-            default     => $query->orderBy('created_at', 'desc'), // date_desc
+            default     => $query->orderBy('created_at', 'desc'),
         };
 
-        $archives = $query->paginate(15)->withQueryString(); // ← wajib agar pagination bawa filter/search
+        $archives = $query->paginate(15)->withQueryString();
+
+        // ── AJAX: return partial view ────────────────────────────────────
+        if ($request->ajax()) {
+            return response()->json([
+                'table'      => view('archives._table_partial', compact('archives'))->render(),
+                'cards'      => view('archives._cards_partial', compact('archives'))->render(),
+                'pagination' => view('archives._pagination_partial', compact('archives'))->render(),
+                'total'      => $archives->total(),
+            ]);
+        }
 
         return view('archives.index', compact('archives'));
     }
