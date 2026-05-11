@@ -701,7 +701,7 @@
                 <div class="form-group">
                     <label class="form-label required">Year (for Record ID)</label>
                     <select id="yearSelect" class="form-select">
-                        @php $currentYear = $archive->created_at ? $archive->created_at->format('y') : date('y'); @endphp
+                    @php $currentYear = substr($archive->record_year, 2); @endphp
                         @for($year = date('Y'); $year >= date('Y') - 20; $year--)
                             @php $yy = substr($year, 2, 2); @endphp
                             <option value="{{ $yy }}" {{ $currentYear == $yy ? 'selected' : '' }}>

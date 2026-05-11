@@ -344,7 +344,7 @@
                     </div>
                     <div class="detail-item">
                         <div class="detail-label">Year</div>
-                        <div class="detail-value">{{ $archive->year ?? ($archive->created_at ? $archive->created_at->format('Y') : '-') }}</div>
+                        <div class="detail-value">{{ $archive->record_year ?? ($archive->created_at ? $archive->created_at->format('Y') : '-') }}</div>
                     </div>
                     <div class="detail-item">
                         <div class="detail-label">Department</div>

@@ -118,6 +118,20 @@ class Archive extends Model
     |--------------------------------------------------------------------------
     */
 
+    /**
+     * Extract 2-digit year dari record_id
+     * Format: GNI 17 IT RP 001
+     *              ──
+     *         index 3, panjang 2
+     */
+    public function getRecordYearAttribute(): string
+    {
+        if (strlen($this->record_id) >= 5) {
+            return '20' . substr($this->record_id, 3, 2);
+        }
+        return date('Y'); // fallback
+    }
+
     public function getDocTypeNameAttribute()
     {
         return self::DOC_TYPES[$this->doc_type] ?? $this->doc_type;
