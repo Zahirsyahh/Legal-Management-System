@@ -17,23 +17,30 @@ class ArchiveRecordIdService
      */
     public function generate(string $company, string $year, string $departmentCode, string $docType): string
     {
-        // Normalise year → always 2 digits
-        // Accepts "2026", "26", etc.
-        $yearShort = strlen($year) === 4 ? substr($year, 2, 2) : str_pad($year, 2, '0', STR_PAD_LEFT);
+        $yearShort = strlen($year) === 4 
+            ? substr($year, 2, 2) 
+            : str_pad($year, 2, '0', STR_PAD_LEFT);
 
         $prefix = $company . $yearShort . $departmentCode . $docType;
 
-        $lastRecord = Archive::where('record_id', 'like', $prefix . '%')
-            ->orderBy('record_id', 'desc')
-            ->first();
+        // Ambil semua record_id yang cocok dengan prefix ini
+        $existingNumbers = Archive::where('record_id', 'like', $prefix . '%')
+            ->pluck('record_id')
+            ->map(fn($id) => (int) substr($id, strlen($prefix))) // ekstrak angka: "002" → 2
+            ->filter(fn($n) => $n > 0)                          // buang yang tidak valid
+            ->sort()
+            ->values();
 
-        if ($lastRecord) {
-            $lastNumber = (int) substr($lastRecord->record_id, strlen($prefix));
-            $nextNumber = str_pad($lastNumber + 1, 3, '0', STR_PAD_LEFT);
-        } else {
-            $nextNumber = '001';
+        // Cari slot kosong pertama mulai dari 1
+        $nextNumber = 1;
+        foreach ($existingNumbers as $used) {
+            if ($used === $nextNumber) {
+                $nextNumber++; // slot ini terpakai, coba berikutnya
+            } else {
+                break; // ketemu gap!
+            }
         }
 
-        return $prefix . $nextNumber;
+        return $prefix . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
     }
 }
