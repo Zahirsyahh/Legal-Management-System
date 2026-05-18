@@ -181,24 +181,31 @@ class ContractNumberService
 
     /**
      * Get next sequence number per department per year
+     * Cek dari dua sumber: contracts (Legal System) dan tbl_surat_keluar_legal (HRMS)
+     * Setelah migrasi selesai 100%, bagian $lastHrms boleh dihapus
      */
-    public function getNextSequence(string $departmentCode, int $year): int{
-        // 🔥 documentType DIHAPUS dari pattern
+    public function getNextSequence(string $departmentCode, int $year): int
+    {
         $pattern = "%/{$departmentCode}-{$this->companyCode}/%/{$year}";
 
-        $lastContract = Contract::whereNotNull('contract_number')
+        // Cek nomor tertinggi di Legal System
+        $lastLegal = Contract::whereNotNull('contract_number')
             ->where('contract_number', 'LIKE', $pattern)
-            ->orderByRaw(
-                "CAST(SUBSTRING_INDEX(contract_number, '/', 1) AS UNSIGNED) DESC"
-            )
-            ->first();
+            ->orderByRaw("CAST(SUBSTRING_INDEX(contract_number, '/', 1) AS UNSIGNED) DESC")
+            ->value('contract_number');
 
-        if ($lastContract && $lastContract->contract_number) {
-            $parts = explode('/', $lastContract->contract_number);
-            return ((int) $parts[0]) + 1;
-        }
+        // Cek nomor tertinggi di HRMS
+        $lastHrms = DB::table('tbl_surat_keluar_legal')
+            ->whereNotNull('nomor_surat_keluar')
+            ->where('nomor_surat_keluar', '!=', '')
+            ->where('nomor_surat_keluar', 'LIKE', $pattern)
+            ->orderByRaw("CAST(SUBSTRING_INDEX(nomor_surat_keluar, '/', 1) AS UNSIGNED) DESC")
+            ->value('nomor_surat_keluar');
 
-        return 1;
+        $seqLegal = $lastLegal ? (int) explode('/', $lastLegal)[0] : 0;
+        $seqHrms  = $lastHrms  ? (int) explode('/', $lastHrms)[0]  : 0;
+
+        return max($seqLegal, $seqHrms) + 1;
     }
 
 
