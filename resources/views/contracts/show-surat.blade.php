@@ -589,13 +589,14 @@
                                         </div>
                                     </div>
                                     <div class="flex gap-1">
-                                        <a href="{{ route('surat.preview', $contract) }}" target="_blank"
-                                           class="p-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 rounded-lg transition-all duration-300 border border-blue-500/30 hover:border-blue-500/50"
-                                           title="View">
+                                        <button type="button"
+                                                onclick="openPdfPreview('{{ route('surat.preview', $contract) }}')"
+                                                class="p-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 rounded-lg transition-all duration-300 border border-blue-500/30 hover:border-blue-500/50"
+                                                title="View">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                                             </svg>
-                                        </a>
+                                        </button>
                                         <a href="{{ route('surat.download', $contract) }}"
                                            class="p-1.5 bg-green-600/20 hover:bg-green-600/30 text-green-400 rounded-lg transition-all duration-300 border border-green-500/30 hover:border-green-500/50"
                                            title="Download">
@@ -998,6 +999,69 @@
     </div>
 
     {{-- ══════════════════════════════════════════
+     MODAL: PDF Preview
+    ══════════════════════════════════════════ --}}
+    <div id="modal-pdf-preview"
+        class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4 py-6">
+        <div class="relative bg-gray-900 border border-gray-700/50 rounded-2xl shadow-2xl w-full max-w-5xl flex flex-col"
+            style="height: 90vh;">
+
+            {{-- Header --}}
+            <div class="flex items-center justify-between px-5 py-4 border-b border-gray-700/50 flex-shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center">
+                        <svg class="w-4 h-4 text-red-400" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-semibold text-white">Document Preview</h3>
+                        <p id="pdf-preview-filename" class="text-xs text-gray-400 truncate max-w-xs">
+                            {{ basename($contract->surat_file_path ?? '') }}
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    {{-- Open in new tab (as fallback) --}}
+                    <a id="pdf-open-tab-btn"
+                    href="#"
+                    target="_blank"
+                    class="px-3 py-1.5 text-xs bg-gray-700/60 hover:bg-gray-700 text-gray-300 rounded-lg border border-gray-600/50 transition-colors flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                        </svg>
+                        Open in Tab
+                    </a>
+                    <button onclick="closePdfPreview()"
+                            class="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            {{-- Loading state --}}
+            <div id="pdf-loading"
+                class="absolute inset-0 top-[65px] flex flex-col items-center justify-center bg-gray-900/80 rounded-b-2xl z-10">
+                <svg class="animate-spin w-8 h-8 text-blue-400 mb-3" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                </svg>
+                <p class="text-sm text-gray-400">Loading document...</p>
+            </div>
+
+            {{-- iFrame --}}
+            <iframe id="pdf-preview-iframe"
+                    src=""
+                    class="w-full flex-1 rounded-b-2xl bg-gray-950"
+                    style="border: none;"
+                    onload="document.getElementById('pdf-loading').style.display='none'">
+            </iframe>
+        </div>
+    </div>
+
+    {{-- ══════════════════════════════════════════
          MODAL: Send Notes to User
     ══════════════════════════════════════════ --}}
     <div id="modal-send-note"
@@ -1321,6 +1385,48 @@
         // Trigger the hide animation via the change event path
         fi && fi.dispatchEvent(new Event('change'));
     };
+
+    /* ──────────────────────────────────────────
+   PDF PREVIEW MODAL
+    ────────────────────────────────────────── */
+    window.openPdfPreview = function (url) {
+        const modal   = document.getElementById('modal-pdf-preview');
+        const iframe  = document.getElementById('pdf-preview-iframe');
+        const loading = document.getElementById('pdf-loading');
+        const tabBtn  = document.getElementById('pdf-open-tab-btn');
+
+        // Reset loading state
+        loading.style.display = 'flex';
+        iframe.src = '';
+
+        // Set URL
+        iframe.src  = url;
+        tabBtn.href = url;
+
+        // Show modal
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    };
+
+    window.closePdfPreview = function () {
+        const modal  = document.getElementById('modal-pdf-preview');
+        const iframe = document.getElementById('pdf-preview-iframe');
+
+        modal.classList.add('hidden');
+        iframe.src = '';                    // stop loading / free memory
+        document.body.style.overflow = '';
+    };
+
+    // Tutup modal kalau klik backdrop (area gelap di luar box)
+    document.getElementById('modal-pdf-preview')
+        .addEventListener('click', function (e) {
+            if (e.target === this) closePdfPreview();
+        });
+
+    // Tutup modal dengan tombol Escape
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closePdfPreview();
+    });
     </script>
     @endpush
 

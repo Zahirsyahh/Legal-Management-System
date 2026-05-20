@@ -18,10 +18,7 @@ ContractController::show() — lihat patch controller di bawah.
 --}}
 
 @if(!empty($myReceived) && $myReceived->isNotEmpty())
-{{-- ── PANEL A: Revision tasks yang DITERIMA oleh user yang login ──
-     Tampil untuk: Bunga, Sari, atau siapapun yang menerima revisi
-     Mereka perlu kerjakan dan submit balik
---}}
+{{-- ── PANEL A: Revision tasks yang DITERIMA oleh user yang login ── --}}
 <div class="glass-card rounded-xl p-5 border border-orange-500/30">
     <div class="flex items-center gap-3 mb-4">
         <div class="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center flex-shrink-0">
@@ -33,7 +30,7 @@ ContractController::show() — lihat patch controller di bawah.
             <h3 class="text-sm font-semibold text-orange-400">Revision For You</h3>
             <p class="text-xs text-gray-500">You are requested to perform a revision</p>
         </div>
-        <span class="px-2 py-0.5 text-xs bg-orange-500/20 text-orange-400 rounded-full border border-orange-500/30">
+        <span class="px-2 py-0.5 text-xs bg-orange-500/20 text-orange-400 rounded-full border border-orange-500/30 flex-shrink-0">
             {{ $myReceived->count() }}
         </span>
     </div>
@@ -44,7 +41,7 @@ ContractController::show() — lihat patch controller di bawah.
             <div class="flex items-start justify-between gap-2 mb-2">
                 <div class="flex-1 min-w-0">
                     <p class="text-sm font-medium text-gray-300 truncate">
-                        Dari: {{ $task->requester->nama_user ?? 'Unknown' }}
+                        From: {{ $task->requester->nama_user ?? 'Unknown' }}
                     </p>
                     <p class="text-xs text-gray-500 mt-0.5">
                         {{ $task->fromStage->stage_name ?? '-' }}
@@ -74,7 +71,7 @@ ContractController::show() — lihat patch controller di bawah.
 
             <a href="{{ route('revision-tasks.show', $task) }}"
                class="block w-full text-center py-2 text-xs font-medium text-orange-400 bg-orange-500/10 rounded-lg border border-orange-500/20 hover:bg-orange-500/20 transition-all">
-                Lihat & Kerjakan →
+                View →
             </a>
         </div>
         @endforeach
@@ -83,45 +80,49 @@ ContractController::show() — lihat patch controller di bawah.
 @endif
 
 @if(!empty($mySent) && $mySent->isNotEmpty())
-{{-- ── PANEL B: Revision tasks yang DIKIRIM oleh user yang login ──
-     Tampil untuk: Bimo atau siapapun yang mengirim revisi
-     Mereka bisa melihat status dan mengambil tindakan
---}}
+{{-- ── PANEL B: Revision tasks yang DIKIRIM oleh user yang login ── --}}
 @php
     $submittedCount = $mySent->where('status', 'submitted')->count();
     $openCount      = $mySent->whereIn('status', ['pending', 'in_progress', 're_requested'])->count();
 @endphp
 <div class="glass-card rounded-xl p-5 border {{ $submittedCount > 0 ? 'border-purple-500/40' : 'border-amber-500/30' }}">
-    <div class="flex items-center gap-3 mb-4">
-        <div class="w-8 h-8 rounded-lg {{ $submittedCount > 0 ? 'bg-purple-500/10' : 'bg-amber-500/10' }} flex items-center justify-center flex-shrink-0">
-            <svg class="w-4 h-4 {{ $submittedCount > 0 ? 'text-purple-400' : 'text-amber-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
-            </svg>
+    
+    {{-- Header Utama --}}
+    <div class="flex items-start justify-between gap-3 mb-4">
+        <div class="flex items-center gap-3 min-w-0 flex-1">
+            <div class="w-8 h-8 rounded-lg {{ $submittedCount > 0 ? 'bg-purple-500/10' : 'bg-amber-500/10' }} flex items-center justify-center flex-shrink-0">
+                <svg class="w-4 h-4 {{ $submittedCount > 0 ? 'text-purple-400' : 'text-amber-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                </svg>
+            </div>
+            <div class="min-w-0">
+                <h3 class="text-sm font-semibold {{ $submittedCount > 0 ? 'text-purple-400' : 'text-amber-400' }}">
+                    Revision Sent
+                </h3>
+                <p class="text-xs text-gray-500">Track and manage revisions you sent</p>
+            </div>
         </div>
-        <div class="flex-1 min-w-0">
-            <h3 class="text-sm font-semibold {{ $submittedCount > 0 ? 'text-purple-400' : 'text-amber-400' }}">
-                Revision You Sent
-            </h3>
-            <p class="text-xs text-gray-500">
-                @if($submittedCount > 0)
-                    {{ $submittedCount }} results waiting for your decision
-                @else
-                    Currently being worked on by the reviewer
-                @endif
-            </p>
-        </div>
-        <div class="flex items-center gap-1 flex-shrink-0">
-            @if($submittedCount > 0)
-            <span class="px-2 py-0.5 text-xs bg-purple-500/20 text-purple-400 rounded-full border border-purple-500/30 animate-pulse">
-                {{ $submittedCount }} needs to be reviewed
-            </span>
-            @endif
-            @if($openCount > 0)
-            <span class="px-2 py-0.5 text-xs bg-amber-500/20 text-amber-400 rounded-full border border-amber-500/30">
-                {{ $openCount }} in progress
-            </span>
-            @endif
-        </div>
+        
+        {{-- Counter total data di ujung kanan --}}
+        <span class="px-2 py-0.5 text-xs {{ $submittedCount > 0 ? 'bg-purple-500/20 text-purple-400 border-purple-500/30' : 'bg-amber-500/20 text-amber-400 border-amber-500/30' }} rounded-full border flex-shrink-0">
+            {{ $mySent->count() }}
+        </span>
+    </div>
+
+    {{-- Indikator Status Tambahan (Aman dari Bug Layout Tumpuk) --}}
+    <div class="flex flex-wrap gap-1.5 mb-4 border-t border-gray-800/50 pt-3">
+        @if($submittedCount > 0)
+        <span class="inline-flex items-center px-2 py-0.5 text-xs bg-purple-500/10 text-purple-400 rounded border border-purple-500/20 animate-pulse">
+            <span class="w-1.5 h-1.5 rounded-full bg-purple-400 mr-1.5"></span>
+            {{ $submittedCount }} needs review
+        </span>
+        @endif
+        @if($openCount > 0)
+        <span class="inline-flex items-center px-2 py-0.5 text-xs bg-amber-500/10 text-amber-400 rounded border border-amber-500/20">
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-400 mr-1.5"></span>
+            {{ $openCount }} in progress
+        </span>
+        @endif
     </div>
 
     <div class="space-y-3">
@@ -134,7 +135,7 @@ ContractController::show() — lihat patch controller di bawah.
             <div class="flex items-start justify-between gap-2 mb-2">
                 <div class="flex-1 min-w-0">
                     <p class="text-sm font-medium text-gray-300 truncate">
-                        Ke: {{ $task->assignee->nama_user ?? 'Unknown' }}
+                        To: {{ $task->assignee->nama_user ?? 'Unknown' }}
                     </p>
                     <p class="text-xs text-gray-500 mt-0.5">
                         {{ $task->toStage->stage_name ?? '-' }}

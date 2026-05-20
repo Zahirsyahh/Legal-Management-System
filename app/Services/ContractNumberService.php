@@ -9,184 +9,151 @@ use Illuminate\Support\Facades\Log;
 
 class ContractNumberService
 {
+    // Tetap ada sebagai fallback
     private string $companyCode = 'GNI';
-    
+
     public function setCompanyCode(string $code): self
     {
         $this->companyCode = strtoupper($code);
         return $this;
     }
-    
+
     public function getCompanyCode(): string
     {
         return $this->companyCode;
     }
 
     /**
-     * ✅ Convert contract_type ("surat" atau "kontrak") ke kode S/K
+     * Resolve company code dari contract
+     * Priority: contract.company_code → fallback 'GNI'
+     */
+    public function resolveCompanyCode(Contract $contract): string
+    {
+        if (!empty($contract->company_code)) {
+            return strtoupper($contract->company_code);
+        }
+
+        return $this->companyCode; // fallback GNI
+    }
+
+    /**
+     * Convert contract_type ke kode S/K
      */
     private function getDocumentTypeCode(string $contractType): string
     {
         $type = strtolower($contractType);
-        
-        if ($type === 'surat') {
-            return 'S';
-        } elseif ($type === 'kontrak') {
-            return 'K';
-        }
-        
-        // Fallback untuk backward compatibility
-        if (str_contains($type, 'surat') || str_contains($type, 'letter')) {
-            return 'S';
-        }
-        
-        return 'K'; // Default ke Kontrak
+
+        if ($type === 'surat') return 'S';
+        if ($type === 'kontrak') return 'K';
+        if (str_contains($type, 'surat') || str_contains($type, 'letter')) return 'S';
+
+        return 'K';
     }
 
     /**
-     * 🔥 NEW: Resolve department code dari user profile
-     * Priority: 
-     * 1. Contract department_code (jika sudah diset)
-     * 2. User kode_department dari tbl_user
-     * 3. Fallback ke 'GEN' (General)
+     * Resolve department code dari contract atau tbl_user
      */
     public function resolveDepartmentCode(Contract $contract): string
     {
-        // 1. Jika contract sudah punya department_code, pakai itu
         if (!empty($contract->department_code)) {
             return strtoupper($contract->department_code);
         }
-        
-        // 2. Coba ambil dari user profile (tbl_user.kode_department via email match)
+
         try {
-            $user = $contract->user; // Eloquent relationship
-            
+            $user = $contract->user;
+
             if ($user && $user->email) {
-                // Query ke tbl_user HRMS untuk ambil kode_department
                 $hrmsUser = DB::table('tbl_user')
                     ->where('email', $user->email)
                     ->first(['kode_department']);
-                
+
                 if ($hrmsUser && !empty($hrmsUser->kode_department)) {
-                    Log::info('Department code resolved from HRMS', [
-                        'user_email' => $user->email,
-                        'kode_department' => $hrmsUser->kode_department,
-                        'contract_id' => $contract->id,
-                    ]);
-                    
                     return strtoupper($hrmsUser->kode_department);
                 }
             }
         } catch (\Exception $e) {
             Log::warning('Failed to resolve department from HRMS', [
-                'error' => $e->getMessage(),
+                'error'       => $e->getMessage(),
                 'contract_id' => $contract->id,
             ]);
         }
-        
-        // 3. Fallback ke GEN jika tidak ada data
+
         Log::warning('Department code fallback to GEN', [
             'contract_id' => $contract->id,
-            'user_id' => $contract->user_id,
-            'reason' => 'No department code found in contract or HRMS',
+            'user_id'     => $contract->user_id,
         ]);
-        
+
         return 'GEN';
     }
 
     /**
-     * 🔥 MAIN METHOD: Generate nomor kontrak resmi
-     * Format: {sequence}/{department}-GNI/{type}/{romanMonth}/{year}
-     * Contoh: 001/ITE-GNI/K/I/2024
+     * Generate nomor resmi
+     * Format: 001/{dept}-{company}/{type}/{bulanRomawi}/{tahun}
+     * Contoh GNI: 001/EXIM-GNI/S/V/2026
+     * Contoh AMI: 001/EXIM-AMI/S/V/2026
      */
     public function generateForContract(Contract $contract): string
     {
-        // ===============================
-        // 1. VALIDASI STRICT
-        // ===============================
         $allowedStatuses = [
-            Contract::STATUS_UNDER_REVIEW,   // Kontrak: review by Legal/FAT
-            Contract::STATUS_FINAL_APPROVED, // Surat: request penomoran
+            Contract::STATUS_UNDER_REVIEW,
+            Contract::STATUS_FINAL_APPROVED,
         ];
 
         if (!in_array($contract->status, $allowedStatuses)) {
             throw new \Exception(
-                'The document must be in UNDER REVIEW or FINAL APPROVED status. Current status: ' . $contract->status
+                'The document status must be UNDER REVIEW or FINAL APPROVED. Current status: ' . $contract->status
             );
-        }
-        
-        if (!empty($contract->contract_number)) {
-            throw new \Exception(
-                'The document already has a number: ' . $contract->contract_number
-            );
-        }
-        
-        // ✅ VALIDASI: contract_type WAJIB ADA
-        if (empty($contract->contract_type)) {
-            throw new \Exception('Contract missing contract_type. Please ensure document type was selected during creation.');
         }
 
-        // ===============================
-        // 2. GET ALL COMPONENTS
-        // ===============================
-        
-        // 🔥 RESOLVE DEPARTMENT CODE (otomatis dari user atau fallback)
-        $departmentCode = $this->resolveDepartmentCode($contract);
-        
-        $documentType = $this->getDocumentTypeCode($contract->contract_type);
-        
-        // Gunakan final_approved_at jika ada, atau sekarang
-        $date = $contract->number_generated_at ?? now();
-        if (is_string($date)) {
-            $date = Carbon::parse($date);
+        if (!empty($contract->contract_number)) {
+            throw new \Exception('The document already has a number: ' . $contract->contract_number);
         }
-        
-        $year = $date->year;
-        $month = $date->month;
-        $romanMonth = $this->toRomanMonth($month);
-        
-        // ===============================
-        // 3. GET NEXT SEQUENCE NUMBER
-        // ===============================
-        $sequence = $this->getNextSequence($departmentCode, $year);
-        
-        // ===============================
-        // 4. BUILD CONTRACT NUMBER
-        // ===============================
+
+        if (empty($contract->contract_type)) {
+            throw new \Exception('contract_type cannot be empty.');
+        }
+
+        // Resolve semua komponen
+        $departmentCode = $this->resolveDepartmentCode($contract);
+        $companyCode    = $this->resolveCompanyCode($contract);  // ← dari contract
+        $documentType   = $this->getDocumentTypeCode($contract->contract_type);
+
+        $date = $contract->number_generated_at ?? now();
+        if (is_string($date)) $date = Carbon::parse($date);
+
+        $year       = $date->year;
+        $romanMonth = $this->toRomanMonth($date->month);
+        $sequence   = $this->getNextSequence($departmentCode, $companyCode, $year);
+
         $contractNumber = sprintf(
             '%03d/%s-%s/%s/%s/%d',
             $sequence,
             $departmentCode,
-            $this->companyCode,
+            $companyCode,   // ← dinamis, bukan hardcoded
             $documentType,
             $romanMonth,
             $year
         );
 
         Log::info('Contract number generated', [
-            'contract_id' => $contract->id,
+            'contract_id'     => $contract->id,
             'department_code' => $departmentCode,
-            'department_resolved_from' => empty($contract->department_code) ? 'HRMS' : 'contract',
-            'contract_type_raw' => $contract->contract_type,
-            'document_type_code' => $documentType,
-            'year' => $year,
-            'month' => $month,
-            'roman_month' => $romanMonth,
-            'sequence' => $sequence,
-            'final_number' => $contractNumber,
+            'company_code'    => $companyCode,
+            'document_type'   => $documentType,
+            'sequence'        => $sequence,
+            'final_number'    => $contractNumber,
         ]);
 
         return $contractNumber;
     }
 
     /**
-     * Get next sequence number per department per year
-     * Cek dari dua sumber: contracts (Legal System) dan tbl_surat_keluar_legal (HRMS)
-     * Setelah migrasi selesai 100%, bagian $lastHrms boleh dihapus
+     * Get next sequence per department, company, dan tahun
+     * Cek dari dua sumber: contracts dan tbl_surat_keluar_legal (HRMS)
      */
-    public function getNextSequence(string $departmentCode, int $year): int
+    public function getNextSequence(string $departmentCode, string $companyCode, int $year): int
     {
-        $pattern = "%/{$departmentCode}-{$this->companyCode}/%/{$year}";
+        $pattern = "%/{$departmentCode}-{$companyCode}/%/{$year}";
 
         // Cek nomor tertinggi di Legal System
         $lastLegal = Contract::whereNotNull('contract_number')
@@ -208,24 +175,42 @@ class ContractNumberService
         return max($seqLegal, $seqHrms) + 1;
     }
 
-
     /**
-     * Convert bulan angka ke romawi (I-XII)
+     * Preview nomor tanpa save
      */
+    public function previewNumber(Contract $contract): string
+    {
+        $departmentCode = $this->resolveDepartmentCode($contract);
+        $companyCode    = $this->resolveCompanyCode($contract);  // ← dinamis
+        $documentType   = $this->getDocumentTypeCode($contract->contract_type ?? 'kontrak');
+
+        $date = $contract->final_approved_at ?? $contract->submitted_at ?? now();
+        if (is_string($date)) $date = Carbon::parse($date);
+
+        $year       = $date->year;
+        $romanMonth = $this->toRomanMonth($date->month);
+        $sequence   = $this->getNextSequence($departmentCode, $companyCode, $year);
+
+        return sprintf(
+            '%s/%s-%s/%s/%s/%d',
+            str_pad($sequence, 3, '0', STR_PAD_LEFT),
+            $departmentCode,
+            $companyCode,
+            $documentType,
+            $romanMonth,
+            $year
+        );
+    }
+
     public function toRomanMonth(int $month): string
     {
-        $map = [
+        return [
             1 => 'I', 2 => 'II', 3 => 'III', 4 => 'IV',
             5 => 'V', 6 => 'VI', 7 => 'VII', 8 => 'VIII',
             9 => 'IX', 10 => 'X', 11 => 'XI', 12 => 'XII',
-        ];
-
-        return $map[$month] ?? '-';
+        ][$month] ?? '-';
     }
 
-    /**
-     * Check if contract can have number generated
-     */
     public function canGenerate(Contract $contract): bool
     {
         return $contract->status === Contract::STATUS_UNDER_REVIEW
@@ -233,54 +218,18 @@ class ContractNumberService
             && !empty($contract->contract_type);
     }
 
-    /**
-     * Preview nomor kontrak tanpa save (untuk display info)
-     */
-    public function previewNumber(Contract $contract): string
-    {
-        // 🔥 RESOLVE DEPARTMENT CODE
-        $departmentCode = $this->resolveDepartmentCode($contract);
-        $documentType = $this->getDocumentTypeCode($contract->contract_type ?? 'kontrak');
-        
-        $date = $contract->final_approved_at ?? $contract->submitted_at ?? now();
-        if (is_string($date)) {
-            $date = Carbon::parse($date);
-        }
-        
-        $year = $date->year;
-        $month = $date->month;
-        $romanMonth = $this->toRomanMonth($month);
-        
-        $sequence = $this->getNextSequence($departmentCode, $year);
-        $paddedSequence = str_pad($sequence, 3, '0', STR_PAD_LEFT);
-        
-        return sprintf(
-            '%s/%s-%s/%s/%s/%d',
-            $paddedSequence,
-            $departmentCode,
-            $this->companyCode,
-            $documentType,
-            $romanMonth,
-            $year
-        );
-    }
-
-    /**
-     * Debug: Show all components for a contract
-     */
     public function debugNumberComponents(Contract $contract): array
     {
         return [
-            'department_code_stored' => $contract->department_code,
+            'department_code_stored'   => $contract->department_code,
             'department_code_resolved' => $this->resolveDepartmentCode($contract),
-            'contract_type_raw' => $contract->contract_type,
-            'document_type_code' => $this->getDocumentTypeCode($contract->contract_type ?? 'kontrak'),
-            'current_year' => now()->year,
-            'current_month' => now()->month,
-            'roman_month' => $this->toRomanMonth(now()->month),
-            'company_code' => $this->companyCode,
-            'can_generate' => $this->canGenerate($contract),
-            'preview' => $this->previewNumber($contract),
+            'company_code_stored'      => $contract->company_code,
+            'company_code_resolved'    => $this->resolveCompanyCode($contract),
+            'contract_type_raw'        => $contract->contract_type,
+            'document_type_code'       => $this->getDocumentTypeCode($contract->contract_type ?? 'kontrak'),
+            'current_year'             => now()->year,
+            'roman_month'              => $this->toRomanMonth(now()->month),
+            'preview'                  => $this->previewNumber($contract),
         ];
     }
 }

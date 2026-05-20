@@ -37,133 +37,183 @@
     $deptOrb    = $deptColorMap[$invRoutePrefix][2] ?? 'emerald';
 @endphp
 
-{{-- ========================================================
-     FLASH: INVITATION ACCEPTED
-     ======================================================== --}}
-@if(session('invitation_accepted'))
-<div id="invitation-accepted-toast"
-     class="fixed top-5 left-1/2 -translate-x-1/2 z-[9999] w-full max-w-lg px-4"
-     style="animation: liquidSlideDown 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;">
-    <div class="liquid-toast liquid-toast-success">
-        <div class="liquid-toast-orb">
-            <div class="liquid-orb-core success"></div>
-        </div>
-        <div class="liquid-toast-content">
-            <p class="liquid-toast-title">You've Joined the Workflow!</p>
-            <p class="liquid-toast-message">{!! session('invitation_accepted') !!}</p>
-        </div>
-        <button onclick="document.getElementById('invitation-accepted-toast').remove()"
-                class="liquid-toast-close">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-        </button>
-    </div>
-</div>
-<script>setTimeout(() => document.getElementById('invitation-accepted-toast')?.remove(), 6000);</script>
-@endif
+    {{-- ========================================================
+        FLASH: INVITATION ACCEPTED
+        ======================================================== --}}
+    @if(session('invitation_accepted'))
+    <div id="invitation-accepted-toast"
+        class="fixed top-5 left-1/2 -translate-x-1/2 z-[9999] w-full max-w-sm px-4"
+        style="animation: liquidSlideDown 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;">
+        <div style="
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            padding: 0.875rem 1rem;
+            border-radius: 0.875rem;
+            background: rgba(15, 23, 42, 0.92);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid rgba(16, 185, 129, 0.35);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.35), 0 0 60px rgba(16,185,129,0.12), inset 0 1px 0 rgba(255,255,255,0.04);
+            position: relative;
+            overflow: hidden;
+        ">
+            {{-- Green glow orb background --}}
+            <div style="
+                position: absolute; top: 50%; left: 50%;
+                transform: translate(-50%, -50%);
+                width: 200px; height: 80px;
+                border-radius: 50%;
+                background: radial-gradient(circle, rgba(16,185,129,0.08), transparent 70%);
+                filter: blur(20px);
+                pointer-events: none;
+            "></div>
 
-{{-- ========================================================
+            {{-- Icon circle --}}
+            <div style="
+                width: 38px; height: 38px;
+                border-radius: 50%;
+                background: rgba(16, 185, 129, 0.15);
+                border: 1px solid rgba(16, 185, 129, 0.35);
+                display: flex; align-items: center; justify-content: center;
+                flex-shrink: 0;
+                position: relative; z-index: 1;
+            ">
+                <svg width="18" height="18" fill="none" stroke="#6ee7b7" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                </svg>
+            </div>
+
+            {{-- Text --}}
+            <div style="flex: 1; min-width: 0; position: relative; z-index: 1;">
+                <p style="margin: 0; font-weight: 600; font-size: 0.875rem; color: #f1f5f9; line-height: 1.3;">
+                    You've Joined the Workflow!
+                </p>
+                <p style="margin: 0.2rem 0 0 0; font-size: 0.75rem; color: #94a3b8; line-height: 1.4;">
+                    {!! session('invitation_accepted') !!}
+                </p>
+            </div>
+
+            {{-- Close button --}}
+            <button onclick="document.getElementById('invitation-accepted-toast').remove()"
+                    style="
+                        background: none; border: none; cursor: pointer;
+                        color: rgba(148,163,184,0.5); padding: 0.2rem;
+                        border-radius: 0.4rem; flex-shrink: 0; line-height: 1;
+                        transition: all 0.2s; position: relative; z-index: 1;
+                    "
+                    onmouseover="this.style.color='#e2e8f0'; this.style.background='rgba(255,255,255,0.08)'"
+                    onmouseout="this.style.color='rgba(148,163,184,0.5)'; this.style.background='none'">
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+    <script>setTimeout(() => document.getElementById('invitation-accepted-toast')?.remove(), 6000);</script>
+    @endif
+
+    {{-- ========================================================
      FLASH: INVITATION DECLINED
      ======================================================== --}}
-@if(session('invitation_declined'))
-<div id="invitation-declined-toast"
-     class="fixed top-5 left-1/2 -translate-x-1/2 z-[9999] w-full max-w-lg px-4"
-     style="animation: liquidSlideDown 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;">
-    <div class="liquid-toast liquid-toast-error">
-        <div class="liquid-toast-orb">
-            <div class="liquid-orb-core error"></div>
+    @if(session('invitation_declined'))
+    <div id="invitation-declined-toast"
+        class="fixed top-5 left-1/2 -translate-x-1/2 z-[9999] w-full max-w-lg px-4"
+        style="animation: liquidSlideDown 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;">
+        <div class="liquid-toast liquid-toast-error">
+            <div class="liquid-toast-orb">
+                <div class="liquid-orb-core error"></div>
+            </div>
+            <div class="liquid-toast-content">
+                <p class="liquid-toast-title">Invitation Declined</p>
+                <p class="liquid-toast-message">{!! session('invitation_declined') !!}</p>
+            </div>
+            <button onclick="document.getElementById('invitation-declined-toast').remove()"
+                    class="liquid-toast-close">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
         </div>
-        <div class="liquid-toast-content">
-            <p class="liquid-toast-title">Invitation Declined</p>
-            <p class="liquid-toast-message">{!! session('invitation_declined') !!}</p>
-        </div>
-        <button onclick="document.getElementById('invitation-declined-toast').remove()"
-                class="liquid-toast-close">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-        </button>
     </div>
-</div>
-<script>setTimeout(() => document.getElementById('invitation-declined-toast')?.remove(), 6000);</script>
-@endif
+    <script>setTimeout(() => document.getElementById('invitation-declined-toast')?.remove(), 6000);</script>
+    @endif
 
-{{-- ========================================================
+    {{-- ========================================================
      COMPACT FLOATING GLASS CARD
      ======================================================== --}}
-@if($pendingInvitation && $invRoutePrefix)
+    @if($pendingInvitation && $invRoutePrefix)
 
-{{-- Hidden decline form --}}
-<form id="inv-decline-form"
-      method="POST"
-      action="{{ route($invRoutePrefix . '-admin.invitation.decline', $pendingInvitation) }}"
-      class="hidden">
-    @csrf
-    <input type="hidden" name="decline_reason" id="inv-decline-reason-input">
-</form>
+    {{-- Hidden decline form --}}
+    <form id="inv-decline-form"
+        method="POST"
+        action="{{ route($invRoutePrefix . '-admin.invitation.decline', $pendingInvitation) }}"
+        class="hidden">
+        @csrf
+        <input type="hidden" name="decline_reason" id="inv-decline-reason-input">
+    </form>
 
-{{-- Compact floating glass card --}}
-<div id="invitation-floating-card"
-     class="glass-float-card"
-     style="animation: floatIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;">
-    
-    {{-- Ambient glow orb --}}
-    <div class="glass-float-orb"></div>
+    {{-- Compact floating glass card --}}
+    <div id="invitation-floating-card"
+        class="glass-float-card"
+        style="animation: floatIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;">
+        
+        {{-- Ambient glow orb --}}
+        <div class="glass-float-orb"></div>
 
-    {{-- Content --}}
-    <div class="glass-float-content">
-        {{-- Icon + Text --}}
-        <div class="glass-float-info">
-            <div class="glass-float-icon">
-                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                          d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-                </svg>
+        {{-- Content --}}
+        <div class="glass-float-content">
+            {{-- Icon + Text --}}
+            <div class="glass-float-info">
+                <div class="glass-float-icon">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                            d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                    </svg>
+                </div>
+                <div class="glass-float-text">
+                    <span class="glass-float-label">Review Invitation</span>
+                    <span class="glass-float-dot">•</span>
+                    <span class="glass-float-contract">{{ Str::limit($contract->title, 24) }}</span>
+                </div>
             </div>
-            <div class="glass-float-text">
-                <span class="glass-float-label">Review Invitation</span>
-                <span class="glass-float-dot">•</span>
-                <span class="glass-float-contract">{{ Str::limit($contract->title, 24) }}</span>
-            </div>
-        </div>
 
-        {{-- Action buttons --}}
-        <div class="glass-float-actions">
-            {{-- Accept --}}
-            <form method="POST"
-                  action="{{ route($invRoutePrefix . '-admin.invitation.accept', $pendingInvitation) }}"
-                  onsubmit="return confirm('Accept review invitation?')">
-                @csrf
-                <button type="submit" class="glass-btn glass-btn-accept" title="Accept">
+            {{-- Action buttons --}}
+            <div class="glass-float-actions">
+                {{-- Accept --}}
+                <form method="POST"
+                    action="{{ route($invRoutePrefix . '-admin.invitation.accept', $pendingInvitation) }}"
+                    onsubmit="return confirm('Accept review invitation?')">
+                    @csrf
+                    <button type="submit" class="glass-btn glass-btn-accept" title="Accept">
+                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                        </svg>
+                    </button>
+                </form>
+
+                {{-- Decline --}}
+                <button type="button"
+                        class="glass-btn glass-btn-decline"
+                        title="Decline"
+                        onclick="openInvDeclineModal()">
                     <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
                     </svg>
                 </button>
-            </form>
 
-            {{-- Decline --}}
-            <button type="button"
-                    class="glass-btn glass-btn-decline"
-                    title="Decline"
-                    onclick="openInvDeclineModal()">
-                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
-                </svg>
-            </button>
-
-            {{-- Dismiss --}}
-            <button type="button"
-                    class="glass-btn-dismiss"
-                    title="Dismiss"
-                    onclick="document.getElementById('invitation-floating-card').style.display='none'">
-                <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
-                </svg>
-            </button>
+                {{-- Dismiss --}}
+                <button type="button"
+                        class="glass-btn-dismiss"
+                        title="Dismiss"
+                        onclick="document.getElementById('invitation-floating-card').style.display='none'">
+                    <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
         </div>
     </div>
-</div>
 
 {{-- ========================================================
      DECLINE MODAL — Glass
@@ -187,7 +237,7 @@
             </div>
 
             <div class="glass-modal-info">
-                <p class="glass-modal-info-label">Contract</p>
+                <p class="glass-modal-info-label">Document</p>
                 <p class="glass-modal-info-title">{{ Str::limit($contract->title, 60) }}</p>
             </div>
 

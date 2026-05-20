@@ -256,6 +256,7 @@ class SuratController extends Controller
         'description'     => 'nullable|string',
         'surat_file'      => 'required|file|mimes:pdf|max:10240', // 10MB
         'department_code' => 'required|string|max:10',
+        'company' => 'required|in:GNI,AMI',
     ]);
 
     DB::beginTransaction();
@@ -320,6 +321,7 @@ class SuratController extends Controller
             'surat_file_size'      => $file->getSize(),
             'allow_stage_addition' => false,
             'current_stage'        => 0,
+            'company_code' => $request->company,
         ]);
 
         Log::info('Contract created', [
@@ -811,19 +813,27 @@ class SuratController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | PREVIEW FILE - NEW
+    | PREVIEW FILE - FIXED (inline untuk iframe/modal)
     |--------------------------------------------------------------------------
     */
-    public function preview(Contract $contract){
+    public function preview(Contract $contract)
+    {
         if ($contract->contract_type !== 'surat' || !$contract->surat_file_path) {
             abort(404);
         }
 
-        if (!Storage::disk('public')->exists($contract->surat_file_path)) {
+        $path = storage_path('app/public/' . $contract->surat_file_path);
+
+        if (!file_exists($path)) {
             abort(404);
         }
 
-        return redirect(Storage::disk('public')->url($contract->surat_file_path));
+        return response()->file($path, [
+            'Content-Type'              => 'application/pdf',
+            'Content-Disposition'       => 'inline; filename="' . basename($path) . '"',
+            'X-Frame-Options'           => 'SAMEORIGIN',
+            'Content-Security-Policy'   => "frame-ancestors 'self'",
+        ]);
     }
 
 

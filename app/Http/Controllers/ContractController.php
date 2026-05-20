@@ -229,6 +229,49 @@ class ContractController extends Controller
 
     /*
     |--------------------------------------------------------------------------
+    | STATS — filtered by department (bukan global)
+    |--------------------------------------------------------------------------
+    */
+    $statsBase = Contract::query();
+
+    if ($user->hasAnyRole(['admin', 'legal'])) {
+        // Admin & Legal: lihat semua
+        // tidak perlu filter tambahan
+    } else {
+        // Semua role lain: filter berdasarkan department_code user
+        $userDeptCode = null;
+        try {
+            $hrmsUser = DB::table('tbl_user')
+                ->where('email', $user->email)
+                ->first(['kode_department']);
+            $userDeptCode = $hrmsUser?->kode_department
+                ? strtoupper($hrmsUser->kode_department)
+                : null;
+        } catch (\Exception $e) {
+            $userDeptCode = null;
+        }
+
+        if ($userDeptCode) {
+            $statsBase->where('department_code', $userDeptCode);
+        } else {
+            // Jika dept tidak ditemukan, fallback ke dokumen milik sendiri
+            $statsBase->where('user_id', $user->id_user);
+        }
+    }
+
+    $totalStats = [
+        'total'        => (clone $statsBase)->count(),
+        'draft'        => (clone $statsBase)->where('status', 'draft')->count(),
+        'submitted'    => (clone $statsBase)->where('status', 'submitted')->count(),
+        'under_review' => (clone $statsBase)->where('status', 'under_review')->count(),
+        'executed'     => (clone $statsBase)->where('status', 'executed')->count(),
+        'archived'     => (clone $statsBase)->where('status', 'archived')->count(),
+        'released'     => (clone $statsBase)->where('status', 'released')->count(),
+        'declined'     => (clone $statsBase)->where('status', 'declined')->count(),
+    ];
+
+    /*
+    |--------------------------------------------------------------------------
     | AJAX REQUEST HANDLER
     |--------------------------------------------------------------------------
     */
@@ -237,8 +280,8 @@ class ContractController extends Controller
             view('contracts.partials.table', compact('contracts'))->render()
         )->header('Content-Type', 'text/html');
     }
-    
-    return view('contracts.index', compact('contracts', 'activeTab'));
+
+    return view('contracts.index', compact('contracts', 'activeTab', 'totalStats'));
 }
 
     /**
@@ -662,7 +705,6 @@ class ContractController extends Controller
                 'title' => 'required|string|max:255',
                 'description' => 'nullable|string|max:1000',
                 'contract_type' => 'required|in:surat,kontrak',
-                // ❌ REMOVED: 'department_code' => 'required|string|max:10',
                 'counterparty_name' => 'required|string|max:255',
                 'counterparty_email' => 'nullable|email|max:255',
                 'counterparty_phone' => 'nullable|string|max:20',
@@ -672,6 +714,7 @@ class ContractController extends Controller
                 'contract_value' => 'nullable|numeric|min:0',
                 'currency' => 'nullable|string|size:3',
                 'additional_notes' => 'nullable|string|max:500',
+                'company' => 'required|in:GNI,AMI',
             ]);
             
             Log::info('Step 2: Validation Success', [
@@ -748,10 +791,8 @@ class ContractController extends Controller
         $validated['user_id'] = Auth::id();
         $validated['status'] = Contract::STATUS_DRAFT;
         $validated['currency'] = $validated['currency'] ?? 'IDR';
-        
-        // ✅ TAMBAHKAN INI - Wajib dynamic karena lewat ContractController
-        // Hanya SuratController yang set 'static'
         $validated['workflow_type'] = 'dynamic';
+        $validated['company_code'] = $request->company;
 
         Log::info('Step 4: Final Prepared Data', [
             'prepared_data' => $validated,
@@ -774,6 +815,7 @@ class ContractController extends Controller
                 'title' => $contract->title,
                 'department_code' => $contract->department_code,
                 'contract_type' => $contract->contract_type,
+                'company_code' => $request->company,
             ]);
             
             // ✅ VERIFY dari database

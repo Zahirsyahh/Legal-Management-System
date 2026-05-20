@@ -1878,7 +1878,7 @@ class ReviewStageController extends Controller
             Log::error('ContractRejectedNotification (reviewers) failed: ' . $e->getMessage());
         }
 
-        return redirect()->route('contracts.show', $contract)->with('error', 'Document has been rejected.');
+        return redirect()->route('contracts.show', $contract)->with('error', 'Document has been declined.');
     }
 
     // ============================================================

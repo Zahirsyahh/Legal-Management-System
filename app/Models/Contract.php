@@ -135,6 +135,7 @@ class Contract extends Model
         'archiving_stage_id',
         'deadline_reminder_3d_sent_at',
         'deadline_reminder_1d_sent_at',
+        'company_code',
     ];
 
     protected $casts = [

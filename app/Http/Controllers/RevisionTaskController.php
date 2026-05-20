@@ -38,7 +38,7 @@ class RevisionTaskController extends Controller
 
         // Stage harus sedang in_progress
         if ($stage->status !== 'in_progress') {
-            return back()->with('error', 'Hanya stage yang sedang in_progress yang bisa mengirim revisi.');
+            return back()->with('error', 'Only stages that are currently in progress can send revisions.');
         }
 
         try {
@@ -94,7 +94,7 @@ class RevisionTaskController extends Controller
 
             if (empty($createdTasks)) {
                 DB::rollBack();
-                return back()->with('error', 'Tidak ada penerima revisi yang valid (pastikan stage sudah memiliki reviewer).');
+                return back()->with('error', 'No valid revision recipients found (please ensure the stages have reviewers assigned).');
             }
 
             // ── Bimo TETAP in_progress, tidak berubah ──
@@ -144,8 +144,8 @@ class RevisionTaskController extends Controller
                 }
             }
 
-            $msg = count($createdTasks) . ' permintaan revisi berhasil dikirim ke: ' . implode(', ', $targetNames) . '. '
-                 . 'Kamu tetap aktif di stage ini dan bisa memantau progres masing-masing.';
+            $msg = count($createdTasks) . ' revision requests successfully sent to: ' . implode(', ', $targetNames) . '. '
+                 . 'You remain active in this stage and can monitor the progress of each task.';
 
             return redirect()->route('review-stages.show', [$contract, $stage])
                 ->with('success', $msg);
@@ -158,7 +158,7 @@ class RevisionTaskController extends Controller
                 'trace'       => $e->getTraceAsString(),
             ]);
 
-            return back()->with('error', 'Gagal mengirim revisi: ' . $e->getMessage());
+            return back()->with('error', 'Failed to send revisions: ' . $e->getMessage());
         }
     }
 
@@ -176,7 +176,7 @@ class RevisionTaskController extends Controller
         }
 
         if (!in_array($task->status, ['pending', 're_requested'])) {
-            return back()->with('error', 'Task ini sudah tidak bisa dimulai (status: ' . $task->status . ').');
+            return back()->with('error', 'This task can no longer be started (status: ' . $task->status . ').');
         }
 
         $task->update([
@@ -189,12 +189,12 @@ class RevisionTaskController extends Controller
             'stage_id'    => $task->to_stage_id,
             'user_id'     => $currentUser->id_user,
             'action'      => 'revision_task_started',
-            'description' => $currentUser->nama_user . ' mulai mengerjakan revisi (Task #' . $task->id . ')',
+            'description' => $currentUser->nama_user . ' start working on revisions (Task #' . $task->id . ')',
             'metadata'    => ['task_id' => $task->id, 'loop_count' => $task->loop_count],
         ]);
 
         return redirect()->route('revision-tasks.show', $task)
-            ->with('success', 'Revisi dimulai. Kamu bisa mengerjakan dan submit hasilnya.');
+            ->with('success', 'Revisions have begun. You can work on them and submit the results.');
     }
 
     // =====================================================================
@@ -215,7 +215,7 @@ class RevisionTaskController extends Controller
         }
 
         if (!in_array($task->status, ['pending', 'in_progress', 're_requested'])) {
-            return back()->with('error', 'Task ini sudah tidak bisa di-submit.');
+            return back()->with('error', 'This task can no longer be submitted.');
         }
 
         try {
@@ -248,7 +248,7 @@ class RevisionTaskController extends Controller
                 'stage_id'    => $task->to_stage_id,
                 'user_id'     => $currentUser->id_user,
                 'action'      => 'revision_task_submitted',
-                'description' => $currentUser->nama_user . ' mengumpulkan hasil revisi (Task #' . $task->id . ')',
+                'description' => $currentUser->nama_user . ' submitted revision results (Task #' . $task->id . ')',
                 'notes'       => $request->response_notes,
                 'metadata'    => [
                     'task_id'        => $task->id,
@@ -278,7 +278,7 @@ class RevisionTaskController extends Controller
             }
 
             return redirect()->route('contracts.show', $task->contract_id)
-                ->with('success', 'Hasil revisi berhasil dikirim kembali. Menunggu keputusan dari ' . ($task->requester->nama_user ?? 'reviewer'));
+                ->with('success', 'Revision results submitted successfully. Awaiting decision from ' . ($task->requester->nama_user ?? 'reviewer'));
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -306,7 +306,7 @@ class RevisionTaskController extends Controller
         }
 
         if ($task->status !== 'submitted') {
-            return back()->with('error', 'Hanya task yang sudah di-submit yang bisa di-approve.');
+            return back()->with('error', 'Only tasks that have been submitted can be approved.');
         }
 
         try {
@@ -402,7 +402,7 @@ class RevisionTaskController extends Controller
         }
 
         if ($task->status !== 'submitted') {
-            return back()->with('error', 'Re-request hanya bisa dilakukan pada task yang sudah di-submit.');
+            return back()->with('error', 'Re-requests can only be made on tasks that have been submitted.');
         }
 
         try {
@@ -441,7 +441,7 @@ class RevisionTaskController extends Controller
                 'stage_id'    => $task->from_stage_id,
                 'user_id'     => $currentUser->id_user,
                 'action'      => 'revision_re_requested',
-                'description' => $currentUser->nama_user . ' mengirim ulang revisi ke ' . ($task->assignee->nama_user ?? 'reviewer') . ' (Loop #' . ($task->loop_count + 1) . ')',
+                'description' => $currentUser->nama_user . ' resend revision to ' . ($task->assignee->nama_user ?? 'reviewer') . ' (Loop #' . ($task->loop_count + 1) . ')',
                 'notes'       => $request->revision_notes,
                 'metadata'    => [
                     'original_task_id' => $task->id,
@@ -470,7 +470,7 @@ class RevisionTaskController extends Controller
                 Log::error('Failed to notify re-request: ' . $e->getMessage());
             }
 
-            return back()->with('warning', 'Revisi ulang dikirim ke ' . ($task->assignee->nama_user ?? 'reviewer') . ' (Loop ke-' . $newTask->loop_count . ').');
+            return back()->with('warning', 'Revisions sent to ' . ($task->assignee->nama_user ?? 'reviewer') . ' (Loop ke-' . $newTask->loop_count . ').');
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -584,7 +584,7 @@ class RevisionTaskController extends Controller
             Log::error('Failed to notify assignee of task cancellation: ' . $e->getMessage());
         }
     
-        return back()->with('success', 'Revision task telah dibatalkan. '
-            . ($task->assignee?->nama_user ?? 'Reviewer') . ' telah dinotifikasi.');
+        return back()->with('success', 'Revision task has been cancelled. '
+            . ($task->assignee?->nama_user ?? 'Reviewer') . ' has been notified.');
     }
 }

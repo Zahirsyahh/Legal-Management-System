@@ -311,11 +311,11 @@
                     <div class="space-y-2 max-h-60 overflow-y-auto">
                         @php
                             $departments = [
-                                'LG' => 'Legal',   'HR' => 'HRD',        'OP' => 'Operation',
+                                'LG' => 'Legal',   'HR' => 'Human Resources',        'OP' => 'Operation',
                                 'AC' => 'Accounting','FN' => 'Finance',   'TX' => 'Tax',
                                 'EX' => 'Exim',    'CC' => 'CorCom',     'NP' => 'Nickel Ore',
                                 'HE' => 'HSE',     'CP' => 'Coal',       'SL' => 'Sales',
-                                'PC' => 'Purchasing','IT' => 'IT',        'GA' => 'GA',
+                                'PC' => 'Purchasing','IT' => 'Information Technology',        'GA' => 'General Affair',
                                 'DK' => 'Direksi & Komisaris',
                             ];
                         @endphp

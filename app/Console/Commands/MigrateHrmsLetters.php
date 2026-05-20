@@ -147,10 +147,10 @@ class MigrateHrmsLetters extends Command
 
         $bar->finish();
         $this->newLine(2);
-        $this->info("✅ Berhasil : {$success}");
-        $this->warn("⏭️  Di-skip  : {$skipped}");
+        $this->info("✅ Succeeded : {$success}");
+        $this->warn("⏭️  Skipped  : {$skipped}");
         if ($failed > 0) {
-            $this->error("❌ Gagal    : {$failed}");
+            $this->error("❌ Failed    : {$failed}");
             foreach ($errors as $e) {
                 $this->line("  - {$e}");
             }

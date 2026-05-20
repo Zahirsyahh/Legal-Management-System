@@ -243,13 +243,6 @@
 
                 {{-- Info department owner --}}
                 @if($synologyAutoFill['dept_label'])
-                <p class="text-xs text-gray-500 mb-4">
-                    Auto-detected from department
-                    <span class="text-blue-400 font-semibold">
-                        {{ $contract->user?->nama_user ?? 'Owner' }}
-                        ({{ $synologyAutoFill['dept_label'] }})
-                    </span>
-                </p>
                 @else
                 <p class="text-xs text-amber-400/80 mb-4">
                     ⚠ Department user not found in mapping — select folder manually.

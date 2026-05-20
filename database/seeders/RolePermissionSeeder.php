@@ -275,6 +275,16 @@ class RolePermissionSeeder extends Seeder
         'department_coordination',
         'receive_department_feedback',
         
+        // ✅ TAMBAHAN: Legal bisa CREATE document
+        'contract_request_create',
+        'contract_request_view',
+        'contract_request_edit',
+        'contract_request_delete',
+        'contract_request_submit',
+        'contract_revise_submit',
+        'contract_revise_view',
+        'contract_track_status',
+        
         // Contract interactions
         'contract_add_comment',
         'contract_upload_attachment',
@@ -525,7 +535,7 @@ class RolePermissionSeeder extends Seeder
         ['Role', 'Perms', 'Approve?', 'Create?', 'View All?', 'Assign?', 'Description'],
         [
             ['user', $roleUser->permissions->count(), '❌', '✅', '❌', '❌', 'Regular User'],
-            ['legal', $roleLegal->permissions->count(), '✅', '❌', '✅', '✅', 'Legal Reviewer'],
+            ['legal', $roleLegal->permissions->count(), '✅', '✅', '✅', '✅', 'Legal Reviewer'],
             ['staff_fin', $roleStaffFin->permissions->count(), '✅', '✅', '❌', '✅', 'Finance Staff'],
             ['staff_acc', $roleStaffAcc->permissions->count(), '✅', '✅', '❌', '✅', 'Accounting Staff'],
             ['staff_tax', $roleStaffTax->permissions->count(), '✅', '✅', '❌', '✅', 'Tax Staff'],

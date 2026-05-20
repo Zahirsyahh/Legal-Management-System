@@ -191,14 +191,14 @@
                                     @endif
                                 </p>
                                 @if($hasIncomingRevision)
-                                    <p class="text-[10px] text-orange-400 mt-0.5">{{ $receivedOpen }} revisi masuk</p>
+                                    <p class="text-[10px] text-orange-400 mt-0.5">{{ $receivedOpen }} revisions received</p>
                                 @endif
                                 @if($sentSubmitted > 0)
-                                    <p class="text-[10px] text-purple-400 mt-0.5">{{ $sentSubmitted }} hasil ditinjau</p>
+                                    <p class="text-[10px] text-purple-400 mt-0.5">{{ $sentSubmitted }} results reviewed</p>
                                 @elseif($sentOpen > 0 && $sentSubmitted === 0)
                                     @php $openOnly = $sentOpen - $sentSubmitted; @endphp
                                     @if($openOnly > 0)
-                                        <p class="text-[10px] text-amber-400 mt-0.5">{{ $openOnly }} sedang dikerjakan</p>
+                                        <p class="text-[10px] text-amber-400 mt-0.5">{{ $openOnly }} results in progress</p>
                                     @endif
                                 @endif
                             </div>
@@ -413,19 +413,19 @@
             @if($totalIncoming > 0)
             <div class="flex items-center gap-1.5">
                 <div class="w-3 h-3 rounded-full bg-orange-500"></div>
-                <span class="text-orange-400">{{ $totalIncoming }} revisi masuk (perlu dikerjakan)</span>
+                <span class="text-orange-400">{{ $totalIncoming }} revisions in (need to be done)</span>
             </div>
             @endif
             @if($totalSubmitted > 0)
             <div class="flex items-center gap-1.5">
                 <div class="w-3 h-3 rounded-full bg-purple-500 animate-pulse"></div>
-                <span class="text-purple-400">{{ $totalSubmitted }} hasil menunggu keputusan</span>
+                <span class="text-purple-400">{{ $totalSubmitted }} results waiting for decision</span>
             </div>
             @endif
             @if(($totalOpenSent - $totalSubmitted) > 0)
             <div class="flex items-center gap-1.5">
                 <div class="w-3 h-3 rounded-full bg-amber-500"></div>
-                <span class="text-amber-400">{{ $totalOpenSent - $totalSubmitted }} revisi sedang dikerjakan</span>
+                <span class="text-amber-400">{{ $totalOpenSent - $totalSubmitted }} revisions in progress</span>
             </div>
             @endif
             {{-- ✅ TAMBAH: legenda untuk declined --}}

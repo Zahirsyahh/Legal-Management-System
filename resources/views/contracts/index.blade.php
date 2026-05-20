@@ -1,21 +1,21 @@
 @php
-    use Illuminate\Support\Facades\Auth;
     use Spatie\Permission\Models\Role;
-    use App\Models\Contract;
 
-    $user = Auth::user();
-    $allRoles = Role::all();
+    $user    = Auth::user();
+    $allRoles  = Role::all();
     $userRoles = $user?->roles->pluck('name')->toArray() ?? [];
-    
-    $totalStats = [
-        'total'        => Contract::count(),
-        'draft'        => Contract::where('status', 'draft')->count(),
-        'submitted'    => Contract::where('status', 'submitted')->count(),
-        'under_review' => Contract::where('status', 'under_review')->count(),
-        'executed'     => Contract::where('status', 'executed')->count(),
-        'archived'     => Contract::where('status', 'archived')->count(),
-        'released'     => Contract::where('status', 'released')->count(),
-        'declined'     => Contract::where('status', 'declined')->count(),
+
+    // $totalStats sudah dikirim & difilter dari controller
+    // fallback jika tidak ada (misal partial render)
+    $totalStats = $totalStats ?? [
+        'total'        => 0,
+        'draft'        => 0,
+        'submitted'    => 0,
+        'under_review' => 0,
+        'executed'     => 0,
+        'archived'     => 0,
+        'released'     => 0,
+        'declined'     => 0,
     ];
 @endphp
 
@@ -234,10 +234,8 @@
                                 <option value="number_issued"    {{ request('status') == 'number_issued'    ? 'selected' : '' }}>Number Issued</option>
                                 <option value="executed"         {{ request('status') == 'executed'         ? 'selected' : '' }}>Executed</option>
                                 <option value="archived"         {{ request('status') == 'archived'         ? 'selected' : '' }}>Archived</option>
-                                <option value="final_approved"   {{ request('status') == 'final_approved'   ? 'selected' : '' }}>Approved (Surat)</option>
                                 <option value="released"         {{ request('status') == 'released'         ? 'selected' : '' }}>Completed (Surat)</option>
                                 <option value="declined"         {{ request('status') == 'declined'         ? 'selected' : '' }}>Declined / Rejected</option>
-                                <option value="cancelled"        {{ request('status') == 'cancelled'        ? 'selected' : '' }}>Cancelled</option>
                             </select>
                         </div>
 
