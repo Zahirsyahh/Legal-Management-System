@@ -570,6 +570,9 @@
         }
     </style>
 
+    <!-- Dashboard Styles -->
+    <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}">
+
     {{ $styles ?? '' }}
 </head>
 <body class="font-inter text-gray-100">
